@@ -125,7 +125,7 @@ builder.Services.AddScoped<PopularWishlistService>();
 builder.Services.AddScoped<FeaturedWishlistService>();
 builder.Services.AddHttpClient<IEmbeddingService, PythonEmbeddingService>(client =>
 {
-    client.BaseAddress = new Uri("https://embeddedmicroservice-production.up.railway.app");
+    client.BaseAddress = new Uri("http://embeddedmicroservice-production.up.railway.app");
 });
 //builder.Services.AddScoped<IEmbeddingService, PythonEmbeddingService>();
 
