@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <PrecompileWithAspNetCore>true</PrecompileWithAspNetCore>
+    <RuntimeHostConfigurationOption Include="System.Globalization.AppLocalIcu" Value="true" />
   </PropertyGroup>
 
   <ItemGroup>

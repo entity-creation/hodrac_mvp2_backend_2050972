@@ -23,8 +23,8 @@ WORKDIR /app
 COPY --from=publish /app/publish .
 
 # Install cultures/globalization support (highly recommended for travel/localized platforms)
-RUN apt-get update && apt-get install -y icu-data icu-devtools && rm -rf /var/lib/apt/lists/*
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+#RUN apt-get update && apt-get install -y icu-data icu-devtools && rm -rf /var/lib/apt/lists/*
+#ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 # Render dynamically assigns a port via the PORT env variable. 
 ENV ASPNETCORE_URLS=http://+:${PORT:-10000}
