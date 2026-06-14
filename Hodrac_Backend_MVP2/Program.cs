@@ -95,11 +95,11 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 );
 
 // ─── Redis ────────────────────────────────────────────────────────────────────
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(
-        builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379"
-    )
-);
+//builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+//    ConnectionMultiplexer.Connect(
+//        builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379"
+//    )
+//);
 
 // ─── PostgreSQL Repositories ──────────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository, UserRepository>();
