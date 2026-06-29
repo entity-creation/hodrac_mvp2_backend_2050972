@@ -1682,8 +1682,8 @@ public static class DataSeeder
                   "IdealDuration": "2 to 4 hours – you could spend a full day here, but 2 hours covers the free observatory and a quick wander through the nightlife alleys."
                 }
                 """,
-                AverageCostPerDay = 2000m,
-                LuxuryRating = DeriveLuxury(2000m, mapping["Shinjuku"].tags),
+                AverageCostPerDay = 13m,
+                LuxuryRating = DeriveLuxury(13m, mapping["Shinjuku"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Shinjuku"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Shinjuku"].tags),
@@ -1722,8 +1722,8 @@ public static class DataSeeder
                   "IdealDuration": "1.5 to 3 hours – window shop, visit the department store basement, and have a drink."
                 }
                 """,
-                AverageCostPerDay = 5000m,
-                LuxuryRating = DeriveLuxury(5000m, mapping["Ginza Shopping District"].tags),
+                AverageCostPerDay = 31m,
+                LuxuryRating = DeriveLuxury(31m, mapping["Ginza Shopping District"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Ginza Shopping District"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Ginza Shopping District"].tags),
@@ -1762,8 +1762,8 @@ public static class DataSeeder
                   "IdealDuration": "Full Day (10+ hours) – you cannot see it all in one day. Prioritize 3-4 major rides."
                 }
                 """,
-                AverageCostPerDay = 8400m,
-                LuxuryRating = DeriveLuxury(8400m, mapping["Tokyo DisneySea"].tags),
+                AverageCostPerDay = 100m,
+                LuxuryRating = DeriveLuxury(100m, mapping["Tokyo DisneySea"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Tokyo DisneySea"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Tokyo DisneySea"].tags),
@@ -1842,8 +1842,8 @@ public static class DataSeeder
                   "IdealDuration": "1.5 to 2 hours."
                 }
                 """,
-                AverageCostPerDay = 1500m,
-                LuxuryRating = DeriveLuxury(1500m, mapping["Fuji Speedway Museum"].tags),
+                AverageCostPerDay = 9.27m,
+                LuxuryRating = DeriveLuxury(9.27m, mapping["Fuji Speedway Museum"].tags),
                 AccessibilityType = "Car",
                 FamilyFriendlyScore = FamilyScore(mapping["Fuji Speedway Museum"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Fuji Speedway Museum"].tags),
@@ -1882,8 +1882,8 @@ public static class DataSeeder
                   "IdealDuration": "1.5 to 2 hours."
                 }
                 """,
-                AverageCostPerDay = 2000m,
-               LuxuryRating = DeriveLuxury(2000m, mapping["Ninja Village (Kawaguchiko)"].tags),
+                AverageCostPerDay = 13m,
+               LuxuryRating = DeriveLuxury(13m, mapping["Ninja Village (Kawaguchiko)"].tags),
                 AccessibilityType = "Car",
                 FamilyFriendlyScore = FamilyScore(mapping["Ninja Village (Kawaguchiko)"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Ninja Village (Kawaguchiko)"].tags),
@@ -1962,8 +1962,8 @@ public static class DataSeeder
                   "IdealDuration": "1.5 to 2 hours – includes the temple, the waterfall, and a stroll down the slope."
                 }
                 """,
-                AverageCostPerDay = 400m,
-                LuxuryRating = DeriveLuxury(400m, mapping["Kiyomizu-dera"].tags),
+                AverageCostPerDay = 3.50m,
+                LuxuryRating = DeriveLuxury(3.50m, mapping["Kiyomizu-dera"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Kiyomizu-dera"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Kiyomizu-dera"].tags),
@@ -2002,8 +2002,8 @@ public static class DataSeeder
                   "IdealDuration": "2 to 3 hours."
                 }
                 """,
-                AverageCostPerDay = 2000m,
-                 LuxuryRating = DeriveLuxury(2000m, mapping["Nintendo Museum (Uji)"].tags),
+                AverageCostPerDay = 13m,
+                 LuxuryRating = DeriveLuxury(13m, mapping["Nintendo Museum (Uji)"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Nintendo Museum (Uji)"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Nintendo Museum (Uji)"].tags),
@@ -2042,8 +2042,8 @@ public static class DataSeeder
                   "IdealDuration": "1 to 1.5 hours – just enough to walk the full length and grab snacks."
                 }
                 """,
-                AverageCostPerDay = 2000m,
-                LuxuryRating = DeriveLuxury(2000m, mapping["Nishiki Market"].tags),
+                AverageCostPerDay = 13m,
+                LuxuryRating = DeriveLuxury(13m, mapping["Nishiki Market"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Nishiki Market"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Nishiki Market"].tags),
@@ -2082,8 +2082,8 @@ public static class DataSeeder
                   "IdealDuration": "1.5 to 2.5 hours."
                 }
                 """,
-                AverageCostPerDay = 1200m,
-                 LuxuryRating = DeriveLuxury(1200m, mapping["Kyoto Railway Museum"].tags),
+                AverageCostPerDay = 9.27m,
+                 LuxuryRating = DeriveLuxury(9.27m, mapping["Kyoto Railway Museum"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Kyoto Railway Museum"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Kyoto Railway Museum"].tags),
@@ -2122,8 +2122,8 @@ public static class DataSeeder
                   "IdealDuration": "Full day (10+ hours)."
                 }
                 """,
-                AverageCostPerDay = 9800m,
-                LuxuryRating = DeriveLuxury(9800m, mapping["Universal Studios Japan"].tags),
+                AverageCostPerDay = 60m,
+                LuxuryRating = DeriveLuxury(60m, mapping["Universal Studios Japan"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Universal Studios Japan"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Universal Studios Japan"].tags),
@@ -2161,8 +2161,8 @@ public static class DataSeeder
                   "IdealDuration": "3 to 4 hours – enough to ride Mario Kart, collect coins, and eat."
                 }
                 """,
-                AverageCostPerDay = 0m,
-                LuxuryRating = DeriveLuxury(0m, mapping["Super Nintendo World (inside USJ)"].tags),
+                AverageCostPerDay = 56m,
+                LuxuryRating = DeriveLuxury(56m, mapping["Super Nintendo World (inside USJ)"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Super Nintendo World (inside USJ)"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Super Nintendo World (inside USJ)"].tags),
@@ -2201,8 +2201,8 @@ public static class DataSeeder
                   "IdealDuration": "2 to 3 hours – to eat, shop, and take photos."
                 }
                 """,
-                AverageCostPerDay = 2000m,
-                LuxuryRating = DeriveLuxury(2000m, mapping["Dotonbori"].tags),
+                AverageCostPerDay = 13m,
+                LuxuryRating = DeriveLuxury(13m, mapping["Dotonbori"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Dotonbori"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Dotonbori"].tags),
@@ -2241,8 +2241,8 @@ public static class DataSeeder
                   "IdealDuration": "1.5 to 2 hours (including a coffee at Blue Birds)."
                 }
                 """,
-                AverageCostPerDay = 600m,
-                LuxuryRating = DeriveLuxury(600m, mapping["Osaka Castle"].tags),
+                AverageCostPerDay = 14m,
+                LuxuryRating = DeriveLuxury(14m, mapping["Osaka Castle"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Osaka Castle"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Osaka Castle"].tags),
@@ -2281,8 +2281,8 @@ public static class DataSeeder
                   "IdealDuration": "1 to 2 hours."
                 }
                 """,
-                AverageCostPerDay = 1000m,
-                LuxuryRating = DeriveLuxury(1000m, mapping["Shinsekai (Retro District)"].tags),
+                AverageCostPerDay = 9.27m,
+                LuxuryRating = DeriveLuxury(9.27m, mapping["Shinsekai (Retro District)"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Shinsekai (Retro District)"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Shinsekai (Retro District)"].tags),
@@ -2321,8 +2321,8 @@ public static class DataSeeder
                   "IdealDuration": "1 hour – but it's easy to spend 2 hours looking."
                 }
                 """,
-                AverageCostPerDay = 5000m,
-                LuxuryRating = DeriveLuxury(5000m, mapping["Tower Knives Osaka"].tags),
+                AverageCostPerDay = 31m,
+                LuxuryRating = DeriveLuxury(31m, mapping["Tower Knives Osaka"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Tower Knives Osaka"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Tower Knives Osaka"].tags),
@@ -2401,8 +2401,8 @@ public static class DataSeeder
                   "IdealDuration": "1 to 2 hours."
                 }
                 """,
-                AverageCostPerDay = 1500m,
-                LuxuryRating = DeriveLuxury(1500m, mapping["Amerikamura (American Village)"].tags),
+                AverageCostPerDay = 9.27m,
+                LuxuryRating = DeriveLuxury(9.27m, mapping["Amerikamura (American Village)"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Amerikamura (American Village)"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Amerikamura (American Village)"].tags),
@@ -2441,8 +2441,8 @@ public static class DataSeeder
                   "IdealDuration": "1 hour – you will likely get lost in the aisles."
                 }
                 """,
-                AverageCostPerDay = 0m,
-                LuxuryRating = DeriveLuxury(0m, mapping["Don Quijote (Discount Store)"].tags),
+                AverageCostPerDay = 7m,
+                LuxuryRating = DeriveLuxury(7m, mapping["Don Quijote (Discount Store)"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Don Quijote (Discount Store)"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Don Quijote (Discount Store)"].tags),
@@ -2481,8 +2481,8 @@ public static class DataSeeder
                   "IdealDuration": "1 to 1.5 hours."
                 }
                 """,
-                AverageCostPerDay = 1500m,
-                LuxuryRating = DeriveLuxury(1500m, mapping["Umeda Sky Building"].tags),
+                AverageCostPerDay = 9.27m,
+                LuxuryRating = DeriveLuxury(9.27m, mapping["Umeda Sky Building"].tags),
                 AccessibilityType = "Train",
                 FamilyFriendlyScore = FamilyScore(mapping["Umeda Sky Building"].tags),
                 AdventurePaceScore = AdventureScore(mapping["Umeda Sky Building"].tags),

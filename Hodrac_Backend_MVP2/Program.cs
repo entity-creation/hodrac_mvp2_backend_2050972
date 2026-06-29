@@ -136,7 +136,7 @@ builder.Services.AddSignalR();
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
         policy.WithOrigins(
-                builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173"
+                builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173", "http://localhost:5173"
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
