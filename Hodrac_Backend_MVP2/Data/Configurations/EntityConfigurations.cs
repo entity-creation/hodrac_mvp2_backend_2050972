@@ -126,6 +126,14 @@ public class AggregatedSearchRegistryConfiguration : IEntityTypeConfiguration<Ag
     }
 }
 
+public class NewsLetterEmailConfiguration : IEntityTypeConfiguration<NewsLetterEmail>
+{
+    public void Configure(EntityTypeBuilder<NewsLetterEmail> builder)
+    {
+        builder.HasKey(n => n.EmailId);
+    }
+}
+
 // ─── Join table composite PKs ─────────────────────────────────────────────────
 
 public class DestinationCategoryConfiguration : IEntityTypeConfiguration<DestinationCategory>

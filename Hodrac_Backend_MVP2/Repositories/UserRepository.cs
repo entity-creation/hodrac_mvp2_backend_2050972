@@ -76,4 +76,19 @@ public class UserRepository : IUserRepository
         if (user is null) return null;
         return Guid.TryParse(user.Id, out var id) ? id : null;
     }
+
+    public async Task<NewsLetterEmail?> CreateNewsLetterEmail(NewsLetterEmail newsLetterEmail)
+    {
+        var exitingUser = await _db.NewsLetterEmails.FirstOrDefaultAsync(u =>
+                u.UserEmail == newsLetterEmail.UserEmail
+            );
+        if (exitingUser == null)
+        {
+            var newEmail = new NewsLetterEmail { UserEmail = newsLetterEmail.UserEmail };
+            await _db.NewsLetterEmails.AddAsync(newEmail);
+            await _db.SaveChangesAsync();
+            return newEmail;
+        }
+        return null;
+    }
 }

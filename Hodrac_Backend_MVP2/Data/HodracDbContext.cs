@@ -39,7 +39,7 @@ public class HodracDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<SavedWishlist> SavedWishlists => Set<SavedWishlist>();
     public DbSet<SavedDestination> SavedDestinations => Set<SavedDestination>();
     public DbSet<FeaturedWishlistPool> FeaturedWishlistPool => Set<FeaturedWishlistPool>();
-
+    public DbSet<NewsLetterEmail> NewsLetterEmails => Set<NewsLetterEmail>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<Language> Languages => Set<Language>();

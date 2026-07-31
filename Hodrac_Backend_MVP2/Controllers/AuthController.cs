@@ -169,6 +169,24 @@ public class AuthController : ControllerBase
         ));
     }
 
+    // ── POST /api/auth/newsletter
+
+    [HttpPost("newletter")]
+    public async Task<IActionResult> Create(NewsLetterEmail email)
+    {
+        var context = new ValidationContext(email);
+        var results = new List<ValidationResult>();
+
+        var isValidEmail = Validator.TryValidateObject(email, context, results, true);
+
+        if (!isValidEmail)
+            return BadRequest();
+        var newsLetterEmail = await _users.CreateNewsLetterEmail(email);
+        if (newsLetterEmail == null)
+            return BadRequest(new { error = "Email already exist" });
+        return Ok(newsLetterEmail);
+    }
+
     // ── POST /api/auth/logout ─────────────────────────────────────────────────
 
     [HttpPost("logout")]

@@ -15,6 +15,7 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task<ApplicationUser?> GetByGuidAsync(Guid userId, CancellationToken ct = default);
 
         Task<IdentityResult> CreateAsync(ApplicationUser user, string password);
+        Task<NewsLetterEmail?> CreateNewsLetterEmail(NewsLetterEmail newsLetterEmail);
         Task<IdentityResult> UpdateAsync(ApplicationUser user);
         Task<bool> CheckPasswordAsync(ApplicationUser user, string password);
 
