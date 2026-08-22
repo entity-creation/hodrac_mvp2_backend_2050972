@@ -202,7 +202,7 @@ if (app.Environment.IsDevelopment())
 
     // Seed all reference data and migrate existing destinations + wishlists.
     // Every seed method is guarded by an AnyAsync check so re-running is safe.
-    //await Hodrac_Backend_MVP2.Infrastucture.Seeder.JapanFamilyFestivalTripSeeder.SeedJapanFamilyFestivalTrip(db);
+    await Hodrac_Backend_MVP2.Infrastucture.Seeder.HawaiiSeeder.SeedOahuUltimateIslandWishlist(db);
 }
 
 app.UseCors();
