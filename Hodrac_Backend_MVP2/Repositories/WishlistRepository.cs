@@ -66,6 +66,17 @@ public class WishlistRepository : IWishlistRepository
         return (items, total);
     }
 
+    public async Task<List<Wishlist>> GetAllWishlists()
+    {
+        var wishlists = await CardQuery()
+            .Where(w => w.IsTemplate)
+            .OrderByDescending(w => w.TotalGlobalSaveCount).ToListAsync();
+
+        if (wishlists != null)
+            return wishlists;
+        return new List<Wishlist>();
+    }
+
     public async Task<Wishlist?> GetTemplateByIdAsync(Guid id, CancellationToken ct = default)
         => await BaseQuery()
             .FirstOrDefaultAsync(w => w.WishlistId == id && w.IsTemplate, ct);
@@ -362,4 +373,32 @@ public class WishlistRepository : IWishlistRepository
     /// </summary>
     public void SetRowVersion(Wishlist wishlist, uint xmin)
         => _db.Entry(wishlist).Property(w => w.xmin).OriginalValue = xmin;
+
+    public async Task<List<Wishlist>> SearchByNameAsync(
+    string query, Guid? ownerUserId, int limit = 10, CancellationToken ct = default)
+    {
+        var normalized = query.Trim();
+        if (string.IsNullOrEmpty(normalized)) return new List<Wishlist>();
+
+        var containsTerm = $"%{normalized}%";
+        var prefixTerm = $"{normalized}%";
+
+        var baseQuery = _db.Wishlists
+            .AsNoTracking()
+            .Include(w => w.WishlistDestinations)
+                .ThenInclude(wd => wd.Destination)
+            .Where(w => EF.Functions.ILike(w.WishlistName, containsTerm));
+
+        baseQuery = ownerUserId is not null
+            ? baseQuery.Where(w => !w.IsTemplate && w.OwnerUserId == ownerUserId)
+            : baseQuery.Where(w => w.IsTemplate);
+
+        return await baseQuery
+            .OrderByDescending(w => EF.Functions.ILike(w.WishlistName, prefixTerm))
+            .ThenByDescending(w => w.TotalGlobalSaveCount)
+            .Take(limit)
+            .ToListAsync(ct);
+    }
+
+
 }

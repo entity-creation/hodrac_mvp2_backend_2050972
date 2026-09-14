@@ -2,6 +2,7 @@ using Hodrac_Backend_MVP2.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using System.Reflection.Emit;
 
 namespace Hodrac_Backend_MVP2.Data.Configurations;
 
@@ -123,6 +124,107 @@ public class AggregatedSearchRegistryConfiguration : IEntityTypeConfiguration<Ag
                .HasMethod("ivfflat")
                .HasOperators("vector_cosine_ops")
                .HasStorageParameter("lists", 100);
+    }
+}
+
+
+public class TripPostConfiguration : IEntityTypeConfiguration<TripPost>
+{
+    public void Configure(EntityTypeBuilder<TripPost> builder)
+    {
+        builder.HasOne(t => t.Destination)
+            .WithMany()
+            .HasForeignKey(t => t.DestinationId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(t => t.Wishlist)
+            .WithMany()
+            .HasForeignKey(t => t.WishlistId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // DestinationId and WishlistId can't BOTH be set.
+        // Either can be null for freeform trips.
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_TripPost_NotBothDestinationAndWishlist",
+            "NOT (\"DestinationId\" IS NOT NULL AND \"WishlistId\" IS NOT NULL)"));
+
+        builder.HasIndex(t => new { t.DestinationId, t.StartDate });
+
+        builder.HasIndex(t => new { t.WishlistId, t.StartDate });
+
+        builder.HasMany(t => t.Interests)
+            .WithOne(i => i.TripPost!)
+            .HasForeignKey(i => i.TripPostId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+
+public class TripInterestConfiguration : IEntityTypeConfiguration<TripInterest>
+{
+    public void Configure(EntityTypeBuilder<TripInterest> builder)
+    {
+        builder.HasIndex(i => new
+        {
+            i.TripPostId,
+            i.RequesterUserId
+        })
+        .IsUnique();
+
+        builder.HasIndex(i => new
+        {
+            i.TripPostId,
+            i.Status
+        });
+    }
+}
+
+
+public class TripThreadConfiguration : IEntityTypeConfiguration<TripThread>
+{
+    public void Configure(EntityTypeBuilder<TripThread> builder)
+    {
+        builder.HasIndex(t => t.TripPostId)
+            .IsUnique();
+
+        builder.HasMany(t => t.Participants)
+            .WithOne()
+            .HasForeignKey(p => p.TripThreadId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(t => t.Messages)
+            .WithOne()
+            .HasForeignKey(m => m.TripThreadId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+
+public class TripThreadParticipantConfiguration
+    : IEntityTypeConfiguration<TripThreadParticipant>
+{
+    public void Configure(EntityTypeBuilder<TripThreadParticipant> builder)
+    {
+        builder.HasIndex(p => new
+        {
+            p.TripThreadId,
+            p.UserId
+        })
+        .IsUnique();
+    }
+}
+
+
+public class NotificationConfiguration
+    : IEntityTypeConfiguration<Notification>
+{
+    public void Configure(EntityTypeBuilder<Notification> builder)
+    {
+        builder.HasIndex(n => new
+        {
+            n.RecipientUserId,
+            n.IsRead
+        });
     }
 }
 

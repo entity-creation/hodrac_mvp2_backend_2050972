@@ -56,7 +56,10 @@ public class DestinationRepository : IDestinationRepository
         => await BaseQuery()
             .Where(d => d.MetaphoneCode == metaphoneCode
                      || d.DoubleMetaphonePrimary == metaphoneCode
-                     || d.DoubleMetaphoneSecondary == metaphoneCode)
+                     || d.DoubleMetaphoneSecondary == metaphoneCode
+                     || d.MetaphoneCode.Contains(metaphoneCode)
+                     || d.DoubleMetaphonePrimary.Contains(metaphoneCode) 
+                     || d.DoubleMetaphoneSecondary.Contains(metaphoneCode))
             .OrderByDescending(d => d.SearchHitCount)
             .Take(20)
             .ToListAsync(ct);
@@ -191,5 +194,24 @@ public class DestinationRepository : IDestinationRepository
         await _db.Destinations
             .Where(d => d.DestinationId == id)
             .ExecuteDeleteAsync(ct);
+    }
+
+    public async Task<List<Destination>> SearchByNameAsync(
+    string query, int limit = 10, CancellationToken ct = default)
+    {
+        var normalized = query.Trim();
+        if (string.IsNullOrEmpty(normalized)) return new List<Destination>();
+
+        var containsTerm = $"%{normalized}%";
+        var prefixTerm = $"{normalized}%";
+
+        return await BaseQuery()
+            .Where(d =>
+                EF.Functions.ILike(d.DestinationName, containsTerm) ||
+                EF.Functions.ILike(d.CleanNormalizedSearchName, containsTerm))
+            .OrderByDescending(d => EF.Functions.ILike(d.DestinationName, prefixTerm))
+            .ThenByDescending(d => d.SearchHitCount)
+            .Take(limit)
+            .ToListAsync(ct);
     }
 }

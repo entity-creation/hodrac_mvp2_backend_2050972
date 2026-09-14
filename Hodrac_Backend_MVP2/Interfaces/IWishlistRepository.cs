@@ -8,6 +8,12 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task<(List<Wishlist> Items, int TotalCount)> GetTemplatesAsync(
             int page, int pageSize, CancellationToken ct = default);
 
+        //Get All Wishlists
+        Task<List<Wishlist>> GetAllWishlists();
+
+        Task<List<Wishlist>> SearchByNameAsync(
+    string query, Guid? ownerUserId, int limit = 10, CancellationToken ct = default);
+
         Task<Wishlist?> GetTemplateByIdAsync(Guid id, CancellationToken ct = default);
 
         Task<List<Wishlist>> GetPopularTemplatesAsync(

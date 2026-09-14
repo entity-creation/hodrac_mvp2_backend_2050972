@@ -1,8 +1,8 @@
+using Hodrac_Backend_MVP2.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Hodrac_Backend_MVP2.Models;
 
 namespace Hodrac_Backend_MVP2.Data;
 
@@ -55,6 +55,13 @@ public class HodracDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<WishlistDestination> WishlistDestinations => Set<WishlistDestination>();
     public DbSet<Creator> Creators => Set<Creator>();
     public DbSet<WishlistCreatorAttribution> WishlistCreatorAttributions => Set<WishlistCreatorAttribution>();
+    //Trip Post
+    public DbSet<TripPost> TripPosts => Set<TripPost>();
+    public DbSet<TripInterest> TripInterests => Set<TripInterest>();
+    public DbSet<TripThread> TripThreads => Set<TripThread>();
+    public DbSet<TripThreadParticipant> TripThreadParticipants => Set<TripThreadParticipant>();
+    public DbSet<ThreadMessage> ThreadMessages => Set<ThreadMessage>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     // ── Identity extensions ───────────────────────────────────────────────────
 

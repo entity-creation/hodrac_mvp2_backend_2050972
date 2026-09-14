@@ -30,5 +30,6 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task<Destination> CreateAsync(Destination destination, CancellationToken ct = default);
         Task UpdateAsync(Destination destination, CancellationToken ct = default);
         Task DeleteAsync(Guid id, CancellationToken ct = default);
+        Task<List<Destination>> SearchByNameAsync(string query, int limit = 10, CancellationToken ct = default);
     }
 }

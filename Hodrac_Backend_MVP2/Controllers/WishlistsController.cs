@@ -7,6 +7,7 @@ using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using System.Text.Json;
 
 namespace Hodrac_Backend_MVP2.Controllers;
@@ -47,6 +48,17 @@ public class WishlistsController : ControllerBase
         _currentUser = currentUser;
         _wishlistHub = wishlistHub;
     }
+
+    // ── GET /api/wishlists ─────────────────────────────────
+    [HttpGet("full")]
+    public async Task<IActionResult> GetFull()
+    {
+        var wishlists = await _wishlists.GetAllWishlists();
+        if (wishlists.IsNullOrEmpty())
+            return NotFound();
+        return Ok(wishlists.Select(MapToCard));
+    }
+
 
     // ── GET /api/wishlists?page=1&pageSize=12 ─────────────────────────────────
 

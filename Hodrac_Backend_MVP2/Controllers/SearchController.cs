@@ -48,9 +48,9 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             var resolvedUserId = userId ?? (_currentUser.IsAuthenticated ? _currentUser.UserIdString : null);
             var result = await _search.SearchAsync(q, resolvedUserId, ct);
-
-            var matchingDestinations = await _destinations.GetMatchingUserAsync(
-                new List<string> { result.CanonicalPhrase }, null, 12, ct);
+            Console.WriteLine(result);
+            var matchingDestinations = await _destinations.SearchByNameAsync(
+                 result.CanonicalPhrase, 12, ct);
             var (wishlistItems, _) = await _wishlists.GetTemplatesAsync(1, 6, ct);
 
             return Ok(new SearchResponseDto(

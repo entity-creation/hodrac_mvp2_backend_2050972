@@ -1,9 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
+using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
+using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
-using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
-using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using Philiprehberger.StringSimilarity;
 namespace Hodrac_Backend_MVP2.Controllers;
 
 /// <summary>
@@ -86,10 +88,9 @@ public class DestinationsController : ControllerBase
         if (string.IsNullOrWhiteSpace(name))
             return BadRequest("name query parameter is required.");
 
-        // Derive metaphone code from the input name.
-        // Replace with your Metaphone library call (e.g. Metaphone.NETCore or custom).
-        var metaphoneCode = name.ToUpperInvariant(); // placeholder — swap with real Metaphone
-        var items = await _destinations.GetByPhoneticCodeAsync(metaphoneCode, ct);
+        var metaphone = Metaphone.Encode(name);
+        var metaphoneCodeUpper = metaphone.ToUpperInvariant(); // placeholder — swap with real Metaphone
+        var items = await _destinations.GetByPhoneticCodeAsync(metaphoneCodeUpper, ct);
         return Ok(items.Select(item => MapToSummary(item)));
     }
 
