@@ -206,7 +206,16 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             await _notifications.NotifyInterestReceived(trip, CurrentUserId);
 
-            return Ok(interest);
+            var result = new TripInterestDto
+            {
+                Id = interest.Id,
+                TripPostId = interest.TripPostId,
+                RequesterUserId = interest.RequesterUserId,
+                Message = interest.Message,
+                Status = interest.Status.ToString()
+            };
+
+            return Ok(result);
         }
 
         // Poster-only: see everyone who's asked to join.
