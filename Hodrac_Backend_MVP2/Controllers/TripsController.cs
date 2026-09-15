@@ -15,14 +15,16 @@ namespace Hodrac_Backend_MVP2.Controllers
     {
         private readonly HodracDbContext _db;
         private readonly INotificationService _notifications;
+        private readonly ICurrentUserService _currentUser;
 
-        public TripsController(HodracDbContext db, INotificationService notifications)
+        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser)
         {
             _db = db;
             _notifications = notifications;
+            _currentUser = currentUser;
         }
 
-        private Guid CurrentUserId => Guid.Parse(User.FindFirst("sub")!.Value);
+        private Guid CurrentUserId => _currentUser.UserId;
 
         // ---- Create ----
 
@@ -53,7 +55,8 @@ namespace Hodrac_Backend_MVP2.Controllers
             if (request.WishlistId is not null
                 && !await _db.Set<Wishlist>().AnyAsync(w => w.WishlistId == request.WishlistId))
                 return BadRequest("Wishlist not found.");
-
+            if (CurrentUserId.Equals(Guid.Empty))
+                return BadRequest("User not logged in");
             var trip = new TripPost
             {
                 AuthorUserId = CurrentUserId,
@@ -172,7 +175,7 @@ namespace Hodrac_Backend_MVP2.Controllers
             var trip = await _db.TripPosts.FindAsync(id);
             if (trip is null || trip.Status != TripPostStatus.Open) return NotFound();
             if (trip.AuthorUserId == CurrentUserId) return BadRequest("You can't join your own trip.");
-
+            if (CurrentUserId.Equals(Guid.Empty)) return BadRequest("User not logged in");
             var existing = await _db.TripInterests
                 .FirstOrDefaultAsync(i => i.TripPostId == id && i.RequesterUserId == CurrentUserId);
 

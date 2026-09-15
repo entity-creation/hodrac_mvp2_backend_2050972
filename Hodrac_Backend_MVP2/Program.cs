@@ -123,6 +123,8 @@ builder.Services.AddScoped<TagInferenceService>();
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<PopularWishlistService>();
 builder.Services.AddScoped<FeaturedWishlistService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<EmailDigestService>();
 builder.Services.AddHttpClient<IEmbeddingService, PythonEmbeddingService>(client =>
 {
     client.BaseAddress = new Uri("https://embeddedmicroservice-production.up.railway.app");

@@ -14,14 +14,16 @@ namespace Hodrac_Backend_MVP2.Controllers
     {
         private readonly HodracDbContext _db;
         private readonly INotificationService _notifications;
+        private readonly ICurrentUserService _currentUser;
 
-        public ThreadController(HodracDbContext db, INotificationService notifications)
+        public ThreadController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser)
         {
             _db = db;
             _notifications = notifications;
+            _currentUser = currentUser;
         }
 
-        private Guid CurrentUserId => Guid.Parse(User.FindFirst("sub")!.Value);
+        private Guid CurrentUserId => _currentUser.UserId;
 
         private async Task<TripThread?> GetThreadIfMemberAsync(Guid tripId)
         {
