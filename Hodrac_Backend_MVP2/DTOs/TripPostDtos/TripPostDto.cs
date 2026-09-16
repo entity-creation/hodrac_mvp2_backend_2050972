@@ -19,10 +19,11 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         string Caption,
         string? CoverImageUrl,
         int? MaxGroupSize,
+        string? MyInterestStatus,
         TripPostStatus Status,
         DateTime CreatedAt)
     {
-        public static TripPostDto FromEntity(TripPost trip)
+        public static TripPostDto FromEntity(TripPost trip, string? myInterestStatus = null)
         {
             if (trip.Destination is not null)
             {
@@ -36,7 +37,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                     Stops: new List<TripStopDto> { new(trip.Destination.DestinationId, trip.Destination.DestinationName, img) },
                     WishlistId: null,
                     trip.StartDate, trip.EndDate, trip.IsDateFlexible,
-                    trip.Caption, img, trip.MaxGroupSize, trip.Status, trip.CreatedAt);
+                    trip.Caption, img, trip.MaxGroupSize, myInterestStatus, trip.Status, trip.CreatedAt);
             }
 
             if (trip.Wishlist is not null)
@@ -66,7 +67,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                     Stops: orderedStops,
                     WishlistId: trip.WishlistId,
                     trip.StartDate, trip.EndDate, trip.IsDateFlexible,
-                    trip.Caption, img, trip.MaxGroupSize, trip.Status, trip.CreatedAt);
+                    trip.Caption, img, trip.MaxGroupSize, myInterestStatus, trip.Status, trip.CreatedAt);
             }
 
             // No structured Destination or Wishlist linked — fall back to
@@ -83,7 +84,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                 Stops: new List<TripStopDto>(),
                 WishlistId: null,
                 trip.StartDate, trip.EndDate, trip.IsDateFlexible,
-                trip.Caption, trip.CoverImageUrl, trip.MaxGroupSize, trip.Status, trip.CreatedAt);
+                trip.Caption, trip.CoverImageUrl, trip.MaxGroupSize, myInterestStatus, trip.Status, trip.CreatedAt);
         }
     }
 }

@@ -96,7 +96,19 @@ namespace Hodrac_Backend_MVP2.Controllers
         public async Task<ActionResult<TripPostDto>> GetTrip(Guid id)
         {
             var trip = await LoadForDtoAsync(id);
-            return trip is null ? NotFound() : TripPostDto.FromEntity(trip);
+
+            if (trip is null)
+                return NotFound();
+
+            var myInterestStatus = await _db.TripInterests
+                .Where(i =>
+                    i.TripPostId == trip.Id &&
+                    i.RequesterUserId == CurrentUserId &&
+                    i.Status != TripInterestStatus.Withdrawn)
+                .Select(i => i.Status.ToString())
+                .FirstOrDefaultAsync();
+
+            return TripPostDto.FromEntity(trip, myInterestStatus);
         }
 
         // Trips from people the current user follows. Assumes a Follows
@@ -114,7 +126,26 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .Take(50)
                 .ToListAsync();
 
-            return trips.Select(TripPostDto.FromEntity).ToList();
+            var result = await WithDtoIncludes()
+    .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open)
+    .OrderByDescending(t => t.CreatedAt)
+    .Take(50)
+    .Select(trip => new
+    {
+        Trip = trip,
+        MyInterestStatus = _db.TripInterests
+            .Where(i =>
+                i.TripPostId == trip.Id &&
+                i.RequesterUserId == CurrentUserId &&
+                i.Status != TripInterestStatus.Withdrawn)
+            .Select(i => i.Status.ToString())
+            .FirstOrDefault()
+    })
+    .ToListAsync();
+
+            return result
+                .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus))
+                .ToList();
         }
 
         // Public browse/search index - not limited to people you follow.
@@ -146,12 +177,27 @@ namespace Hodrac_Backend_MVP2.Controllers
             if (to is not null)
                 query = query.Where(t => t.StartDate == null || t.StartDate <= to);
 
-            var trips = await query
+            var result = await query
                 .OrderBy(t => t.StartDate ?? DateOnly.MaxValue)
-                .Take(100)
-                .ToListAsync();
+                .Take(100).Select(trip => new
+            {
+                Trip = trip,
+                MyInterestStatus = _db.TripInterests
+                .Where(i => i.TripPostId == trip.Id &&
+                i.RequesterUserId == CurrentUserId &&
+                i.Status != TripInterestStatus.Withdrawn)
+            .Select(i => i.Status.ToString())
+            .FirstOrDefault()
+            }).ToListAsync();
 
-            return trips.Select(TripPostDto.FromEntity).ToList();
+            //var trips = await query
+            //    .OrderBy(t => t.StartDate ?? DateOnly.MaxValue)
+            //    .Take(100)
+            //    .ToListAsync();
+
+            return result
+    .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus))
+    .ToList();
         }
 
         [HttpPatch("{id:guid}")]
@@ -182,13 +228,21 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             var tripIds = interests.Select(i => i.TripPostId).Distinct().ToList();
             var trips = await WithDtoIncludes().Where(t => tripIds.Contains(t.Id)).ToListAsync();
-            var tripDtoById = trips.ToDictionary(t => t.Id, TripPostDto.FromEntity);
+            var tripById = trips.ToDictionary(t => t.Id);
 
             var result = interests
-                .Where(i => tripDtoById.ContainsKey(i.TripPostId)) // guards against a deleted trip
-                .Select(i => new MyTripRequestDto(
-                    i.Id, i.Status, i.Message, i.RequestedAt, i.RespondedAt, tripDtoById[i.TripPostId]))
-                .ToList();
+    .Where(i => tripById.ContainsKey(i.TripPostId))
+    .Select(i => new MyTripRequestDto(
+        i.Id,
+        i.Status,
+        i.Message,
+        i.RequestedAt,
+        i.RespondedAt,
+        TripPostDto.FromEntity(
+            tripById[i.TripPostId],
+            i.Status.ToString()
+        )))
+    .ToList();
 
             return result;
         }
