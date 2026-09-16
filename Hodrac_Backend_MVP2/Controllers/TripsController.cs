@@ -308,7 +308,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                     RequesterUserId = interest.RequesterUserId,
                     Message = interest.Message,
                     Status = interest.Status.ToString(),
-                    RequesterName = user?.UserName
+                    RequesterName = user?.DisplayName
                 });
             }
 
