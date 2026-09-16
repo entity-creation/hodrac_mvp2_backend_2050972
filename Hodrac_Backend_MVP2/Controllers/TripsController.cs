@@ -1,5 +1,6 @@
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.TripPostDtos;
+using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -16,12 +17,14 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly HodracDbContext _db;
         private readonly INotificationService _notifications;
         private readonly ICurrentUserService _currentUser;
+        private readonly IUserRepository _userRepo;
 
-        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser)
+        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IUserRepository userRepo)
         {
             _db = db;
             _notifications = notifications;
             _currentUser = currentUser;
+            _userRepo = userRepo;
         }
 
         private Guid CurrentUserId => _currentUser.UserId;
@@ -290,14 +293,24 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .OrderBy(i => i.RequestedAt)
                 .ToListAsync();
 
-            var result = interests.Select(interest => new TripInterestDto
+            var result = new List<TripInterestDto>();
+
+            foreach (var interest in interests)
             {
-                Id = interest.Id,
-                TripPostId = interest.TripPostId,
-                RequesterUserId = interest.RequesterUserId,
-                Message = interest.Message,
-                Status = interest.Status.ToString()
-            });
+                var user = await _userRepo.GetByIdAsync(
+                    interest.RequesterUserId.ToString()
+                );
+
+                result.Add(new TripInterestDto
+                {
+                    Id = interest.Id,
+                    TripPostId = interest.TripPostId,
+                    RequesterUserId = interest.RequesterUserId,
+                    Message = interest.Message,
+                    Status = interest.Status.ToString(),
+                    RequesterName = user?.UserName
+                });
+            }
 
             return Ok(result);
         }
