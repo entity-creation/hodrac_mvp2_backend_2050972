@@ -165,6 +165,65 @@ namespace Hodrac_Backend_MVP2.Controllers
             return NoContent();
         }
 
+        // All non-withdrawn interests the current user has sent, most
+        // recent first, with each trip's flattened DTO attached so the
+        // page can render status + "open chat if approved" without a
+        // second fetch per card.
+        [HttpGet("mine/requests")]
+        public async Task<ActionResult<List<MyTripRequestDto>>> GetMyRequests()
+        {
+            var interests = await _db.TripInterests
+                .Where(i => i.RequesterUserId == CurrentUserId && i.Status != TripInterestStatus.Withdrawn)
+                .OrderByDescending(i => i.RequestedAt)
+                .ToListAsync();
+
+            var tripIds = interests.Select(i => i.TripPostId).Distinct().ToList();
+            var trips = await WithDtoIncludes().Where(t => tripIds.Contains(t.Id)).ToListAsync();
+            var tripDtoById = trips.ToDictionary(t => t.Id, TripPostDto.FromEntity);
+
+            var result = interests
+                .Where(i => tripDtoById.ContainsKey(i.TripPostId)) // guards against a deleted trip
+                .Select(i => new MyTripRequestDto(
+                    i.Id, i.Status, i.Message, i.RequestedAt, i.RespondedAt, tripDtoById[i.TripPostId]))
+                .ToList();
+
+            return result;
+        }
+
+        // Every trip the current user has posted, with a pending-request
+        // count (for the badge) and whether a thread exists yet, so the
+        // page can show "Open chat" vs. nothing without a thread lookup
+        // per card.
+        [HttpGet("mine/posts")]
+        public async Task<ActionResult<List<MyTripPostDto>>> GetMyPosts()
+        {
+            var trips = await WithDtoIncludes()
+                .Where(t => t.AuthorUserId == CurrentUserId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+
+            var tripIds = trips.Select(t => t.Id).ToList();
+
+            var pendingCounts = await _db.TripInterests
+                .Where(i => tripIds.Contains(i.TripPostId) && i.Status == TripInterestStatus.Requested)
+                .GroupBy(i => i.TripPostId)
+                .Select(g => new { TripPostId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.TripPostId, x => x.Count);
+
+            var threadTripIds = (await _db.TripThreads
+                .Where(t => tripIds.Contains(t.TripPostId))
+                .Select(t => t.TripPostId)
+                .ToListAsync())
+                .ToHashSet();
+
+            return trips
+                .Select(t => new MyTripPostDto(
+                    TripPostDto.FromEntity(t),
+                    pendingCounts.GetValueOrDefault(t.Id, 0),
+                    threadTripIds.Contains(t.Id)))
+                .ToList();
+        }
+
         // ---- Interests (the "Interested" button + approve/decline) ----
 
         public record RequestInterestBody(string? Message);
@@ -231,7 +290,16 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .OrderBy(i => i.RequestedAt)
                 .ToListAsync();
 
-            return interests;
+            var result = interests.Select(interest => new TripInterestDto
+            {
+                Id = interest.Id,
+                TripPostId = interest.TripPostId,
+                RequesterUserId = interest.RequesterUserId,
+                Message = interest.Message,
+                Status = interest.Status.ToString()
+            });
+
+            return Ok(result);
         }
 
         public record RespondToInterestBody(bool Approve);
