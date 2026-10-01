@@ -1,10 +1,12 @@
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.TripPostDtos;
+using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hodrac_Backend_MVP2.Controllers
@@ -18,13 +20,15 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly INotificationService _notifications;
         private readonly ICurrentUserService _currentUser;
         private readonly IUserRepository _userRepo;
+        private readonly IHubContext<TripPostHub> _tripPostHub;
 
-        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IUserRepository userRepo)
+        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IUserRepository userRepo, IHubContext<TripPostHub> tripPostHub)
         {
             _db = db;
             _notifications = notifications;
             _currentUser = currentUser;
             _userRepo = userRepo;
+            _tripPostHub = tripPostHub;
         }
 
         private Guid CurrentUserId => _currentUser.UserId;
@@ -331,6 +335,13 @@ namespace Hodrac_Backend_MVP2.Controllers
                 Status = interest.Status.ToString()
             };
 
+            await _tripPostHub.Clients
+                   .Group($"user:{interest.RequesterUserId}")
+                   .SendAsync("TripInterestStatusChanged", result);
+
+            await _tripPostHub.Clients
+                .Group($"user:{trip.AuthorUserId}")
+                .SendAsync("TripInterestReceived", result);
             return Ok(result);
         }
 

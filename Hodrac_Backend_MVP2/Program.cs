@@ -1,6 +1,7 @@
 using System.Text;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
+using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.NoSql.Interfaces;
@@ -212,5 +213,8 @@ app.UseAuthentication();   // Validates JWT → populates HttpContext.User
 app.UseAuthorization();    // Enforces [Authorize] attributes
 app.MapControllers();
 app.MapHub<WishlistHub>("/wishlistHub");
+app.MapHub<TripPostHub>("/tripPostHub");
+app.MapHub<TripThreadHub>("/tripThreadHub");
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
