@@ -336,11 +336,11 @@ namespace Hodrac_Backend_MVP2.Controllers
             };
 
             await _tripPostHub.Clients
-                   .Group($"user:{interest.RequesterUserId}")
+                   .Group($"user:{interest.RequesterUserId.ToString()}")
                    .SendAsync("TripInterestStatusChanged", result);
 
             await _tripPostHub.Clients
-                .Group($"user:{trip.AuthorUserId}")
+                .Group($"user:{trip.AuthorUserId.ToString()}")
                 .SendAsync("TripInterestReceived", result);
             return Ok(result);
         }
