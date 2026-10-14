@@ -1,4 +1,3 @@
-using System.Text;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
 using Hodrac_Backend_MVP2.Infrastucture.SignalR;
@@ -11,10 +10,12 @@ using Hodrac_Backend_MVP2.Repositories;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 using StackExchange.Redis;
+using System.Text;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -126,6 +127,7 @@ builder.Services.AddScoped<PopularWishlistService>();
 builder.Services.AddScoped<FeaturedWishlistService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<EmailDigestService>();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddHttpClient<IEmbeddingService, PythonEmbeddingService>(client =>
 {
     client.BaseAddress = new Uri("https://embeddedmicroservice-production.up.railway.app");

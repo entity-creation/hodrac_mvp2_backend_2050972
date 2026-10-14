@@ -7,6 +7,10 @@ namespace Hodrac_Backend_MVP2.Infrastucture.SignalR
         public override async Task OnConnectedAsync()
         {
             var userId = Context.UserIdentifier;
+            Console.WriteLine("===== SIGNALR CONNECTION =====");
+            Console.WriteLine($"Connection ID: {Context.ConnectionId}");
+            Console.WriteLine($"UserIdentifier: {userId}");
+            Console.WriteLine($"Authenticated: {Context.User?.Identity?.IsAuthenticated}");
 
             if (!string.IsNullOrEmpty(userId))
             {
