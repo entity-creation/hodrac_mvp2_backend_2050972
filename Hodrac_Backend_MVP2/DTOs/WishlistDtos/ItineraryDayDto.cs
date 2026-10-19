@@ -7,6 +7,7 @@
     string? AfternoonCity,
     string? EveningCity,
     TransitRouteDto? TransitFromPreviousDay,
-    List<ItineraryItemDto> Items
+    List<ItineraryItemDto> Items,
+    Guid DayId = default          // ItineraryDayId — use for the itinerary edit routes
 );
 }

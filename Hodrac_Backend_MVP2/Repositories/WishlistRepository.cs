@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Text.Json;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Data;
@@ -81,6 +82,11 @@ public class WishlistRepository : IWishlistRepository
         => await BaseQuery()
             .FirstOrDefaultAsync(w => w.WishlistId == id && w.IsTemplate, ct);
 
+    /// <summary>Card-weight lookup (no itinerary graph). Null if missing or not a template.</summary>
+    public async Task<Wishlist?> GetTemplateCardAsync(Guid id, CancellationToken ct = default)
+        => await CardQuery()
+            .FirstOrDefaultAsync(w => w.WishlistId == id && w.IsTemplate, ct);
+
     // ── Popular — IDs come pre-ranked from PopularWishlistService ────────────
     // Fetches the wishlists in ID order, then re-sorts to match the ranked order.
 
@@ -106,7 +112,7 @@ public class WishlistRepository : IWishlistRepository
         List<Guid> featuredIds, CancellationToken ct = default)
     {
         var wishlists = await CardQuery()
-            .Where(w => featuredIds.Contains(w.WishlistId))
+            .Where(w => featuredIds.Contains(w.WishlistId) && w.IsTemplate)
             .ToListAsync(ct);
 
         // Preserve interleaving order: paid first, then editorial, then random
@@ -270,14 +276,57 @@ public class WishlistRepository : IWishlistRepository
     }
 
     // ── Update (Editor or Owner) ──────────────────────────────────────────────
-    // DbUpdateConcurrencyException is thrown if RowVersion is stale — caller handles 409.
+    // Loads the tracked wishlist row only (no related rows), lets the caller apply
+    // scalar changes, and saves. Only the changed columns of "Wishlists" are
+    // written — itinerary, collaborators etc. are never touched.
+    // When clientXmin is supplied it becomes the concurrency token's original value,
+    // so a stale edit throws DbUpdateConcurrencyException — caller maps it to 409.
 
-    public async Task<Wishlist> UpdateAsync(Wishlist wishlist, CancellationToken ct = default)
+    public async Task<bool> UpdateAsync(
+        Guid wishlistId, Action<Wishlist> applyChanges, uint? clientXmin, CancellationToken ct = default)
     {
-        _db.Wishlists.Update(wishlist);
+        var wishlist = await _db.Wishlists
+            .FirstOrDefaultAsync(w => w.WishlistId == wishlistId && !w.IsTemplate, ct);
+        if (wishlist is null) return false;
+
+        applyChanges(wishlist);
+
+        if (clientXmin is not null)
+            _db.Entry(wishlist).Property(w => w.xmin).OriginalValue = clientXmin.Value;
+
         await _db.SaveChangesAsync(ct);     // throws DbUpdateConcurrencyException on version mismatch
-        return wishlist;
+        return true;
     }
+
+    // ── Itinerary editing (user wishlists only) ───────────────────────────────
+    // Tracked load of the wishlist + its days + items. Templates are never returned.
+
+    public async Task<Wishlist?> GetForItineraryEditAsync(Guid wishlistId, CancellationToken ct = default)
+        => await _db.Wishlists
+            .Include(w => w.ItineraryDays)
+                .ThenInclude(d => d.ItineraryItems)
+            .FirstOrDefaultAsync(w => w.WishlistId == wishlistId && !w.IsTemplate, ct);
+
+    public void AddItineraryDay(ItineraryDay day) => _db.ItineraryDays.Add(day);
+    public void RemoveItineraryDay(ItineraryDay day) => _db.ItineraryDays.Remove(day);
+    public void AddItineraryItem(ItineraryItem item) => _db.ItineraryItems.Add(item);
+    public void RemoveItineraryItem(ItineraryItem item) => _db.ItineraryItems.Remove(item);
+
+    public async Task<bool> CityExistsAsync(Guid cityId, CancellationToken ct = default)
+        => await _db.Cities.AnyAsync(c => c.CityId == cityId, ct);
+
+    public async Task<bool> TransitRouteExistsAsync(Guid routeId, CancellationToken ct = default)
+        => await _db.TransitRoutes.AnyAsync(r => r.TransitRouteId == routeId, ct);
+
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+        => await _db.SaveChangesAsync(ct);
+
+    /// <summary>
+    /// Uses the client's xmin as the tracked wishlist's concurrency-token original value,
+    /// so the next SaveChanges throws DbUpdateConcurrencyException if the row changed since.
+    /// </summary>
+    public void SetXminOriginalValue(Wishlist trackedWishlist, uint clientXmin)
+        => _db.Entry(trackedWishlist).Property(w => w.xmin).OriginalValue = clientXmin;
 
     // ── Delete (Owner only) ───────────────────────────────────────────────────
 
@@ -303,14 +352,24 @@ public class WishlistRepository : IWishlistRepository
             .AnyAsync(sw => sw.WishlistId == wishlistId && sw.UserId == userId, ct);
         if (alreadySaved) return false;
 
-        _db.SavedWishlists.Add(new SavedWishlist
+        var row = new SavedWishlist
         {
             SavedWishlistId = Guid.NewGuid(),
             UserId = userId,
             WishlistId = wishlistId,
             SavedAt = DateTimeOffset.UtcNow,
-        });
-        await _db.SaveChangesAsync(ct);
+        };
+        _db.SavedWishlists.Add(row);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            // Concurrent double-save hit the (UserId, WishlistId) unique index.
+            _db.Entry(row).State = EntityState.Detached;
+            return false;
+        }
         return true;
     }
 
@@ -365,14 +424,6 @@ public class WishlistRepository : IWishlistRepository
             .Where(w => w.WishlistId == wishlistId && w.TotalGlobalSaveCount > 0)
             .ExecuteUpdateAsync(s => s.SetProperty(
                 w => w.TotalGlobalSaveCount, w => w.TotalGlobalSaveCount - 1), ct);
-
-    /// <summary>
-    /// Stamps the client's RowVersion onto the entity's EF entry so the next SaveChanges
-    /// appends WHERE "RowVersion" = {clientVersion} and throws DbUpdateConcurrencyException
-    /// if it doesn't match the database value.
-    /// </summary>
-    public void SetRowVersion(Wishlist wishlist, uint xmin)
-        => _db.Entry(wishlist).Property(w => w.xmin).OriginalValue = xmin;
 
     public async Task<List<Wishlist>> SearchByNameAsync(
     string query, Guid? ownerUserId, int limit = 10, CancellationToken ct = default)

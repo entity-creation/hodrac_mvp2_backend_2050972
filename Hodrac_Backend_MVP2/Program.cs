@@ -1,4 +1,6 @@
 using Hodrac_Backend_MVP2.Data;
+using Hodrac_Backend_MVP2.Infrastructure.Jobs;
+using Hodrac_Backend_MVP2.Infrastucture.Jobs;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
 using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
@@ -9,13 +11,17 @@ using Hodrac_Backend_MVP2.NoSql.Repositories;
 using Hodrac_Backend_MVP2.Repositories;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 using StackExchange.Redis;
 using System.Text;
+using System.Threading.RateLimiting;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,9 +48,23 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Lockout.AllowedForNewUsers      = true;
 
     options.User.RequireUniqueEmail = true;
+
+    options.Tokens.EmailConfirmationTokenProvider = EmailConfirmationTokenProvider<ApplicationUser>.ProviderName;
 })
 .AddEntityFrameworkStores<HodracDbContext>()
-.AddDefaultTokenProviders();
+.AddDefaultTokenProviders()
+.AddTokenProvider<EmailConfirmationTokenProvider<ApplicationUser>>(EmailConfirmationTokenProvider<ApplicationUser>.ProviderName);
+
+// Emailed link lifetimes. Password reset uses Identity's default provider;
+// a reset link is also single-use (resetting changes the security stamp).
+builder.Services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromHours(2));
+builder.Services.Configure<EmailConfirmationTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromDays(3));
+
+// Persist Data Protection keys in Postgres so emailed links (and anything else
+// signed with these keys) survive restarts/redeploys on Render's ephemeral disk.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Hodrac")
+    .PersistKeysToDbContext<HodracDbContext>();
 
 // ─── JWT Authentication ───────────────────────────────────────────────────────
 var jwtSecret = builder.Configuration["Jwt:Secret"]
@@ -78,14 +98,40 @@ builder.Services
             {
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
-                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/wishlistHub") || path.StartsWithSegments("/tripPostHub"))
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    (path.StartsWithSegments("/wishlistHub") ||
+                     path.StartsWithSegments("/tripPostHub") ||
+                     path.StartsWithSegments("/tripThreadHub") ||
+                     path.StartsWithSegments("/notificationHub")))
                     context.Token = accessToken;
                 return Task.CompletedTask;
             }
         };
     });
 
-builder.Services.AddAuthorization();
+// "Admin" = signed-in user whose email is listed in Admin:Emails (config/env).
+var adminEmails = (builder.Configuration["Admin:Emails"] ?? string.Empty)
+    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("Admin", policy => policy
+        .RequireAuthenticatedUser()
+        .RequireAssertion(ctx =>
+        {
+            var email = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                     ?? ctx.User.FindFirst("email")?.Value;
+            return email is not null && adminEmails.Contains(email);
+        })));
+
+// Behind Render's proxy: trust X-Forwarded-For/Proto so RemoteIpAddress (rate
+// limiting) and Request.Scheme (partner tracking URLs) reflect the real client.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // ─── MongoDB ──────────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IMongoClient>(_ =>
@@ -109,6 +155,7 @@ builder.Services.AddScoped<IDestinationRepository, DestinationRepository>();
 builder.Services.AddScoped<IWishlistRepository, WishlistRepository>();
 builder.Services.AddScoped<ICollaboratorRepository, CollaboratorRepository>();
 builder.Services.AddScoped<ISavedContentRepository, SavedContentRepository>();
+builder.Services.AddScoped<ITripsRepository, TripsRepository>();
 
 // ─── MongoDB Repositories ─────────────────────────────────────────────────────
 builder.Services.AddScoped<IProfileRepository, ProfileRepository>();
@@ -126,13 +173,67 @@ builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<PopularWishlistService>();
 builder.Services.AddScoped<FeaturedWishlistService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<EmailDigestService>();
+builder.Services.AddScoped<IPartnerService, PartnerService>();
+
+// ─── Currency rates (daily refresh, cached in memory + Postgres) ──────────────
+builder.Services.AddHttpClient(CurrencyRateService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<ICurrencyRateService, CurrencyRateService>();
+builder.Services.AddHostedService<CurrencyRateRefresher>();
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHostedService<EmailDigestService>();
+
+// ─── Personalisation events (in-process queue → TagInferenceService) ──────────
+builder.Services.AddSingleton<BehaviorEventQueue>();
+builder.Services.AddSingleton<IBehaviorEventQueue>(sp => sp.GetRequiredService<BehaviorEventQueue>());
+builder.Services.AddHostedService<BehaviorEventWorker>();
+
+// ─── Scheduled jobs ───────────────────────────────────────────────────────────
+builder.Services.AddScoped<ImpressionResetJob>();
+builder.Services.AddScoped<ExpiredTokenCleanupJob>();
+builder.Services.AddScoped<SemanticClusterMergeJob>();
+builder.Services.AddHostedService<ScheduledJobsService>();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddHttpClient<IEmbeddingService, PythonEmbeddingService>(client =>
 {
-    client.BaseAddress = new Uri("https://embeddedmicroservice-production.up.railway.app");
+    client.BaseAddress = new Uri(builder.Configuration["Embedding:Railway:Endpoint"] ?? string.Empty);
+    client.Timeout = TimeSpan.FromSeconds(10); // backstop; the service enforces 5s per call
 });
 //builder.Services.AddScoped<IEmbeddingService, PythonEmbeddingService>();
+
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+// Public, unauthenticated form: cap submissions per client IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("partner-leads", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10)
+            }));
+
+    // Endpoints that send email (forgot-password, resend-confirmation).
+    options.AddPolicy("auth-email", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15)
+            }));
+
+    // Public (logged-out) read endpoints such as /api/trips/public.
+    options.AddPolicy("public-browse", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+});
 
 // ─── SignalR ──────────────────────────────────────────────────────────────────
 builder.Services.AddSignalR();
@@ -210,9 +311,11 @@ if (app.Environment.IsDevelopment())
     //await Hodrac_Backend_MVP2.Infrastucture.Seeder.HawaiiSeeder.SeedOahuUltimateIslandWishlist(db);
 }
 
+app.UseForwardedHeaders();
 app.UseCors();
 app.UseAuthentication();   // Validates JWT → populates HttpContext.User
 app.UseAuthorization();    // Enforces [Authorize] attributes
+app.UseRateLimiter();
 app.MapControllers();
 app.MapHub<WishlistHub>("/wishlistHub");
 app.MapHub<TripPostHub>("/tripPostHub");

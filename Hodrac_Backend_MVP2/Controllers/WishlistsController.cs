@@ -1,8 +1,10 @@
 using Hodrac.DTOs;
 using Hodrac_Backend_MVP2.DTOs.WishlistDtos;
+using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.NoSql.Interfaces;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -32,6 +34,10 @@ public class WishlistsController : ControllerBase
     private readonly ICollaboratorRepository _collaborators;
     private readonly ICurrentUserService _currentUser;
     private readonly IHubContext<WishlistHub> _wishlistHub;
+    private readonly IPartnerService _partners;
+    private readonly IBehaviorEventQueue _events;
+    private readonly IProfileRepository _profiles;
+    private readonly ILogger<WishlistsController> _logger;
 
     public WishlistsController(
         IWishlistRepository wishlists,
@@ -39,14 +45,22 @@ public class WishlistsController : ControllerBase
         FeaturedWishlistService featuredService,
         ICollaboratorRepository collaborators,
         ICurrentUserService currentUser,
-        IHubContext<WishlistHub> wishlistHub)
+        IHubContext<WishlistHub> wishlistHub,
+        IPartnerService partners,
+        IBehaviorEventQueue events,
+        IProfileRepository profiles,
+        ILogger<WishlistsController> logger)
     {
+        _events = events;
+        _profiles = profiles;
+        _logger = logger;
         _wishlists = wishlists;
         _popularService = popularService;
         _featuredService = featuredService;
         _collaborators = collaborators;
         _currentUser = currentUser;
         _wishlistHub = wishlistHub;
+        _partners = partners;
     }
 
     // ── GET /api/wishlists ─────────────────────────────────
@@ -56,7 +70,7 @@ public class WishlistsController : ControllerBase
         var wishlists = await _wishlists.GetAllWishlists();
         if (wishlists.IsNullOrEmpty())
             return NotFound();
-        return Ok(wishlists.Select(MapToCard));
+        return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard)));
     }
 
 
@@ -77,7 +91,7 @@ public class WishlistsController : ControllerBase
             PageSize = pageSize,
             TotalCount = total,
             TotalPages = (int)Math.Ceiling(total / (double)pageSize),
-            Items = items.Select(MapToCard)
+            Items = await _partners.AttachAsync(items.Select(MapToCard), ct)
         });
     }
 
@@ -90,10 +104,13 @@ public class WishlistsController : ControllerBase
         if (wishlist is null) return NotFound();
 
         var activeSnapshot = await _wishlists.GetActiveSnapshotAsync(id, ct);
-        return Ok(MapToDetail(wishlist, _currentUser.UserId, activeSnapshot));
+        return Ok(await _partners.AttachAsync(MapToDetail(wishlist, _currentUser.UserId, activeSnapshot), ct));
     }
 
-    // ── GET /api/wishlists/popular?user_id=...&limit=20 ───────────────────────
+    // ── GET /api/wishlists/popular?limit=20 ───────────────────────────────────
+    // Personalised for the JWT caller when they have a Mongo profile; otherwise
+    // (anonymous / no profile) top-saved templates. `user_id` is accepted for
+    // backwards compatibility but only used when the request is anonymous.
 
     [HttpGet("popular")]
     public async Task<IActionResult> GetPopular(
@@ -101,9 +118,11 @@ public class WishlistsController : ControllerBase
         [FromQuery] int limit = 20,
         CancellationToken ct = default)
     {
-        var rankedIds = await _popularService.GetRankedWishlistIdsAsync(userId, limit);
+        limit = Math.Clamp(limit, 1, 50);
+        var effectiveUserId = _currentUser.IsAuthenticated ? _currentUser.UserIdString : userId;
+        var rankedIds = await _popularService.GetRankedWishlistIdsAsync(effectiveUserId, limit, ct);
         var wishlists = await _wishlists.GetPopularTemplatesAsync(rankedIds, limit, ct);
-        return Ok(wishlists.Select(MapToCard));
+        return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard), ct));
     }
 
     // ── GET /api/wishlists/featured ───────────────────────────────────────────
@@ -113,7 +132,7 @@ public class WishlistsController : ControllerBase
     {
         var featuredIds = await _featuredService.GetFeaturedWishlistIdsAsync(ct);
         var wishlists = await _wishlists.GetFeaturedAsync(featuredIds, ct);
-        return Ok(wishlists.Select(MapToCard));
+        return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard), ct));
     }
 
     // ── GET /api/wishlists/similar/{id}?limit=6 ───────────────────────────────
@@ -125,7 +144,7 @@ public class WishlistsController : ControllerBase
         CancellationToken ct = default)
     {
         var wishlists = await _wishlists.GetSimilarAsync(id, limit, ct);
-        return Ok(wishlists.Select(MapToCard));
+        return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard), ct));
     }
 
     // ── GET /api/wishlist-with-destination/similar/{id}?limit=6 ───────────────────────────────
@@ -137,7 +156,7 @@ public class WishlistsController : ControllerBase
         CancellationToken ct = default)
     {
         var wishlists = await _wishlists.GetWishlistWithDestinationAsync(id, limit, ct);
-        return Ok(wishlists.Select(MapToCard));
+        return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard), ct));
     }
 
     // ── POST /api/wishlists/{id}/fork ─────────────────────────────────────────
@@ -167,15 +186,21 @@ public class WishlistsController : ControllerBase
 
     // ── POST /api/wishlists/{id}/save ─────────────────────────────────────────
 
+    // Only platform templates can be saved. Missing or user-owned (forked)
+    // wishlists -> 404 before anything is written.
+
     [HttpPost("{id:guid}/save")]
     public async Task<IActionResult> Save(Guid id, CancellationToken ct = default)
     {
         if (!_currentUser.IsAuthenticated) return Unauthorized();
+        if (await _wishlists.GetTemplateCardAsync(id, ct) is null) return NotFound("Wishlist not found.");
+
         var saved = await _wishlists.SaveWishlistAsync(id, _currentUser.UserId, ct);
         if (!saved) return Conflict("Wishlist already saved.");
         await _wishlists.IncrementSaveCountAsync(id, ct);
-        var wishlist = await _wishlists.GetTemplateByIdAsync(id);
-        var dto = MapToCard(wishlist!);
+        var wishlist = await _wishlists.GetTemplateCardAsync(id, ct);
+        if (wishlist is null) return NotFound("Wishlist not found.");   // deleted mid-request
+        var dto = (await _partners.AttachAsync(new[] { MapToCard(wishlist) }, ct))[0];
         await _wishlistHub.Clients
             .Group(id.ToString())
             .SendAsync(
@@ -183,7 +208,31 @@ public class WishlistsController : ControllerBase
                 dto,
                 ct
             );
+        await PublishWishlistSavedAsync(wishlist);
         return Ok(new { message = "Wishlist saved." });
+    }
+
+    /// <summary>
+    /// Feeds the behavioural engine (best-effort — never fails the request).
+    /// BudgetProfile comes from the user's Mongo onboarding answers when available.
+    /// </summary>
+    private async Task PublishWishlistSavedAsync(Wishlist wishlist)
+    {
+        try
+        {
+            var profile = await ProfileTagSignals.TryLoadProfileAsync(_profiles, _currentUser, _logger);
+            _events.Publish(new WishlistSavedEvent(
+                UserId: _currentUser.UserIdString,
+                WishlistId: wishlist.WishlistId.ToString(),
+                WishlistTags: ProfileTagSignals.ParseTagJson(wishlist.PsychologicalVibeTagsJson),
+                PeopleType: wishlist.PeopleType,
+                BudgetProfile: profile?.ExplicitOnboardingAnswers?.BudgetProfile ?? string.Empty,
+                OccurredAt: DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to publish WishlistSavedEvent for {WishlistId}", wishlist.WishlistId);
+        }
     }
 
     // ── DELETE /api/wishlists/{id}/save ───────────────────────────────────────
@@ -192,11 +241,14 @@ public class WishlistsController : ControllerBase
     public async Task<IActionResult> Unsave(Guid id, CancellationToken ct = default)
     {
         if (!_currentUser.IsAuthenticated) return Unauthorized();
+        if (await _wishlists.GetTemplateCardAsync(id, ct) is null) return NotFound("Wishlist not found.");
+
         var removed = await _wishlists.UnsaveWishlistAsync(id, _currentUser.UserId, ct);
         if (!removed) return NotFound("Wishlist was not saved.");
         await _wishlists.DecrementSaveCountAsync(id, ct);
-        var wishlist = await _wishlists.GetTemplateByIdAsync(id);
-        var dto = MapToCard(wishlist!);
+        var wishlist = await _wishlists.GetTemplateCardAsync(id, ct);
+        if (wishlist is null) return Ok(new { message = "Wishlist removed from saved." });
+        var dto = (await _partners.AttachAsync(new[] { MapToCard(wishlist) }, ct))[0];
         await _wishlistHub.Clients
             .Group(id.ToString())
             .SendAsync(
@@ -354,6 +406,7 @@ public class WishlistsController : ControllerBase
     }
 
     private static ItineraryDayDto MapDay(ItineraryDay day) => new(
+        DayId: day.ItineraryDayId,
         DayNumber: day.DayNumber,
         DayTitle: day.DayTitle,
         MorningCity: day.MorningCity?.CityName,
@@ -377,7 +430,8 @@ public class WishlistsController : ControllerBase
         SocialProofBadge: item.SocialProofBadge,
         CostModifier: item.IndividualCostModifier,
         IsOptional: item.IsOptionalActivity,
-        IsSelectedByDefault: item.IsSelectedByDefault
+        IsSelectedByDefault: item.IsSelectedByDefault,
+        OrderIndex: item.ItemOrderIndex
     );
 
     private static WishlistPricingSnapshotDto MapSnapshot(WishlistPricingSnapshot s) => new(

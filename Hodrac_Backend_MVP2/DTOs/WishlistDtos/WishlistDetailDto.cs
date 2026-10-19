@@ -1,4 +1,5 @@
-﻿using Hodrac.DTOs;
+﻿using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
+using Hodrac.DTOs;
 
 namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
 {
@@ -22,6 +23,7 @@ namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
     bool IsCollaborator,
     List<WishlistCreatorAttributionDto> CreatorAttributions,
     uint Xmin,
-    string UserRole               // "Owner" | "Editor" | "Viewer" | "None"
+    string UserRole,              // "Owner" | "Editor" | "Viewer" | "None"
+    PartnerDto? Partner = null
     );
 }

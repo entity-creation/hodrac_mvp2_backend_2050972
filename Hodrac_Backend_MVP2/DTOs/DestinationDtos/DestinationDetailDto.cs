@@ -1,4 +1,5 @@
-﻿using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
+﻿using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
+using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
 
 namespace Hodrac_Backend_MVP2.DTOs.DestinationDtos
 {
@@ -18,6 +19,7 @@ namespace Hodrac_Backend_MVP2.DTOs.DestinationDtos
     List<string> Languages,
     List<string> Currencies,
     List<string> Cities,
-    List<DestinationImageDto> Images
+    List<DestinationImageDto> Images,
+    PartnerDto? Partner = null
 );
 }

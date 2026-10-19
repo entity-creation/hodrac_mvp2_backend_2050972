@@ -3,6 +3,7 @@ using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
 using Hodrac_Backend_MVP2.DTOs.WishlistDtos;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.NoSql.Interfaces;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -29,13 +30,20 @@ public class ExploreController : ControllerBase
     private readonly HodracDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IHubContext<WishlistHub> _wishlistHub;
+    private readonly IPartnerService _partners;
+    private readonly IProfileRepository _profiles;
+    private readonly ILogger<ExploreController> _logger;
 
     public ExploreController(HodracDbContext db, ICurrentUserService currentUser,
-        IHubContext<WishlistHub> wishlistHub)
+        IHubContext<WishlistHub> wishlistHub, IPartnerService partners,
+        IProfileRepository profiles, ILogger<ExploreController> logger)
     {
         _db          = db;
         _currentUser = currentUser;
         _wishlistHub = wishlistHub;
+        _partners    = partners;
+        _profiles    = profiles;
+        _logger      = logger;
     }
 
     // ── GET /api/explore/destinations ─────────────────────────────────────────
@@ -131,7 +139,7 @@ public class ExploreController : ControllerBase
             PageSize  : pageSize,
             TotalCount: total,
             TotalPages: (int)Math.Ceiling(total / (double)pageSize),
-            Items     : items.Select(item => MapDestinationToSummary(item)).ToList()
+            Items     : await _partners.AttachAsync(items.Select(item => MapDestinationToSummary(item)), ct)
         ));
     }
 
@@ -179,12 +187,12 @@ public class ExploreController : ControllerBase
 
         if (vibeTagList.Count > 0)
         {
-            // PsychologicalVibeTagsJson is a jsonb array column.
-            // Use EF.Functions or raw SQL for jsonb containment.
-            // Here we filter in-memory after fetching candidates — acceptable for
-            // moderate dataset sizes. For large scale, switch to raw SQL @> operator.
-            query = query.Where(w => vibeTagList.Any(vt =>
-                w.PsychologicalVibeTagsJson.Contains(vt)));
+            // PsychologicalVibeTagsJson is a jsonb array of strings. The jsonb ?| operator
+            // ("does any of these strings exist as a top-level array element") gives an
+            // exact, case-sensitive tag match OR'd across the requested tags, and runs
+            // entirely in Postgres: "PsychologicalVibeTagsJson" ?| @vibeTags
+            var vibeTagArray = vibeTagList.ToArray();
+            query = query.Where(w => EF.Functions.JsonExistAny(w.PsychologicalVibeTagsJson, vibeTagArray));
         }
 
         if (personaList.Count > 0)
@@ -214,19 +222,14 @@ public class ExploreController : ControllerBase
             .Take(pageSize)
             .ToListAsync(ct);
 
-        await _wishlistHub.Clients
-            .Group("explore")
-            .SendAsync(
-                "ExploreUpdated",
-                ct
-            );
-
+        // No SignalR broadcast here: this is a read. "ExploreUpdated" must only be
+        // sent by endpoints that actually change explore data.
         return Ok(new PagedResult<WishlistCardDto>(
             Page      : page,
             PageSize  : pageSize,
             TotalCount: total,
             TotalPages: (int)Math.Ceiling(total / (double)pageSize),
-            Items     : items.Select(item => WishlistsController.MapToCard(item)).ToList()
+            Items     : await _partners.AttachAsync(items.Select(item => WishlistsController.MapToCard(item)), ct)
         ));
     }
 
@@ -275,31 +278,66 @@ public class ExploreController : ControllerBase
             PageSize  : pageSize,
             TotalCount: total,
             TotalPages: (int)Math.Ceiling(total / (double)pageSize),
-            Items     : items.Select(item => MapDestinationToSummary(item)).ToList()
+            Items     : await _partners.AttachAsync(items.Select(item => MapDestinationToSummary(item)), ct)
         ));
     }
 
     // ── GET /api/wishlists/matching-user ─────────────────────────────────────
-    // Spec endpoint: persona-ranked wishlist templates.
-    // Pulls the MongoDB profile and filters/sorts templates by vibe tag overlap.
+    // Spec endpoint: persona-ranked wishlist templates for the JWT caller.
+    // Ranks templates by overlap between the caller's Mongo profile tags
+    // (interaction-history tags + onboarding answers) and the wishlist's vibe tags.
+    // Anonymous / no profile / no matches → top-saved templates. Any `user_id`
+    // query param is ignored: the user always comes from the token.
 
     [HttpGet("api/wishlists/matching-user")]
     public async Task<IActionResult> GetMatchingUserWishlists(
-        [FromQuery(Name = "user_id")] string? userId,
         [FromQuery] int limit = 12,
         CancellationToken ct  = default)
     {
-        // TODO: once MongoDB profile is integrated, derive preferred vibe tags
-        // from the user's personality_vector_scores and filter here.
-        // For now: return top-saved templates as a sensible default.
-        var items = await _db.Wishlists
-            .AsNoTracking()
-            .Where(w => w.IsTemplate)
-            .OrderByDescending(w => w.TotalGlobalSaveCount)
-            .Take(limit)
-            .ToListAsync(ct);
+        limit = Math.Clamp(limit, 1, 50);
 
-        return Ok(items.Select(WishlistsController.MapToCard));
+        var profile     = await ProfileTagSignals.TryLoadProfileAsync(_profiles, _currentUser, _logger);
+        var profileTags = ProfileTagSignals.ProfileTags(profile);
+
+        var ranked = new List<Wishlist>();
+        if (profileTags.Count > 0)
+        {
+            // Postgres pre-filter: templates sharing at least one exact vibe tag
+            // (jsonb ?| operator), capped so we never pull the whole table.
+            var tagArray   = profileTags.ToArray();
+            var candidates = await _db.Wishlists
+                .AsNoTracking()
+                .Where(w => w.IsTemplate
+                         && EF.Functions.JsonExistAny(w.PsychologicalVibeTagsJson, tagArray))
+                .OrderByDescending(w => w.TotalGlobalSaveCount)
+                .Take(200)
+                .ToListAsync(ct);
+
+            ranked = candidates
+                .Select(w => (Wishlist: w, Score: ProfileTagSignals.Overlap(
+                    ProfileTagSignals.ParseTagJson(w.PsychologicalVibeTagsJson), profileTags)))
+                .Where(x => x.Score > 0)
+                .OrderByDescending(x => x.Score)
+                .ThenByDescending(x => x.Wishlist.TotalGlobalSaveCount)
+                .Take(limit)
+                .Select(x => x.Wishlist)
+                .ToList();
+        }
+
+        // Generic fallback / top-up: most-saved templates not already included.
+        if (ranked.Count < limit)
+        {
+            var have = ranked.Select(w => w.WishlistId).ToList();
+            var fill = await _db.Wishlists
+                .AsNoTracking()
+                .Where(w => w.IsTemplate && !have.Contains(w.WishlistId))
+                .OrderByDescending(w => w.TotalGlobalSaveCount)
+                .Take(limit - ranked.Count)
+                .ToListAsync(ct);
+            ranked.AddRange(fill);
+        }
+
+        return Ok(await _partners.AttachAsync(ranked.Select(WishlistsController.MapToCard), ct));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

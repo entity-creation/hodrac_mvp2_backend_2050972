@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.Models;
@@ -46,7 +47,7 @@ public class CollaboratorRepository : ICollaboratorRepository
             .FirstOrDefaultAsync(c => c.WishlistId == wishlistId && c.UserId == userId, ct);
 
         if (existing is not null)
-            throw new InvalidOperationException("User is already a collaborator on this wishlist.");
+            throw new InvalidOperationException(AlreadyCollaboratorMessage);
 
         var collaborator = new WishlistCollaborator
         {
@@ -58,9 +59,24 @@ public class CollaboratorRepository : ICollaboratorRepository
             JoinedAt               = DateTimeOffset.UtcNow,
         };
         _db.WishlistCollaborators.Add(collaborator);
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // A concurrent add of the same user won the race on the
+            // (WishlistId, UserId) unique index — surface it as the same 409.
+            _db.Entry(collaborator).State = EntityState.Detached;
+            throw new InvalidOperationException(AlreadyCollaboratorMessage, ex);
+        }
         return collaborator;
     }
+
+    private const string AlreadyCollaboratorMessage = "User is already a collaborator on this wishlist.";
+
+    internal static bool IsUniqueViolation(DbUpdateException ex)
+        => ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
 
     public async Task<bool> ChangeRoleAsync(
         Guid wishlistId, Guid userId, string newRole, CancellationToken ct = default)
@@ -108,11 +124,13 @@ public class SavedContentRepository : ISavedContentRepository
 
     public SavedContentRepository(HodracDbContext db) => _db = db;
 
+    // Only platform templates are saveable; legacy rows pointing at user wishlists
+    // (inserted before save validation existed) are excluded.
     public async Task<List<Wishlist>> GetSavedWishlistsAsync(
         Guid userId, CancellationToken ct = default)
         => await _db.SavedWishlists
             .AsNoTracking()
-            .Where(sw => sw.UserId == userId)
+            .Where(sw => sw.UserId == userId && sw.Wishlist.IsTemplate)
             .OrderByDescending(sw => sw.SavedAt)
             .Select(sw => sw.Wishlist)
             .ToListAsync(ct);
@@ -143,16 +161,29 @@ public class SavedContentRepository : ISavedContentRepository
             .AnyAsync(sd => sd.DestinationId == destinationId && sd.UserId == userId, ct);
         if (alreadySaved) return false;
 
-        _db.SavedDestinations.Add(new SavedDestination
+        var row = new SavedDestination
         {
             SavedDestinationId = Guid.NewGuid(),
             UserId             = userId,
             DestinationId      = destinationId,
             SavedAt            = DateTimeOffset.UtcNow,
-        });
-        await _db.SaveChangesAsync(ct);
+        };
+        _db.SavedDestinations.Add(row);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (CollaboratorRepository.IsUniqueViolation(ex))
+        {
+            // Concurrent double-save hit the (UserId, DestinationId) unique index.
+            _db.Entry(row).State = EntityState.Detached;
+            return false;
+        }
         return true;
     }
+
+    public async Task<bool> DestinationExistsAsync(Guid destinationId, CancellationToken ct = default)
+        => await _db.Destinations.AnyAsync(d => d.DestinationId == destinationId, ct);
 
     public async Task<bool> UnsaveDestinationAsync(
         Guid destinationId, Guid userId, CancellationToken ct = default)

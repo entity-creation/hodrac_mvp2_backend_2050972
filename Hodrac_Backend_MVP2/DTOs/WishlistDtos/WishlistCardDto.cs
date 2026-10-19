@@ -1,4 +1,5 @@
-﻿namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
+﻿using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
+namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
 {
     public record WishlistCardDto(
     Guid WishlistId,
@@ -13,6 +14,7 @@
     long TotalGlobalSaveCount,
     bool IsFeatured,
     List<string> PsychologicalVibeTags,
-    string PrimaryPersonaTarget
+    string PrimaryPersonaTarget,
+    PartnerDto? Partner = null
 );
 }

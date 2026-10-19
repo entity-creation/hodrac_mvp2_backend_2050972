@@ -9,6 +9,7 @@
     string SocialProofBadge,
     decimal CostModifier,
     bool IsOptional,
-    bool IsSelectedByDefault
+    bool IsSelectedByDefault,
+    int OrderIndex = 0            // ItemOrderIndex within the day
 );
 }

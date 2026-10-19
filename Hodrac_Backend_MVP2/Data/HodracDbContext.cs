@@ -1,4 +1,5 @@
 using Hodrac_Backend_MVP2.Models;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ namespace Hodrac_Backend_MVP2.Data;
 // Our additions to the same database:
 //   UserRefreshTokens     ← JWT refresh token rotation
 
-public class HodracDbContext : IdentityDbContext<ApplicationUser>
+public class HodracDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext
 {
     public HodracDbContext(DbContextOptions<HodracDbContext> options) : base(options) { }
 
@@ -62,6 +63,15 @@ public class HodracDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<TripThreadParticipant> TripThreadParticipants => Set<TripThreadParticipant>();
     public DbSet<ThreadMessage> ThreadMessages => Set<ThreadMessage>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    //Partners
+    public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<PartnerLink> PartnerLinks => Set<PartnerLink>();
+    public DbSet<PartnerLinkClick> PartnerLinkClicks => Set<PartnerLinkClick>();
+    public DbSet<PartnerLead> PartnerLeads => Set<PartnerLead>();
+    public DbSet<CurrencyRateSnapshot> CurrencyRateSnapshots => Set<CurrencyRateSnapshot>();
+
+    /// <summary>ASP.NET Core Data Protection key ring (signs reset/confirmation tokens).</summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
 
     // ── Identity extensions ───────────────────────────────────────────────────
 
@@ -116,5 +126,6 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
     {
         builder.HasIndex(u => u.DisplayName);
         builder.HasIndex(u => u.CreatedAt);
+        builder.Property(u => u.NotificationEmailOptIn).HasDefaultValue(true);
     }
 }

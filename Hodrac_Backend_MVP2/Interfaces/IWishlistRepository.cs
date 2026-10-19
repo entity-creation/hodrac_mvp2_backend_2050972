@@ -16,6 +16,9 @@ namespace Hodrac_Backend_MVP2.Interfaces
 
         Task<Wishlist?> GetTemplateByIdAsync(Guid id, CancellationToken ct = default);
 
+        /// <summary>Card-weight template lookup (no itinerary). Null if missing or not a template.</summary>
+        Task<Wishlist?> GetTemplateCardAsync(Guid id, CancellationToken ct = default);
+
         Task<List<Wishlist>> GetPopularTemplatesAsync(
             List<Guid> rankedIds, int limit, CancellationToken ct = default);
 
@@ -38,8 +41,26 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task<Wishlist> ForkAsync(
             Guid templateId, Guid newOwnerId, CancellationToken ct = default);
 
-        Task<Wishlist> UpdateAsync(
-            Wishlist wishlist, CancellationToken ct = default);
+        /// <summary>
+        /// Loads the tracked user wishlist (no related rows), applies <paramref name="applyChanges"/>
+        /// and saves only the modified scalar columns. When <paramref name="clientXmin"/> is
+        /// supplied it is used as the xmin original value, so a stale edit throws
+        /// DbUpdateConcurrencyException (mapped to HTTP 409). Returns false if not found / template.
+        /// </summary>
+        Task<bool> UpdateAsync(
+            Guid wishlistId, Action<Wishlist> applyChanges, uint? clientXmin, CancellationToken ct = default);
+
+        // Itinerary editing (user wishlists only — tracked entities)
+        Task<Wishlist?> GetForItineraryEditAsync(Guid wishlistId, CancellationToken ct = default);
+        void AddItineraryDay(ItineraryDay day);
+        void RemoveItineraryDay(ItineraryDay day);
+        void AddItineraryItem(ItineraryItem item);
+        void RemoveItineraryItem(ItineraryItem item);
+        Task<bool> CityExistsAsync(Guid cityId, CancellationToken ct = default);
+        Task<bool> TransitRouteExistsAsync(Guid routeId, CancellationToken ct = default);
+        Task SaveChangesAsync(CancellationToken ct = default);
+        /// <summary>Sets the client xmin as the tracked wishlist's concurrency original value (stale → 409).</summary>
+        void SetXminOriginalValue(Wishlist trackedWishlist, uint clientXmin);
 
         Task DeleteUserWishlistAsync(
             Guid wishlistId, Guid userId, CancellationToken ct = default);
@@ -59,14 +80,5 @@ namespace Hodrac_Backend_MVP2.Interfaces
         // Increment save count (called after successful save)
         Task IncrementSaveCountAsync(Guid wishlistId, CancellationToken ct = default);
         Task DecrementSaveCountAsync(Guid wishlistId, CancellationToken ct = default);
-
-        /// <summary>
-        /// Stamps the client-supplied xmin value onto the tracked entity so EF Core
-        /// includes it in the WHERE clause of the next UPDATE, enabling optimistic
-        /// concurrency detection. If another session modified the row between the
-        /// client's read and this write, PostgreSQL's xmin will have changed and
-        /// EF will throw DbUpdateConcurrencyException (mapped to HTTP 409).
-        /// </summary>
-        void SetRowVersion(Wishlist wishlist, uint xmin);
     }
 }

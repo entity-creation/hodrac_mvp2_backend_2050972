@@ -24,5 +24,9 @@ namespace Hodrac_Backend_MVP2.Models
         public bool IsRead { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Set by EmailDigestService once this notification has been included in
+        // a digest email, so it is never emailed twice.
+        public DateTime? EmailedAt { get; set; }
     }
 }

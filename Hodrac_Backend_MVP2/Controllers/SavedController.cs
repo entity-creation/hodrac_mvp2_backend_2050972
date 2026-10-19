@@ -19,15 +19,18 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly ISavedContentRepository _saved;
         private readonly IWishlistRepository _wishlists;
         private readonly ICurrentUserService _currentUser;
+        private readonly IPartnerService _partners;
 
         public SavedController(
             ISavedContentRepository saved,
             IWishlistRepository wishlists,
-            ICurrentUserService currentUser)
+            ICurrentUserService currentUser,
+            IPartnerService partners)
         {
             _saved = saved;
             _wishlists = wishlists;
             _currentUser = currentUser;
+            _partners = partners;
         }
 
         // Route attributes here use the full path because this controller has no
@@ -37,6 +40,7 @@ namespace Hodrac_Backend_MVP2.Controllers
         public async Task<IActionResult> SaveDestination(Guid id, CancellationToken ct = default)
         {
             if (!_currentUser.IsAuthenticated) return Unauthorized();
+            if (!await _saved.DestinationExistsAsync(id, ct)) return NotFound("Destination not found.");
             var saved = await _saved.SaveDestinationAsync(id, _currentUser.UserId, ct);
             return saved ? Ok(new { message = "Destination saved." })
                          : Conflict("Destination already saved.");
@@ -60,8 +64,8 @@ namespace Hodrac_Backend_MVP2.Controllers
             var savedDestinations = await _saved.GetSavedDestinationsAsync(_currentUser.UserId, ct);
 
             return Ok(new SavedContentDto(
-                SavedWishlists: savedWishlists.Select(savedWishlist => WishlistsController.MapToCard(savedWishlist)).ToList(),
-                SavedDestinations: savedDestinations.Select(d => new DestinationSummaryDto(
+                SavedWishlists: await _partners.AttachAsync(savedWishlists.Select(savedWishlist => WishlistsController.MapToCard(savedWishlist)), ct),
+                SavedDestinations: await _partners.AttachAsync(savedDestinations.Select(d => new DestinationSummaryDto(
                     d.DestinationId,
                     d.DestinationName,
                     $"{d.DestinationName}, {d.Country?.CountryName}",
@@ -72,7 +76,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                     d.LuxuryRating,
                     d.DestinationTags.Select(dt => dt.Tag.TagName).ToList(),
                     d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList()
-                )).ToList()
+                )), ct)
             ));
         }
     }

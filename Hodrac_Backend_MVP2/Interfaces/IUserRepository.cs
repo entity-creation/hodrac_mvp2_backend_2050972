@@ -23,6 +23,17 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task UpdateLastLoginAsync(string userId, CancellationToken ct = default);
         Task UpdateAvatarAsync(string userId, string avatarUrl, CancellationToken ct = default);
 
+        /// <summary>Stamps LastActiveAt = now (login / token refresh). Used by the email digest.</summary>
+        Task UpdateLastActiveAsync(string userId, CancellationToken ct = default);
+        Task SetNotificationEmailOptInAsync(string userId, bool optIn, CancellationToken ct = default);
+
+        // ── Identity token flows (password reset / email confirmation / change password) ──
+        Task<string> GeneratePasswordResetTokenAsync(ApplicationUser user);
+        Task<IdentityResult> ResetPasswordAsync(ApplicationUser user, string token, string newPassword);
+        Task<string> GenerateEmailConfirmationTokenAsync(ApplicationUser user);
+        Task<IdentityResult> ConfirmEmailAsync(ApplicationUser user, string token);
+        Task<IdentityResult> ChangePasswordAsync(ApplicationUser user, string currentPassword, string newPassword);
+
         /// <summary>
         /// Looks up a user by email and returns their Guid (for collaboration invites).
         /// Returns null if no user has that email.

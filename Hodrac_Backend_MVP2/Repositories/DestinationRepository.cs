@@ -76,27 +76,53 @@ public class DestinationRepository : IDestinationRepository
             .ToListAsync(ct);
 
     // ── Persona-matched destinations ──────────────────────────────────────────
-    // Filters by tag names and optionally caps cost. Used by GET /destinations/matching-user.
-    // The calling service derives preferredTags from the user's psychographic profile.
+    // Ranks by how many preferred tags a destination carries, matching each preferred
+    // tag against Tag.TagName as given ("Hidden Gem") or Tag.Key in key form
+    // ("hidden_gem"), optionally capping cost. Used by GET /destinations/matching-user.
+    // When there are no preferred tags or fewer than `limit` matches, the result is
+    // topped up with the most popular destinations (same cost cap).
 
     public async Task<List<Destination>> GetMatchingUserAsync(
         List<string> preferredTags, decimal? maxCostPerDay,
         int limit, CancellationToken ct = default)
     {
-        var query = BaseQuery()
-            .Where(d => d.DestinationTags
-                .Any(dt => preferredTags.Contains(dt.Tag.TagName)));
+        var names = preferredTags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct().ToList();
+        var keys  = names.Select(t => t.ToLowerInvariant().Replace(' ', '_').Replace('-', '_')).Distinct().ToList();
 
-        if (maxCostPerDay.HasValue)
-            query = query.Where(d => d.AverageCostPerDay <= maxCostPerDay.Value);
+        var result = new List<Destination>();
 
-        // Order by how many preferred tags match (EF translates Count with predicate)
-        return await query
-            .OrderByDescending(d =>
-                d.DestinationTags.Count(dt => preferredTags.Contains(dt.Tag.TagName)))
-            .ThenByDescending(d => d.SearchHitCount)
-            .Take(limit)
-            .ToListAsync(ct);
+        if (names.Count > 0)
+        {
+            var query = BaseQuery()
+                .Where(d => d.DestinationTags
+                    .Any(dt => names.Contains(dt.Tag.TagName) || keys.Contains(dt.Tag.Key)));
+
+            if (maxCostPerDay.HasValue)
+                query = query.Where(d => d.AverageCostPerDay <= maxCostPerDay.Value);
+
+            // Order by how many preferred tags match (EF translates Count with predicate)
+            result = await query
+                .OrderByDescending(d =>
+                    d.DestinationTags.Count(dt => names.Contains(dt.Tag.TagName) || keys.Contains(dt.Tag.Key)))
+                .ThenByDescending(d => d.SearchHitCount)
+                .Take(limit)
+                .ToListAsync(ct);
+        }
+
+        if (result.Count < limit)
+        {
+            var have = result.Select(d => d.DestinationId).ToList();
+            var fill = BaseQuery().Where(d => !have.Contains(d.DestinationId));
+            if (maxCostPerDay.HasValue)
+                fill = fill.Where(d => d.AverageCostPerDay <= maxCostPerDay.Value);
+
+            result.AddRange(await fill
+                .OrderByDescending(d => d.SearchHitCount)
+                .Take(limit - result.Count)
+                .ToListAsync(ct));
+        }
+
+        return result;
     }
 
     // ── Destinations similar to a wishlist ────────────────────────────────────

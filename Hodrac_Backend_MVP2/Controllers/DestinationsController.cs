@@ -1,7 +1,10 @@
 using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
 using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
+using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.NoSql.Interfaces;
+using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
@@ -20,9 +23,27 @@ namespace Hodrac_Backend_MVP2.Controllers;
 public class DestinationsController : ControllerBase
 {
     private readonly IDestinationRepository _destinations;
+    private readonly IPartnerService _partners;
+    private readonly ICurrentUserService _currentUser;
+    private readonly IProfileRepository _profiles;
+    private readonly IBehaviorEventQueue _events;
+    private readonly ILogger<DestinationsController> _logger;
 
-    public DestinationsController(IDestinationRepository destinations)
-        => _destinations = destinations;
+    public DestinationsController(
+        IDestinationRepository destinations,
+        IPartnerService partners,
+        ICurrentUserService currentUser,
+        IProfileRepository profiles,
+        IBehaviorEventQueue events,
+        ILogger<DestinationsController> logger)
+    {
+        _destinations = destinations;
+        _partners = partners;
+        _currentUser = currentUser;
+        _profiles = profiles;
+        _events = events;
+        _logger = logger;
+    }
 
     // ── GET /api/destinations?page=1&pageSize=12 ──────────────────────────────
 
@@ -41,7 +62,7 @@ public class DestinationsController : ControllerBase
             PageSize   = pageSize,
             TotalCount = total,
             TotalPages = (int)Math.Ceiling(total / (double)pageSize),
-            Items      = items.Select(item => MapToSummary(item))
+            Items      = await _partners.AttachAsync(items.Select(item => MapToSummary(item)), ct)
         });
     }
 
@@ -54,28 +75,57 @@ public class DestinationsController : ControllerBase
         if (dest is null) return NotFound();
 
         await _destinations.IncrementSearchHitAsync(id, ct);
-        return Ok(MapToDetail(dest));
+        PublishDestinationClicked(dest);
+        return Ok(await _partners.AttachAsync(MapToDetail(dest), ct));
     }
 
-    // ── GET /api/destinations/matching-user?user_id=...&maxCost=...&limit=12 ──
-    // In production wire user_id to the auth token claim, not a query param.
+    /// <summary>Best-effort personalisation signal for authenticated callers; never fails the request.</summary>
+    private void PublishDestinationClicked(Destination dest)
+    {
+        if (!_currentUser.IsAuthenticated) return;
+        try
+        {
+            _events.Publish(new DestinationClickedEvent(
+                UserId: _currentUser.UserIdString,
+                DestinationId: dest.DestinationId.ToString(),
+                DestinationTags: dest.DestinationTags.Select(dt => dt.Tag.TagName).ToList(),
+                LuxuryRating: dest.LuxuryRating,
+                OccurredAt: DateTimeOffset.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to publish DestinationClickedEvent for {DestinationId}", dest.DestinationId);
+        }
+    }
+
+    // ── GET /api/destinations/matching-user?maxCost=...&limit=12[&tags=a,b] ──
+    // Ranks destinations by overlap between the JWT caller's Mongo profile tags
+    // (interaction-history tags + onboarding answers) and the destination's tags
+    // (matched against Tag.TagName or Tag.Key). ?tags= overrides the profile.
+    // Anonymous / no profile / too few matches → topped up with most-popular.
+    // Any `user_id` query param is ignored: the user always comes from the token.
 
     [HttpGet("matching-user")]
     public async Task<IActionResult> GetMatchingUser(
-        [FromQuery(Name = "user_id")] string? userId,
+        [FromQuery] string? tags,
         [FromQuery] decimal? maxCost,
         [FromQuery] int limit = 12,
         CancellationToken ct = default)
     {
-        // TODO: replace with tags derived from the user's MongoDB psychographic profile.
-        // For now, accept tags directly as a query param for flexibility during dev.
-        var tags = Request.Query["tags"]
-            .ToString()
-            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+        limit = Math.Clamp(limit, 1, 50);
+
+        var preferredTags = (tags ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
 
-        var items = await _destinations.GetMatchingUserAsync(tags, maxCost, limit, ct);
-        return Ok(items.Select(item => MapToSummary(item)));
+        if (preferredTags.Count == 0)
+        {
+            var profile = await ProfileTagSignals.TryLoadProfileAsync(_profiles, _currentUser, _logger);
+            preferredTags = ProfileTagSignals.ProfileTags(profile);
+        }
+
+        var items = await _destinations.GetMatchingUserAsync(preferredTags, maxCost, limit, ct);
+        return Ok(await _partners.AttachAsync(items.Select(item => MapToSummary(item)), ct));
     }
 
     // ── GET /api/destinations/similar-name?name=tokio ────────────────────────
@@ -91,7 +141,7 @@ public class DestinationsController : ControllerBase
         var metaphone = Metaphone.Encode(name);
         var metaphoneCodeUpper = metaphone.ToUpperInvariant(); // placeholder — swap with real Metaphone
         var items = await _destinations.GetByPhoneticCodeAsync(metaphoneCodeUpper, ct);
-        return Ok(items.Select(item => MapToSummary(item)));
+        return Ok(await _partners.AttachAsync(items.Select(item => MapToSummary(item)), ct));
     }
 
     // ── GET /api/destinations/similar-to-wishlist/{wishlistId}?limit=6 ────────
@@ -103,7 +153,7 @@ public class DestinationsController : ControllerBase
         CancellationToken ct = default)
     {
         var items = await _destinations.GetSimilarToWishlistAsync(wishlistId, limit, ct);
-        return Ok(items.Select(item => MapToSummary(item)));
+        return Ok(await _partners.AttachAsync(items.Select(item => MapToSummary(item)), ct));
     }
 
     // ── GET /api/destinations/destinations-in-wishlist/{wishlistId}?limit=6 ────────
@@ -115,7 +165,7 @@ public class DestinationsController : ControllerBase
         CancellationToken ct = default)
     {
         var items = await _destinations.GetDestinationsInWishlistAsync(wishlistId, page, ct);
-        return Ok(items.Select(item => MapToSummary(item)));
+        return Ok(await _partners.AttachAsync(items.Select(item => MapToSummary(item)), ct));
     }
 
     // ── DTO mappers ───────────────────────────────────────────────────────────

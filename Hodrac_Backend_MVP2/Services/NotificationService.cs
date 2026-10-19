@@ -1,5 +1,8 @@
 using Hodrac_Backend_MVP2.Data;
+using Hodrac_Backend_MVP2.DTOs.NotificationDtos;
+using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Models;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Hodrac_Backend_MVP2.Services
 {
@@ -11,69 +14,69 @@ namespace Hodrac_Backend_MVP2.Services
         Task NotifyNewThreadMessage(Guid tripPostId, List<Guid> recipientUserIds, Guid senderUserId);
     }
 
-    // Creates the in-app Notification rows. Real-time push (SignalR /
-    // web push) and the email digest both read from this same table, so
-    // this is the single place events are recorded.
+    // Creates the in-app Notification rows and pushes each one to its
+    // recipient over NotificationHub. The email digest reads from this same
+    // table, so this is the single place events are recorded.
     public class NotificationService : INotificationService
     {
         private readonly HodracDbContext _db;
+        private readonly IHubContext<NotificationHub> _hub;
 
-        public NotificationService(HodracDbContext db)
+        public NotificationService(HodracDbContext db, IHubContext<NotificationHub> hub)
         {
             _db = db;
+            _hub = hub;
         }
 
-        public async Task NotifyInterestReceived(TripPost trip, Guid requesterUserId)
-        {
-            _db.Notifications.Add(new Notification
+        public Task NotifyInterestReceived(TripPost trip, Guid requesterUserId) =>
+            SaveAndPushAsync(new Notification
             {
                 RecipientUserId = trip.AuthorUserId,
                 Type = NotificationType.InterestReceived,
                 TripPostId = trip.Id,
                 ActorUserId = requesterUserId
             });
-            await _db.SaveChangesAsync();
 
-            // TODO: push over real-time channel to trip.AuthorUserId
-        }
-
-        public async Task NotifyInterestApproved(TripPost trip, Guid requesterUserId)
-        {
-            _db.Notifications.Add(new Notification
+        public Task NotifyInterestApproved(TripPost trip, Guid requesterUserId) =>
+            SaveAndPushAsync(new Notification
             {
                 RecipientUserId = requesterUserId,
                 Type = NotificationType.InterestApproved,
                 TripPostId = trip.Id,
                 ActorUserId = trip.AuthorUserId
             });
-            await _db.SaveChangesAsync();
-        }
 
-        public async Task NotifyInterestDeclined(TripPost trip, Guid requesterUserId)
-        {
-            _db.Notifications.Add(new Notification
+        public Task NotifyInterestDeclined(TripPost trip, Guid requesterUserId) =>
+            SaveAndPushAsync(new Notification
             {
                 RecipientUserId = requesterUserId,
                 Type = NotificationType.InterestDeclined,
                 TripPostId = trip.Id,
                 ActorUserId = trip.AuthorUserId
             });
-            await _db.SaveChangesAsync();
-        }
 
-        public async Task NotifyNewThreadMessage(Guid tripPostId, List<Guid> recipientUserIds, Guid senderUserId)
-        {
-            foreach (var recipientId in recipientUserIds)
+        public Task NotifyNewThreadMessage(Guid tripPostId, List<Guid> recipientUserIds, Guid senderUserId) =>
+            SaveAndPushAsync(recipientUserIds.Select(recipientId => new Notification
             {
-                _db.Notifications.Add(new Notification
-                {
-                    RecipientUserId = recipientId,
-                    Type = NotificationType.NewThreadMessage,
-                    TripPostId = tripPostId,
-                    ActorUserId = senderUserId
-                });
-            }
+                RecipientUserId = recipientId,
+                Type = NotificationType.NewThreadMessage,
+                TripPostId = tripPostId,
+                ActorUserId = senderUserId
+            }).ToArray());
+
+        private async Task SaveAndPushAsync(params Notification[] notifications)
+        {
+            if (notifications.Length == 0) return;
+
+            _db.Notifications.AddRange(notifications);
             await _db.SaveChangesAsync();
+
+            foreach (var notification in notifications)
+            {
+                await _hub.Clients
+                    .User(notification.RecipientUserId.ToString())
+                    .SendAsync("NotificationReceived", NotificationDto.FromEntity(notification));
+            }
         }
     }
 }

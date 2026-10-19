@@ -53,10 +53,47 @@ public class UserRepository : IUserRepository
 
     public async Task UpdateLastLoginAsync(
         string userId, CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await _db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.LastLoginAt, now)
+                .SetProperty(u => u.LastActiveAt, now), ct);
+    }
+
+    public async Task UpdateLastActiveAsync(
+        string userId, CancellationToken ct = default)
         => await _db.Users
             .Where(u => u.Id == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(
-                u => u.LastLoginAt, DateTimeOffset.UtcNow), ct);
+                u => u.LastActiveAt, DateTimeOffset.UtcNow), ct);
+
+    public async Task SetNotificationEmailOptInAsync(
+        string userId, bool optIn, CancellationToken ct = default)
+        => await _db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(
+                u => u.NotificationEmailOptIn, optIn), ct);
+
+    // ── Identity token flows ──────────────────────────────────────────────────
+
+    public async Task<string> GeneratePasswordResetTokenAsync(ApplicationUser user)
+        => await _userManager.GeneratePasswordResetTokenAsync(user);
+
+    public async Task<IdentityResult> ResetPasswordAsync(
+        ApplicationUser user, string token, string newPassword)
+        => await _userManager.ResetPasswordAsync(user, token, newPassword);
+
+    public async Task<string> GenerateEmailConfirmationTokenAsync(ApplicationUser user)
+        => await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+    public async Task<IdentityResult> ConfirmEmailAsync(ApplicationUser user, string token)
+        => await _userManager.ConfirmEmailAsync(user, token);
+
+    public async Task<IdentityResult> ChangePasswordAsync(
+        ApplicationUser user, string currentPassword, string newPassword)
+        => await _userManager.ChangePasswordAsync(user, currentPassword, newPassword);
 
     public async Task UpdateAvatarAsync(
         string userId, string avatarUrl, CancellationToken ct = default)

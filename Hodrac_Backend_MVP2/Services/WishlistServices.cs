@@ -15,71 +15,134 @@ namespace Hodrac_Backend_MVP2.Services;
 /// </summary>
 public class PopularWishlistService
 {
-    private readonly ISegmentedPopularityRepository _popularity;
+    /// <summary>
+    /// How many top-saved templates are considered for personalised ranking.
+    /// Bounds both the Postgres read and the Mongo popularity-doc fetch per request.
+    /// </summary>
+    private const int CandidatePoolSize = 200;
+
+    private readonly IMongoCollection<WishlistSegmentedPopularity> _popularity;
     private readonly IProfileRepository _profiles;
     private readonly HodracDbContext _db;
+    private readonly ILogger<PopularWishlistService> _logger;
 
     public PopularWishlistService(
-        ISegmentedPopularityRepository popularity,
+        IMongoDatabase mongo,
         IProfileRepository profiles,
-        HodracDbContext db)
+        HodracDbContext db,
+        ILogger<PopularWishlistService> logger)
     {
-        _popularity = popularity;
+        _popularity = mongo.GetCollection<WishlistSegmentedPopularity>("wishlist_segmented_popularity");
         _profiles = profiles;
         _db = db;
+        _logger = logger;
     }
 
-    public async Task<List<Guid>> GetRankedWishlistIdsAsync(string? userId, int limit = 20)
+    public async Task<List<Guid>> GetRankedWishlistIdsAsync(string? userId, int limit = 20, CancellationToken ct = default)
     {
+        // Candidate pool: most-saved templates. Also the generic ranking used when
+        // there is no profile or the personalised ranking yields nothing.
+        var candidates = await _db.Wishlists
+            .AsNoTracking()
+            .Where(w => w.IsTemplate)
+            .OrderByDescending(w => w.TotalGlobalSaveCount)
+            .Take(Math.Max(limit, CandidatePoolSize))
+            .Select(w => w.WishlistId)
+            .ToListAsync(ct);
+
         UserPsychographicProfile? profile = null;
+        List<WishlistSegmentedPopularity> docs = new();
         if (!string.IsNullOrEmpty(userId))
-            profile = await _profiles.GetByAuthUserIdAsync(userId);
-
-        // Fetch all popularity documents from MongoDB
-        var allPopularity = await _popularity.GetAllStaleAsync(DateTime.MinValue); // all docs
-
-        if (profile is null)
         {
-            // Unauthenticated or no profile: rank by total global save count (Postgres)
-            return await _db.Wishlists
-                .Where(w => w.IsTemplate)
-                .OrderByDescending(w => w.TotalGlobalSaveCount)
-                .Take(limit)
-                .Select(w => w.WishlistId)
-                .ToListAsync();
+            try
+            {
+                profile = await _profiles.GetByAuthUserIdAsync(userId);
+                if (profile is not null && candidates.Count > 0)
+                {
+                    // Only the popularity docs for the candidate pool, not the whole collection.
+                    var idStrings = candidates.Select(id => id.ToString()).ToList();
+                    docs = await _popularity
+                        .Find(Builders<WishlistSegmentedPopularity>.Filter.In(p => p.WishlistId, idStrings))
+                        .ToListAsync(ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Mongo unavailable → fall back to the generic ranking.
+                _logger.LogWarning(ex, "Popular wishlists: personalised ranking unavailable for {UserId}", userId);
+                profile = null;
+            }
         }
 
-        // Score each wishlist by cosine similarity between user vector and cluster keys
-        var userVector = ExtractUserVector(profile.PersonalityVectorScores);
-        var scored = new List<(string WishlistId, double Score)>();
+        if (profile is null)
+            return candidates.Take(limit).ToList();   // unauthenticated / no profile
 
-        foreach (var doc in allPopularity)
+        var userVector = ExtractUserVector(profile.PersonalityVectorScores);
+        var answers = profile.ExplicitOnboardingAnswers ?? new OnboardingAnswers();
+        var travelerType = answers.WhoTheyTravelWith;
+        var budgetTier = string.IsNullOrEmpty(answers.BudgetProfile) ? null : MapBudgetToTierKey(answers.BudgetProfile);
+        var priority = string.IsNullOrEmpty(answers.PrimaryPriority) ? null : MapPriorityToKey(answers.PrimaryPriority);
+
+        var scored = new List<(Guid WishlistId, double Score)>();
+        foreach (var doc in docs)
         {
+            if (!Guid.TryParse(doc.WishlistId, out var wishlistId)) continue;
+            var seg = doc.SegmentPopularityScores ?? new SegmentPopularityScores();
             var totalScore = 0.0;
-            foreach (var (clusterKey, saveCount) in doc.SegmentPopularityScores.PersonaVectorClusters)
+
+            // Persona-cluster saves weighted by similarity to the user's vector.
+            foreach (var (clusterKey, saveCount) in seg.PersonaVectorClusters ?? new())
             {
                 var clusterVector = ParseClusterKey(clusterKey);
                 if (clusterVector is null) continue;
-                var similarity = CosineSimilarity(userVector, clusterVector);
-                totalScore += similarity * saveCount;
+                totalScore += CosineSimilarity(userVector, clusterVector) * saveCount;
             }
-            scored.Add((doc.WishlistId, totalScore));
+
+            // Saves by people in the user's own segments (the counters TagInferenceService
+            // maintains on every save: traveler type, budget tier, primary priority).
+            totalScore += SegmentCount(seg.ExplicitTravelerTypes, travelerType);
+            totalScore += SegmentCount(seg.BudgetTiers, budgetTier);
+            totalScore += SegmentCount(seg.PrimaryPriorities, priority);
+
+            if (totalScore > 0) scored.Add((wishlistId, totalScore));
         }
 
-        var topWishlistIds = scored
+        // Personalised order first, then the remaining candidates by global saves.
+        var saveRank = candidates.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
+        var ranked = scored
             .OrderByDescending(s => s.Score)
-            .Take(limit)
+            .ThenBy(s => saveRank.GetValueOrDefault(s.WishlistId, int.MaxValue))
             .Select(s => s.WishlistId)
             .ToList();
 
-        // Resolve string IDs back to Guids (wishlist_id stored as string in MongoDB)
-        var guids = topWishlistIds
-            .Where(id => Guid.TryParse(id, out _))
-            .Select(Guid.Parse)
-            .ToList();
-
-        return guids;
+        var rankedSet = ranked.ToHashSet();
+        ranked.AddRange(candidates.Where(id => !rankedSet.Contains(id)));
+        return ranked.Take(limit).ToList();
     }
+
+    private static double SegmentCount(Dictionary<string, int>? segment, string? key)
+        => segment is not null && !string.IsNullOrEmpty(key) && segment.TryGetValue(key, out var count)
+            ? count
+            : 0;
+
+    // Mirrors TagInferenceService's private mappings so we read the same segment keys it writes.
+    private static string MapBudgetToTierKey(string budgetProfile) => budgetProfile switch
+    {
+        "Budget" => "budget_under_100_per_day",
+        "Mid-range" => "mid_range_100_250",
+        "Premium Comfortable" => "premium_250_500",
+        "Luxury" => "luxury_500_plus",
+        _ => "mid_range_100_250"
+    };
+
+    private static string MapPriorityToKey(string priority) => priority switch
+    {
+        "Saving money" => "stress_free_logistics",
+        "Instagram-Worthy" => "instagram_worthy",
+        "Culture" => "cultural_immersion",
+        "Adventure" => "adventure_activities",
+        _ => priority.ToLowerInvariant().Replace(" ", "_")
+    };
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -146,16 +209,20 @@ public class FeaturedWishlistService
         // 1. Paid (top 2, ordered by spend)
         var paid = await _db.FeaturedWishlistPool
             .Where(p => p.PoolType == "Paid"
+                     && p.Wishlist.IsTemplate
                      && p.CurrentImpressionsToday < p.DailyImpressionLimit)
             .OrderByDescending(p => p.PaidAmount)
+            .ThenBy(p => p.FeaturedWishlistPoolId)
             .Take(2)
             .Select(p => p.WishlistId)
             .ToListAsync(ct);
         result.AddRange(paid);
 
-        // 2. Editorial (3 curated)
+        // 2. Editorial (3 curated) — deterministic: most-saved first, id as tie-breaker
         var editorial = await _db.FeaturedWishlistPool
-            .Where(p => p.PoolType == "Editorial")
+            .Where(p => p.PoolType == "Editorial" && p.Wishlist.IsTemplate)
+            .OrderByDescending(p => p.Wishlist.TotalGlobalSaveCount)
+            .ThenBy(p => p.FeaturedWishlistPoolId)
             .Take(3)
             .Select(p => p.WishlistId)
             .ToListAsync(ct);
@@ -163,7 +230,7 @@ public class FeaturedWishlistService
 
         // 3. Random weighted pool (5)
         var randomPool = await _db.FeaturedWishlistPool
-            .Where(p => p.PoolType == "Random")
+            .Where(p => p.PoolType == "Random" && p.Wishlist.IsTemplate)
             .Select(p => new { p.WishlistId, p.RandomSelectionWeight })
             .ToListAsync(ct);
 

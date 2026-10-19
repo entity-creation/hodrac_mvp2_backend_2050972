@@ -225,6 +225,9 @@ public class NotificationConfiguration
             n.RecipientUserId,
             n.IsRead
         });
+
+        // Email digest: unread, not-yet-emailed per recipient.
+        builder.HasIndex(n => new { n.RecipientUserId, n.IsRead, n.EmailedAt });
     }
 }
 
@@ -396,5 +399,68 @@ public class WishlistCreatorAttributionConfiguration
 
         builder.HasIndex(a => a.IsActive);
         builder.HasIndex(a => a.PermissionGrantedAt);
+    }
+}
+// ─── Partners ─────────────────────────────────────────────────────────────────
+
+public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
+{
+    public void Configure(EntityTypeBuilder<Partner> builder)
+    {
+        builder.HasKey(p => p.PartnerId);
+
+        builder.HasMany(p => p.Links)
+            .WithOne(l => l.Partner)
+            .HasForeignKey(l => l.PartnerId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class PartnerLinkConfiguration : IEntityTypeConfiguration<PartnerLink>
+{
+    public void Configure(EntityTypeBuilder<PartnerLink> builder)
+    {
+        builder.HasKey(l => l.LinkId);
+
+        builder.HasOne(l => l.Destination)
+            .WithMany()
+            .HasForeignKey(l => l.DestinationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(l => l.Wishlist)
+            .WithMany()
+            .HasForeignKey(l => l.WishlistId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Exactly one target per link.
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_PartnerLink_ExactlyOneTarget",
+            "(\"DestinationId\" IS NULL) <> (\"WishlistId\" IS NULL)"));
+
+        builder.HasIndex(l => new { l.DestinationId, l.IsActive });
+        builder.HasIndex(l => new { l.WishlistId, l.IsActive });
+
+        builder.HasMany(l => l.Clicks)
+            .WithOne(c => c.Link)
+            .HasForeignKey(c => c.LinkId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class PartnerLinkClickConfiguration : IEntityTypeConfiguration<PartnerLinkClick>
+{
+    public void Configure(EntityTypeBuilder<PartnerLinkClick> builder)
+    {
+        builder.HasIndex(c => new { c.LinkId, c.ClickedAt });
+    }
+}
+
+public class PartnerLeadConfiguration : IEntityTypeConfiguration<PartnerLead>
+{
+    public void Configure(EntityTypeBuilder<PartnerLead> builder)
+    {
+        builder.HasIndex(l => l.CreatedAt);
+        builder.HasIndex(l => new { l.Status, l.CreatedAt });
+        builder.Property(l => l.Status).HasDefaultValue(PartnerLeadStatuses.New);
     }
 }

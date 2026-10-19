@@ -24,6 +24,10 @@ public class ApplicationUser : IdentityUser
 
     public string AvatarUrl { get; set; } = string.Empty;
 
+    /// <summary>ISO 3166-1 alpha-2, upper case (e.g. "GB"). Null = not set.</summary>
+    [MaxLength(2)]
+    public string? CountryCode { get; set; }
+
     // ── Onboarding state ──────────────────────────────────────────────────────
     // Tracks whether the user has completed the personalization modal.
     // Controls whether the frontend shows the modal on next visit.
@@ -34,6 +38,17 @@ public class ApplicationUser : IdentityUser
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// Last time the user was seen using the app (login or access-token refresh).
+    /// The email digest skips users active more recently than its inactivity window.
+    /// </summary>
+    public DateTimeOffset? LastActiveAt { get; set; }
+
+    // ── Notification preferences ──────────────────────────────────────────────
+
+    /// <summary>Whether the user receives the unread-notification email digest.</summary>
+    public bool NotificationEmailOptIn { get; set; } = true;
 
     // ── Navigation ────────────────────────────────────────────────────────────
 

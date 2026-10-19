@@ -1,8 +1,10 @@
 using Hodrac_Backend_MVP2.Data;
+using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hodrac_Backend_MVP2.Controllers
@@ -15,12 +17,14 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly HodracDbContext _db;
         private readonly INotificationService _notifications;
         private readonly ICurrentUserService _currentUser;
+        private readonly IHubContext<TripThreadHub> _tripThreadHub;
 
-        public ThreadController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser)
+        public ThreadController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IHubContext<TripThreadHub> tripThreadHub)
         {
             _db = db;
             _notifications = notifications;
             _currentUser = currentUser;
+            _tripThreadHub = tripThreadHub;
         }
 
         private Guid CurrentUserId => _currentUser.UserId;
@@ -53,6 +57,9 @@ namespace Hodrac_Backend_MVP2.Controllers
         [HttpGet("messages")]
         public async Task<IActionResult> GetMessages(Guid tripId, [FromQuery] int page = 0, [FromQuery] int pageSize = 50)
         {
+            page = Math.Max(page, 0);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+
             var thread = await GetThreadIfMemberAsync(tripId);
             if (thread is null) return NotFound();
 
@@ -72,12 +79,16 @@ namespace Hodrac_Backend_MVP2.Controllers
             return Ok(messages);
         }
 
+        public const int MaxMessageLength = 4000;
+
         public record SendMessageBody(string Body);
 
         [HttpPost("messages")]
         public async Task<IActionResult> SendMessage(Guid tripId, SendMessageBody body)
         {
             if (string.IsNullOrWhiteSpace(body.Body)) return BadRequest("Message can't be empty.");
+            if (body.Body.Trim().Length > MaxMessageLength)
+                return BadRequest($"Message can't be longer than {MaxMessageLength} characters.");
 
             var thread = await GetThreadIfMemberAsync(tripId);
             if (thread is null) return NotFound();
@@ -99,9 +110,15 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             await _notifications.NotifyNewThreadMessage(tripId, recipientIds, CurrentUserId);
 
-            // NOTE: also push this over your real-time channel (e.g. SignalR
-            // hub group named by thread.Id) so open clients update live
-            // instead of relying on polling this endpoint.
+            // Push to every participant (sender included, so their other
+            // tabs/devices stay in sync). Clients dedupe by message.Id.
+            var participantIds = thread.Participants
+                .Select(p => p.UserId.ToString())
+                .ToList();
+
+            await _tripThreadHub.Clients
+                .Users(participantIds)
+                .SendAsync("ThreadMessageReceived", new { tripId, threadId = thread.Id, message });
 
             return Ok(message);
         }

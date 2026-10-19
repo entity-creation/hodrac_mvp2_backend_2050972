@@ -87,4 +87,31 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                 trip.Caption, trip.CoverImageUrl, trip.MaxGroupSize, myInterestStatus, trip.Status, trip.CreatedAt);
         }
     }
+
+    // Projection for logged-out callers (GET /api/trips/public). Drops the
+    // author's user id and the per-viewer interest status so anonymous
+    // scraping can't correlate posts to accounts.
+    public record PublicTripPostDto(
+        Guid Id,
+        string DestinationLabel,
+        List<TripStopDto> Stops,
+        Guid? WishlistId,
+        DateOnly? StartDate,
+        DateOnly? EndDate,
+        bool IsDateFlexible,
+        string Caption,
+        string? CoverImageUrl,
+        int? MaxGroupSize,
+        TripPostStatus Status,
+        DateTime CreatedAt)
+    {
+        public static PublicTripPostDto FromEntity(TripPost trip)
+        {
+            var dto = TripPostDto.FromEntity(trip);
+            return new PublicTripPostDto(
+                dto.Id, dto.DestinationLabel, dto.Stops, dto.WishlistId,
+                dto.StartDate, dto.EndDate, dto.IsDateFlexible,
+                dto.Caption, dto.CoverImageUrl, dto.MaxGroupSize, dto.Status, dto.CreatedAt);
+        }
+    }
 }

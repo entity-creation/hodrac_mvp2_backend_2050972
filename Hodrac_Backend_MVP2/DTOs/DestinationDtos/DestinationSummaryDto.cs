@@ -1,4 +1,5 @@
-﻿namespace Hodrac_Backend_MVP2.DTOs.DestinationDtos
+﻿using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
+namespace Hodrac_Backend_MVP2.DTOs.DestinationDtos
 {
     public record DestinationSummaryDto(
     Guid DestinationId,
@@ -9,6 +10,7 @@
     int SafetyLevel,
     int LuxuryRating,
     List<string> Tags,
-    List<string> Categories
+    List<string> Categories,
+    PartnerDto? Partner = null
 );
 }

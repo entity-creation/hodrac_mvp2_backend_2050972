@@ -1,6 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
+using System.Text;
+using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.NoSql.Interfaces;
 using Hodrac_Backend_MVP2.Services;
@@ -16,7 +22,13 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// POST /api/auth/logout         — revoke refresh token(s)
 /// GET  /api/auth/me             — current user profile (requires auth)
 /// PATCH /api/auth/me            — update display name / avatar
-/// PATCH /api/auth/me/onboarding — mark personalization modal complete
+/// PATCH /api/auth/me/onboarding — save personalization answers + mark modal complete
+/// PATCH /api/auth/me/notification-preferences — email digest opt in/out
+/// POST /api/auth/forgot-password       — email a password reset link (always 200)
+/// POST /api/auth/reset-password        — reset password with emailed token
+/// POST /api/auth/change-password       — change password (requires auth)
+/// POST /api/auth/confirm-email         — confirm email with emailed token
+/// POST /api/auth/resend-confirmation   — resend confirmation email (requires auth)
 /// </summary>
 [ApiController]
 [Route("api/auth")]
@@ -26,17 +38,29 @@ public class AuthController : ControllerBase
     private readonly ITokenService _tokens;
     private readonly ICurrentUserService _currentUser;
     private readonly IProfileRepository _profiles;
+    private readonly IEmailSender _email;
+    private readonly IBehaviorEventQueue _events;
+    private readonly IConfiguration _config;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         IUserRepository users,
         ITokenService tokens,
         ICurrentUserService currentUser,
-        IProfileRepository profiles)
+        IProfileRepository profiles,
+        IEmailSender email,
+        IBehaviorEventQueue events,
+        IConfiguration config,
+        ILogger<AuthController> logger)
     {
         _users       = users;
         _tokens      = tokens;
         _currentUser = currentUser;
         _profiles    = profiles;
+        _email       = email;
+        _events      = events;
+        _config      = config;
+        _logger      = logger;
     }
 
     // ── POST /api/auth/register ───────────────────────────────────────────────
@@ -85,6 +109,10 @@ public class AuthController : ControllerBase
             }
         };
         await _profiles.UpsertAsync(profile);
+
+        // Confirmation email is best-effort — never fail registration over it.
+        // Login is NOT gated on EmailConfirmed; the frontend can nudge via /me.
+        await TrySendConfirmationEmailAsync(user);
 
         // Issue tokens immediately — user is logged in after registration
         var accessToken  = _tokens.GenerateAccessToken(user);
@@ -155,6 +183,10 @@ public class AuthController : ControllerBase
         var user = await _users.GetByIdAsync(request.UserId, ct);
         if (user is null)
             return Unauthorized(new { error = "User not found." });
+
+        // A refresh means the user is actively using the app (access tokens are
+        // 15 minutes) — keeps the email digest from emailing active users.
+        await _users.UpdateLastActiveAsync(user.Id, ct);
 
         // Issue fresh pair
         var newAccessToken  = _tokens.GenerateAccessToken(user);
@@ -231,6 +263,21 @@ public class AuthController : ControllerBase
         if (request.DisplayName is not null) user.DisplayName = request.DisplayName;
         if (request.AvatarUrl is not null)   user.AvatarUrl   = request.AvatarUrl;
 
+        // null = leave unchanged, "" = clear, otherwise must be ISO 3166-1 alpha-2.
+        if (request.CountryCode is not null)
+        {
+            var code = request.CountryCode.Trim().ToUpperInvariant();
+            if (code.Length == 0)
+                user.CountryCode = null;
+            else if (IsoCountryCodes.IsValid(code))
+                user.CountryCode = code;
+            else
+            {
+                ModelState.AddModelError(nameof(request.CountryCode), "countryCode must be a two-letter ISO 3166-1 code, e.g. \"GB\".");
+                return ValidationProblem(ModelState);
+            }
+        }
+
         var result = await _users.UpdateAsync(user);
         if (!result.Succeeded)
         {
@@ -246,12 +293,178 @@ public class AuthController : ControllerBase
     // Called by the frontend after the personalization modal is submitted.
     // Sets HasCompletedOnboarding = true so the modal is not shown again.
 
+    // Body is optional for backward compatibility: older clients send nothing,
+    // in which case the answers are published as empty strings.
+
     [HttpPatch("me/onboarding")]
     [Authorize]
-    public async Task<IActionResult> CompleteOnboarding(CancellationToken ct = default)
+    public async Task<IActionResult> CompleteOnboarding(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] OnboardingRequest? request,
+        CancellationToken ct = default)
     {
-        await _users.MarkOnboardingCompleteAsync(_currentUser.UserIdString, ct);
+        var userId = _currentUser.UserIdString;
+        await _users.MarkOnboardingCompleteAsync(userId, ct);
+
+        // Persisted asynchronously to the MongoDB profile by BehaviorEventWorker →
+        // TagInferenceService, so a slow Mongo never fails this request.
+        _events.Publish(new OnboardingCompletedEvent(
+            UserId            : userId,
+            WhoTheyTravelWith : request?.WhoTheyTravelWith?.Trim() ?? string.Empty,
+            TripTypePreference: request?.TripTypePreference?.Trim() ?? string.Empty,
+            BudgetProfile     : request?.BudgetProfile?.Trim() ?? string.Empty,
+            PrimaryPriority   : request?.PrimaryPriority?.Trim() ?? string.Empty,
+            OccurredAt        : DateTimeOffset.UtcNow));
+
         return NoContent();
+    }
+
+    // ── PATCH /api/auth/me/notification-preferences ───────────────────────────
+
+    [HttpPatch("me/notification-preferences")]
+    [Authorize]
+    public async Task<IActionResult> UpdateNotificationPreferences(
+        [FromBody] NotificationPreferencesRequest request,
+        CancellationToken ct = default)
+    {
+        await _users.SetNotificationEmailOptInAsync(_currentUser.UserIdString, request.EmailOptIn, ct);
+        return Ok(new { emailOptIn = request.EmailOptIn });
+    }
+
+    // ── POST /api/auth/forgot-password ────────────────────────────────────────
+    // Always 200 with the same body whether or not the account exists
+    // (prevents account enumeration). Send failures are logged, not surfaced.
+
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth-email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        var response = new { message = "If an account exists for that email, a password reset link has been sent." };
+
+        var user = await _users.GetByEmailAsync(request.Email, ct);
+        if (user is null || string.IsNullOrWhiteSpace(user.Email))
+            return Ok(response);
+
+        try
+        {
+            var token = EncodeToken(await _users.GeneratePasswordResetTokenAsync(user));
+            var link  = BuildFrontendLink("reset-password", user.Id, token);
+
+            await _email.SendAsync(
+                to       : user.Email,
+                subject  : "Reset your Hodrac password",
+                bodyLines: new List<string>
+                {
+                    $"Hi {user.DisplayName},",
+                    "We received a request to reset your Hodrac password. Use the link below to choose a new one.",
+                    "If you did not request this, you can safely ignore this email. Your password will not change.",
+                },
+                deepLink : link);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email to {UserId}", user.Id);
+        }
+
+        return Ok(response);
+    }
+
+    // ── POST /api/auth/reset-password ─────────────────────────────────────────
+    // On success all refresh tokens are revoked — every device must log in again.
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        var user  = await _users.GetByIdAsync(request.UserId, ct);
+        var token = DecodeToken(request.Token);
+        if (user is null || token is null)
+            return BadRequest(new { error = "Invalid or expired reset link." });
+
+        var result = await _users.ResetPasswordAsync(user, token, request.NewPassword);
+        if (!result.Succeeded)
+            return IdentityErrors(result);
+
+        await _tokens.RevokeAllRefreshTokensAsync(user.Id, ct);
+        return Ok(new { message = "Password has been reset. Please log in again." });
+    }
+
+    // ── POST /api/auth/change-password ────────────────────────────────────────
+    // On success ALL of the user's refresh tokens are revoked (including the
+    // current device's). The current access token stays valid until it expires
+    // (<= 15 min); the client should log in again with the new password.
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request,
+        CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        var user = await _users.GetByIdAsync(_currentUser.UserIdString, ct);
+        if (user is null) return NotFound();
+
+        var result = await _users.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+            return IdentityErrors(result);
+
+        await _tokens.RevokeAllRefreshTokensAsync(user.Id, ct);
+        return Ok(new { message = "Password changed. Please log in again." });
+    }
+
+    // ── POST /api/auth/confirm-email ──────────────────────────────────────────
+
+    [HttpPost("confirm-email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmail(
+        [FromBody] ConfirmEmailRequest request,
+        CancellationToken ct = default)
+    {
+        if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        var user  = await _users.GetByIdAsync(request.UserId, ct);
+        var token = DecodeToken(request.Token);
+        if (user is null || token is null)
+            return BadRequest(new { error = "Invalid or expired confirmation link." });
+
+        if (user.EmailConfirmed)
+            return Ok(new { emailConfirmed = true });
+
+        var result = await _users.ConfirmEmailAsync(user, token);
+        if (!result.Succeeded)
+            return IdentityErrors(result);
+
+        return Ok(new { emailConfirmed = true });
+    }
+
+    // ── POST /api/auth/resend-confirmation ────────────────────────────────────
+
+    [HttpPost("resend-confirmation")]
+    [EnableRateLimiting("auth-email")]
+    [Authorize]
+    public async Task<IActionResult> ResendConfirmation(CancellationToken ct = default)
+    {
+        var user = await _users.GetByIdAsync(_currentUser.UserIdString, ct);
+        if (user is null) return NotFound();
+
+        if (user.EmailConfirmed)
+            return Ok(new { emailConfirmed = true, sent = false });
+
+        var sent = await TrySendConfirmationEmailAsync(user);
+        if (!sent)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new { error = "Could not send the confirmation email. Please try again later." });
+
+        return Ok(new { emailConfirmed = false, sent = true });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -264,6 +477,63 @@ public class AuthController : ControllerBase
             Request.Headers.UserAgent.ToString().Length)];
     }
 
+    /// <summary>Sends the confirmation email. Never throws — returns false on failure.</summary>
+    private async Task<bool> TrySendConfirmationEmailAsync(ApplicationUser user)
+    {
+        if (string.IsNullOrWhiteSpace(user.Email)) return false;
+
+        try
+        {
+            var token = EncodeToken(await _users.GenerateEmailConfirmationTokenAsync(user));
+            var link  = BuildFrontendLink("confirm-email", user.Id, token);
+
+            await _email.SendAsync(
+                to       : user.Email,
+                subject  : "Confirm your Hodrac email",
+                bodyLines: new List<string>
+                {
+                    $"Hi {user.DisplayName},",
+                    "Welcome to Hodrac! Please confirm your email address using the link below.",
+                },
+                deepLink : link);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send confirmation email to {UserId}", user.Id);
+            return false;
+        }
+    }
+
+    private string BuildFrontendLink(string path, string userId, string encodedToken)
+    {
+        var baseUrl = (_config["Frontend:BaseUrl"] ?? "https://www.hodrac.com").TrimEnd('/');
+        return $"{baseUrl}/{path}?userId={Uri.EscapeDataString(userId)}&token={Uri.EscapeDataString(encodedToken)}";
+    }
+
+    // Identity tokens contain '+', '/', '=' — Base64Url-encode for safe use in links.
+    private static string EncodeToken(string token)
+        => WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+    private static string? DecodeToken(string encoded)
+    {
+        try
+        {
+            return Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(encoded));
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private IActionResult IdentityErrors(IdentityResult result)
+    {
+        foreach (var error in result.Errors)
+            ModelState.AddModelError(error.Code, error.Description);
+        return ValidationProblem(ModelState);
+    }
+
     private static UserDto MapToUserDto(ApplicationUser user) => new(
         UserId              : user.Id,
         Email               : user.Email ?? string.Empty,
@@ -271,7 +541,10 @@ public class AuthController : ControllerBase
         AvatarUrl           : user.AvatarUrl,
         HasCompletedOnboarding: user.HasCompletedOnboarding,
         CreatedAt           : user.CreatedAt,
-        LastLoginAt         : user.LastLoginAt
+        LastLoginAt         : user.LastLoginAt,
+        EmailConfirmed      : user.EmailConfirmed,
+        NotificationEmailOptIn: user.NotificationEmailOptIn,
+        CountryCode         : user.CountryCode
     );
 }
 
@@ -309,7 +582,8 @@ public record LogoutRequest(
 
 public record UpdateProfileRequest(
     string? DisplayName,
-    string? AvatarUrl
+    string? AvatarUrl,
+    string? CountryCode
 );
 
 public record AuthResponse(
@@ -326,5 +600,42 @@ public record UserDto(
     string AvatarUrl,
     bool HasCompletedOnboarding,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? LastLoginAt
+    DateTimeOffset? LastLoginAt,
+    bool EmailConfirmed,
+    bool NotificationEmailOptIn,
+    string? CountryCode
+);
+
+public record OnboardingRequest(
+    [MaxLength(100)] string? WhoTheyTravelWith,
+    [MaxLength(100)] string? TripTypePreference,
+    [MaxLength(100)] string? BudgetProfile,
+    [MaxLength(100)] string? PrimaryPriority
+);
+
+public record NotificationPreferencesRequest(
+    bool EmailOptIn
+);
+
+public record ForgotPasswordRequest(
+    [Required, EmailAddress, MaxLength(320)]
+    string Email
+);
+
+public record ResetPasswordRequest(
+    [Required] string UserId,
+    [Required] string Token,
+    [Required, MinLength(8), MaxLength(100)]
+    string NewPassword
+);
+
+public record ChangePasswordRequest(
+    [Required] string CurrentPassword,
+    [Required, MinLength(8), MaxLength(100)]
+    string NewPassword
+);
+
+public record ConfirmEmailRequest(
+    [Required] string UserId,
+    [Required] string Token
 );
