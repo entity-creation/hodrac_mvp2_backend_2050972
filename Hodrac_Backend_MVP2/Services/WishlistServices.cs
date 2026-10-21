@@ -79,9 +79,11 @@ public class PopularWishlistService
 
         var userVector = ExtractUserVector(profile.PersonalityVectorScores);
         var answers = profile.ExplicitOnboardingAnswers ?? new OnboardingAnswers();
-        var travelerType = answers.WhoTheyTravelWith;
-        var budgetTier = string.IsNullOrEmpty(answers.BudgetProfile) ? null : MapBudgetToTierKey(answers.BudgetProfile);
-        var priority = string.IsNullOrEmpty(answers.PrimaryPriority) ? null : MapPriorityToKey(answers.PrimaryPriority);
+        // Same sanitised segment keys TagInferenceService / the rebuild job write.
+        // Missing answers → null (never match the "unknown" bucket).
+        var travelerType = string.IsNullOrWhiteSpace(answers.WhoTheyTravelWith) ? null : ProfileInference.TravelerTypeKey(answers.WhoTheyTravelWith);
+        var budgetTier = string.IsNullOrWhiteSpace(answers.BudgetProfile) ? null : ProfileInference.BudgetTierKey(answers.BudgetProfile);
+        var priority = string.IsNullOrWhiteSpace(answers.PrimaryPriority) ? null : ProfileInference.PriorityKey(answers.PrimaryPriority);
 
         var scored = new List<(Guid WishlistId, double Score)>();
         foreach (var doc in docs)
@@ -124,25 +126,6 @@ public class PopularWishlistService
         => segment is not null && !string.IsNullOrEmpty(key) && segment.TryGetValue(key, out var count)
             ? count
             : 0;
-
-    // Mirrors TagInferenceService's private mappings so we read the same segment keys it writes.
-    private static string MapBudgetToTierKey(string budgetProfile) => budgetProfile switch
-    {
-        "Budget" => "budget_under_100_per_day",
-        "Mid-range" => "mid_range_100_250",
-        "Premium Comfortable" => "premium_250_500",
-        "Luxury" => "luxury_500_plus",
-        _ => "mid_range_100_250"
-    };
-
-    private static string MapPriorityToKey(string priority) => priority switch
-    {
-        "Saving money" => "stress_free_logistics",
-        "Instagram-Worthy" => "instagram_worthy",
-        "Culture" => "cultural_immersion",
-        "Adventure" => "adventure_activities",
-        _ => priority.ToLowerInvariant().Replace(" ", "_")
-    };
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 

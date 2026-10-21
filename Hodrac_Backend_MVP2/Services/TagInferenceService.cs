@@ -1,7 +1,6 @@
 using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.NoSql.Interfaces;
 using Hodrac_Backend_MVP2.NoSql.Models;
-using Hodrac_Backend_MVP2.NoSql.Repositories;
 using MongoDB.Driver;
 
 namespace Hodrac_Backend_MVP2.Services;
@@ -9,15 +8,28 @@ namespace Hodrac_Backend_MVP2.Services;
 /// <summary>
 /// Implements the bidirectional tag inference loop described in Part 4 of the spec.
 ///
-/// Triggered by: WishlistSavedEvent, DestinationClickedEvent, OnboardingCompletedEvent.
+/// Triggered by: WishlistSavedEvent, DestinationClickedEvent, SearchExecutedEvent,
+/// OnboardingCompletedEvent (via BehaviorEventWorker).
 /// Reads: tag_inference_rules collection.
-/// Writes: user_psychographic_profiles (vector scores + tag arrays).
+/// Writes: interaction_event_stream (raw events), user_psychographic_profiles
+/// (tag counts, event-type counters, clamped vectors, derived fields) and
+/// wishlist_segmented_popularity (segment counters on save).
 ///
-/// This service runs in the Behavioral Engine (consumer side of the event bus).
+/// Every handler first ensures the profile exists (minimal upsert), so events for
+/// users whose register-time profile creation failed are not lost.
 /// It must NOT have a dependency on HodracDbContext — it only touches MongoDB.
 /// </summary>
 public class TagInferenceService
 {
+    // Rules are a small, rarely-changing collection: cache them process-wide briefly
+    // so each event doesn't re-query, while admin edits still apply within minutes.
+    private static readonly TimeSpan RuleCacheTtl = TimeSpan.FromMinutes(5);
+    private static readonly SemaphoreSlim RuleCacheLock = new(1, 1);
+    private static List<TagInferenceRule>? _ruleCache;
+    private static DateTime _ruleCacheLoadedAt;
+
+    private const int MaxSearchPhraseLength = 200;
+
     private readonly IMongoCollection<TagInferenceRule> _rules;
     private readonly IProfileRepository _profiles;
     private readonly ISegmentedPopularityRepository _popularity;
@@ -29,7 +41,7 @@ public class TagInferenceService
         ISegmentedPopularityRepository popularity,
         IInteractionEventRepository events)
     {
-        _rules = db.GetCollection<TagInferenceRule>("tag_inference_rules");
+        _rules = db.GetCollection<TagInferenceRule>(TagInferenceRuleSeed.CollectionName);
         _profiles = profiles;
         _popularity = popularity;
         _events = events;
@@ -39,185 +51,178 @@ public class TagInferenceService
 
     public async Task HandleWishlistSavedAsync(WishlistSavedEvent evt)
     {
-        // 1. Log raw event
+        if (string.IsNullOrEmpty(evt.UserId)) return;
+        var at = evt.OccurredAt.UtcDateTime;
+        var tags = ProfileInference.NormalizeTags(evt.WishlistTags);
+
+        // 1. Log raw event (normalised tag keys)
         await _events.InsertAsync(new InteractionEvent
         {
             EventId = $"evt_{Guid.NewGuid():N}",
             UserId = evt.UserId,
-            EventType = "wishlist_save",
+            EventType = ProfileInference.EventWishlistSave,
             EntityId = evt.WishlistId,
-            EntityTags = evt.WishlistTags,
-            Timestamp = evt.OccurredAt.UtcDateTime,
+            EntityTags = tags,
+            Timestamp = at,
             Context = new EventContext { Page = "wishlist_detail", Position = 0 }
         });
 
-        // 2. Find all matching inference rules for each tag on the saved wishlist
-        foreach (var tag in evt.WishlistTags)
+        // 2. Record every interacted tag (regardless of rules) + event-type counter
+        await _profiles.EnsureExistsAsync(evt.UserId, at);
+        await _profiles.RecordInteractionAsync(evt.UserId, ProfileInference.EventWishlistSave,
+            tags.ToDictionary(t => t, _ => ProfileInference.SaveTagWeight), at);
+
+        // 3. Rule-driven vector updates (clamped 0–100)
+        var rules = await GetRulesAsync();
+        await _profiles.ApplyVectorDeltasAsync(evt.UserId,
+            ProfileInference.TagRuleDeltas(rules, ProfileInference.EventWishlistSave, tags));
+
+        // 4. Derived fields
+        var profile = await RecomputeDerivedAsync(evt.UserId);
+
+        // 5. Segment counters — always incremented ("unknown" for missing answers).
+        //    WishlistId is Guid.ToString() ("D" format), the same form PopularWishlistService reads.
+        var answers = profile?.ExplicitOnboardingAnswers ?? new OnboardingAnswers();
+        var budget = string.IsNullOrWhiteSpace(answers.BudgetProfile) ? evt.BudgetProfile : answers.BudgetProfile;
+        await _popularity.IncrementSegmentsAsync(evt.WishlistId, new Dictionary<string, string>
         {
-            var matchingRules = await GetRulesForTagAsync("wishlist_save", tag);
-
-            foreach (var rule in matchingRules)
-            {
-                if (!string.IsNullOrEmpty(rule.TargetUserVector) && rule.IncrementWeight > 0)
-                {
-                    // 3a. Update user's personality vector
-                    await _profiles.UpdateVectorScoresAsync(
-                        evt.UserId,
-                        rule.TargetUserVector,
-                        rule.IncrementWeight
-                    );
-                }
-
-                // 3b. Track tag in interaction history
-                await _profiles.AppendTagAsync(evt.UserId, tag);
-            }
-        }
-
-        // 4. Update segmented popularity counters for this wishlist
-        var profile = await _profiles.GetByAuthUserIdAsync(evt.UserId);
-        if (profile is not null)
-        {
-            // Explicit traveler type counter
-            await _popularity.IncrementSegmentAsync(
-                evt.WishlistId,
-                "segment_popularity_scores.explicit_traveler_types",
-                evt.PeopleType
-            );
-
-            // Budget tier counter
-            await _popularity.IncrementSegmentAsync(
-                evt.WishlistId,
-                "segment_popularity_scores.budget_tiers",
-                MapBudgetToTierKey(evt.BudgetProfile)
-            );
-
-            // Primary priority counter
-            await _popularity.IncrementSegmentAsync(
-                evt.WishlistId,
-                "segment_popularity_scores.primary_priorities",
-                MapPriorityToKey(profile.ExplicitOnboardingAnswers.PrimaryPriority)
-            );
-        }
+            [SegmentFields.TravelerTypes] = ProfileInference.TravelerTypeKey(answers.WhoTheyTravelWith),
+            [SegmentFields.BudgetTiers] = ProfileInference.BudgetTierKey(budget),
+            [SegmentFields.Priorities] = ProfileInference.PriorityKey(answers.PrimaryPriority),
+            [SegmentFields.PersonaClusters] = ProfileInference.PersonaClusterKey(profile?.InferredTravelerPrototypes?.PrimaryType),
+        });
     }
 
     // ─── DestinationClicked ───────────────────────────────────────────────────
 
     public async Task HandleDestinationClickedAsync(DestinationClickedEvent evt)
     {
+        if (string.IsNullOrEmpty(evt.UserId)) return;
+        var at = evt.OccurredAt.UtcDateTime;
+        var tags = ProfileInference.NormalizeTags(evt.DestinationTags);
+
         await _events.InsertAsync(new InteractionEvent
         {
             EventId = $"evt_{Guid.NewGuid():N}",
             UserId = evt.UserId,
-            EventType = "destination_click",
+            EventType = ProfileInference.EventDestinationClick,
             EntityId = evt.DestinationId,
-            EntityTags = evt.DestinationTags,
-            Timestamp = evt.OccurredAt.UtcDateTime,
+            EntityTags = tags,
+            Timestamp = at,
             Context = new EventContext { Page = "explore", Position = 0 }
         });
 
-        foreach (var tag in evt.DestinationTags)
+        await _profiles.EnsureExistsAsync(evt.UserId, at);
+        await _profiles.RecordInteractionAsync(evt.UserId, ProfileInference.EventDestinationClick,
+            tags.ToDictionary(t => t, _ => ProfileInference.ClickTagWeight), at);
+
+        // Destination clicks get half the weight of a save — weaker signal
+        var rules = await GetRulesAsync();
+        await _profiles.ApplyVectorDeltasAsync(evt.UserId,
+            ProfileInference.TagRuleDeltas(rules, ProfileInference.EventDestinationClick, tags,
+                ProfileInference.ClickVectorMultiplier));
+
+        await RecomputeDerivedAsync(evt.UserId);
+    }
+
+    // ─── SearchExecuted ───────────────────────────────────────────────────────
+
+    public async Task HandleSearchExecutedAsync(SearchExecutedEvent evt)
+    {
+        if (string.IsNullOrEmpty(evt.UserId)) return;
+        var phrase = (evt.CanonicalPhrase ?? string.Empty).Trim();
+        if (phrase.Length == 0) return;
+        if (phrase.Length > MaxSearchPhraseLength) phrase = phrase[..MaxSearchPhraseLength];
+        var at = evt.OccurredAt.UtcDateTime;
+
+        // Only the canonical phrase is stored (not the raw query).
+        await _events.InsertAsync(new InteractionEvent
         {
-            var matchingRules = await GetRulesForTagAsync("destination_click", tag);
-            foreach (var rule in matchingRules)
-            {
-                if (!string.IsNullOrEmpty(rule.TargetUserVector) && rule.IncrementWeight > 0)
-                {
-                    // Destination clicks get half the weight of a save — weaker signal
-                    await _profiles.UpdateVectorScoresAsync(
-                        evt.UserId,
-                        rule.TargetUserVector,
-                        rule.IncrementWeight * 0.5
-                    );
-                }
-            }
-        }
+            EventId = $"evt_{Guid.NewGuid():N}",
+            UserId = evt.UserId,
+            EventType = ProfileInference.EventSearch,
+            EntityId = phrase,
+            EntityTags = new List<string>(),
+            Timestamp = at,
+            Context = new EventContext { Page = "search", Position = 0 }
+        });
+
+        await _profiles.EnsureExistsAsync(evt.UserId, at);
+        await _profiles.PushSearchPhraseAsync(evt.UserId, phrase, at);
+        await RecomputeDerivedAsync(evt.UserId);
     }
 
     // ─── OnboardingCompleted ──────────────────────────────────────────────────
 
     public async Task HandleOnboardingCompletedAsync(OnboardingCompletedEvent evt)
     {
-        // Find rules triggered by explicit profile field values
-        var fieldRules = await GetRulesForFieldAsync(
-            "user_profile_field",
-            "primary_priority",
-            evt.PrimaryPriority
-        );
+        if (string.IsNullOrEmpty(evt.UserId)) return;
+        var at = evt.OccurredAt.UtcDateTime;
 
-        // These rules specify destination tag boosts, not vector updates.
-        // Store them in the profile so the recommendation engine can apply boost_multiplier
-        // at query time without re-reading the rules collection.
-        var profile = await _profiles.GetByAuthUserIdAsync(evt.UserId);
+        await _profiles.EnsureExistsAsync(evt.UserId, at);
+        var existing = await _profiles.GetByAuthUserIdAsync(evt.UserId);
+        var oldAnswers = existing?.ExplicitOnboardingAnswers ?? new OnboardingAnswers();
 
-        if (profile is null)
+        // Empty answers (older clients send no body) never wipe answers already given.
+        static string Pick(string? incoming, string current)
+            => string.IsNullOrWhiteSpace(incoming) ? current ?? string.Empty : incoming.Trim();
+
+        var newAnswers = new OnboardingAnswers
         {
-            // First-time onboarding — create the profile document
-            profile = new UserPsychographicProfile
-            {
-                Id = $"prof_user_{Guid.NewGuid():N}",
-                AuthUserReferenceId = evt.UserId,
-                ExplicitOnboardingAnswers = new OnboardingAnswers
-                {
-                    WhoTheyTravelWith = evt.WhoTheyTravelWith,
-                    TripTypePreference = evt.TripTypePreference,
-                    BudgetProfile = evt.BudgetProfile,
-                    PrimaryPriority = evt.PrimaryPriority,
-                },
-                SystemTelemetry = new SystemTelemetry
-                {
-                    FirstSeenAt = evt.OccurredAt.UtcDateTime,
-                    LastInteractionDeltaAt = evt.OccurredAt.UtcDateTime,
-                }
-            };
-            await _profiles.UpsertAsync(profile);
-        }
-        else
-        {
-            profile.ExplicitOnboardingAnswers.WhoTheyTravelWith = evt.WhoTheyTravelWith;
-            profile.ExplicitOnboardingAnswers.TripTypePreference = evt.TripTypePreference;
-            profile.ExplicitOnboardingAnswers.BudgetProfile = evt.BudgetProfile;
-            profile.ExplicitOnboardingAnswers.PrimaryPriority = evt.PrimaryPriority;
-            await _profiles.UpsertAsync(profile);
-        }
+            WhoTheyTravelWith = Pick(evt.WhoTheyTravelWith, oldAnswers.WhoTheyTravelWith),
+            TripTypePreference = Pick(evt.TripTypePreference, oldAnswers.TripTypePreference),
+            BudgetProfile = Pick(evt.BudgetProfile, oldAnswers.BudgetProfile),
+            PrimaryPriority = Pick(evt.PrimaryPriority, oldAnswers.PrimaryPriority),
+        };
+        await _profiles.SetOnboardingAnswersAsync(evt.UserId, newAnswers, at);
+
+        // Apply only the difference between the new and previous answers' rule effects,
+        // so re-submitting onboarding doesn't double-count.
+        var rules = await GetRulesAsync();
+        var deltas = ProfileInference.Combine(
+            ProfileInference.OnboardingRuleDeltas(rules, newAnswers),
+            ProfileInference.OnboardingRuleDeltas(rules, oldAnswers),
+            bSign: -1);
+        await _profiles.ApplyVectorDeltasAsync(evt.UserId, deltas);
+
+        await RecomputeDerivedAsync(evt.UserId);
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
-    private async Task<List<TagInferenceRule>> GetRulesForTagAsync(string sourceType, string sourceTag)
+    /// <summary>Reloads the profile, recomputes derived fields, writes them and returns the updated profile.</summary>
+    private async Task<UserPsychographicProfile?> RecomputeDerivedAsync(string userId)
     {
-        var filter = Builders<TagInferenceRule>.Filter.And(
-            Builders<TagInferenceRule>.Filter.Eq(r => r.SourceType, sourceType),
-            Builders<TagInferenceRule>.Filter.Eq(r => r.SourceTag, sourceTag)
-        );
-        return await _rules.Find(filter).ToListAsync();
+        var profile = await _profiles.GetByAuthUserIdAsync(userId);
+        if (profile is null) return null;
+
+        var derived = ProfileInference.ComputeDerived(profile);
+        await _profiles.SetDerivedFieldsAsync(userId, derived);
+
+        profile.InteractionAggregations.TopInteractedWishlistTags = derived.TopInteractedTags;
+        profile.InteractionAggregations.ConversionProbabilityIndex = derived.ConversionProbabilityIndex;
+        profile.InferredTravelerPrototypes = derived.Prototypes;
+        profile.InferredDemographicMatrix = derived.Demographics;
+        return profile;
     }
 
-    private async Task<List<TagInferenceRule>> GetRulesForFieldAsync(
-        string sourceType, string sourceField, string sourceValue)
+    private async Task<List<TagInferenceRule>> GetRulesAsync()
     {
-        var filter = Builders<TagInferenceRule>.Filter.And(
-            Builders<TagInferenceRule>.Filter.Eq(r => r.SourceType, sourceType),
-            Builders<TagInferenceRule>.Filter.Eq(r => r.SourceField, sourceField),
-            Builders<TagInferenceRule>.Filter.Eq(r => r.SourceValue, sourceValue)
-        );
-        return await _rules.Find(filter).ToListAsync();
+        var cached = _ruleCache;
+        if (cached is not null && DateTime.UtcNow - _ruleCacheLoadedAt < RuleCacheTtl) return cached;
+
+        await RuleCacheLock.WaitAsync();
+        try
+        {
+            if (_ruleCache is not null && DateTime.UtcNow - _ruleCacheLoadedAt < RuleCacheTtl) return _ruleCache;
+            var rules = await _rules.Find(FilterDefinition<TagInferenceRule>.Empty).ToListAsync();
+            _ruleCache = rules;
+            _ruleCacheLoadedAt = DateTime.UtcNow;
+            return rules;
+        }
+        finally
+        {
+            RuleCacheLock.Release();
+        }
     }
-
-    private static string MapBudgetToTierKey(string budgetProfile) => budgetProfile switch
-    {
-        "Budget" => "budget_under_100_per_day",
-        "Mid-range" => "mid_range_100_250",
-        "Premium Comfortable" => "premium_250_500",
-        "Luxury" => "luxury_500_plus",
-        _ => "mid_range_100_250"
-    };
-
-    private static string MapPriorityToKey(string priority) => priority switch
-    {
-        "Saving money" => "stress_free_logistics",
-        "Instagram-Worthy" => "instagram_worthy",
-        "Culture" => "cultural_immersion",
-        "Adventure" => "adventure_activities",
-        _ => priority.ToLowerInvariant().Replace(" ", "_")
-    };
 }

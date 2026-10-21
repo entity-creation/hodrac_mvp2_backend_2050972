@@ -106,9 +106,21 @@ public class TravelerPrototypes
 
 public class InteractionAggregations
 {
+    /// <summary>
+    /// Top 10 normalised tag keys by <see cref="TagCounts"/> (recomputed after every update).
+    /// Covers wishlist vibe tags and destination tags.
+    /// </summary>
     [BsonElement("top_interacted_wishlist_tags")]
     public List<string> TopInteractedWishlistTags { get; set; } = new();
 
+    /// <summary>
+    /// Weighted interaction count per normalised tag key ("sports_fan", "food_focused").
+    /// Weights: wishlist save = 2, destination click = 1.
+    /// </summary>
+    [BsonElement("tag_counts")]
+    public Dictionary<string, int> TagCounts { get; set; } = new();
+
+    /// <summary>Interaction count per event type: wishlist_save, destination_click, search.</summary>
     [BsonElement("interaction_click_count_by_persona_layer")]
     public Dictionary<string, int> InteractionClickCountByPersonaLayer { get; set; } = new();
 
@@ -186,6 +198,18 @@ public class WishlistSegmentedPopularity
 
     [BsonElement("last_computed_at")]
     public DateTime LastComputedAt { get; set; }
+}
+
+/// <summary>BSON field names of the dictionaries inside segment_popularity_scores.</summary>
+public static class SegmentFields
+{
+    public const string Root = "segment_popularity_scores";
+    public const string PersonaClusters = "persona_vector_clusters";
+    public const string TravelerTypes = "explicit_traveler_types";
+    public const string BudgetTiers = "budget_tiers";
+    public const string Priorities = "primary_priorities";
+
+    public static readonly string[] All = [PersonaClusters, TravelerTypes, BudgetTiers, Priorities];
 }
 
 public class SegmentPopularityScores
@@ -287,6 +311,16 @@ public static class MongoIndexDefinitions
                     .Ascending(e => e.EventType)
                     .Descending(e => e.Timestamp),
                 new CreateIndexOptions { Name = "idx_event_type_ts" }
+            )
+        );
+        // (event_type, entity_id, timestamp) for per-entity audience queries (admin insights)
+        await events.Indexes.CreateOneAsync(
+            new CreateIndexModel<InteractionEvent>(
+                Builders<InteractionEvent>.IndexKeys
+                    .Ascending(e => e.EventType)
+                    .Ascending(e => e.EntityId)
+                    .Descending(e => e.Timestamp),
+                new CreateIndexOptions { Name = "idx_event_type_entity_ts" }
             )
         );
         // user_id index for per-user event history lookups

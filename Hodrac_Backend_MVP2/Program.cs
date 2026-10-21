@@ -176,6 +176,9 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // ─── Domain Services ──────────────────────────────────────────────────────────
 builder.Services.AddScoped<TagInferenceService>();
+builder.Services.AddScoped<AdminInsightsService>();
+builder.Services.AddScoped<InsightsRebuilder>();
+builder.Services.AddSingleton<InsightsRebuildJobManager>();
 builder.Services.AddScoped<SearchService>();
 builder.Services.AddScoped<PopularWishlistService>();
 builder.Services.AddScoped<FeaturedWishlistService>();

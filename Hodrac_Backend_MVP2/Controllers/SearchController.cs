@@ -1,5 +1,6 @@
 ﻿using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
 using Hodrac_Backend_MVP2.DTOs.SearchDtos;
+using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
@@ -24,6 +25,8 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly Data.HodracDbContext _db;
         private readonly ICurrentUserService _currentUser;
         private readonly IPartnerService _partners;
+        private readonly IBehaviorEventQueue _events;
+        private readonly ILogger<SearchController> _logger;
 
         public SearchController(
             SearchService search,
@@ -31,7 +34,9 @@ namespace Hodrac_Backend_MVP2.Controllers
             IWishlistRepository wishlists,
             Data.HodracDbContext db,
             ICurrentUserService currentUser,
-            IPartnerService partners)
+            IPartnerService partners,
+            IBehaviorEventQueue events,
+            ILogger<SearchController> logger)
         {
             _search = search;
             _destinations = destinations;
@@ -39,6 +44,8 @@ namespace Hodrac_Backend_MVP2.Controllers
             _db = db;
             _currentUser = currentUser;
             _partners = partners;
+            _events = events;
+            _logger = logger;
         }
 
         [HttpGet("search")]
@@ -53,6 +60,7 @@ namespace Hodrac_Backend_MVP2.Controllers
             // a client-supplied user_id query param is deliberately ignored.
             var authenticatedUserId = _currentUser.IsAuthenticated ? _currentUser.UserIdString : null;
             var result = await _search.SearchAsync(q, authenticatedUserId, ct);
+            PublishSearchExecuted(authenticatedUserId, q, result);
             var matchingDestinations = await _destinations.SearchByNameAsync(
                  result.CanonicalPhrase, 12, ct);
             var wishlistItems = await SearchWishlistTemplatesAsync(
@@ -72,6 +80,28 @@ namespace Hodrac_Backend_MVP2.Controllers
                 )), ct),
                 Wishlists: await _partners.AttachAsync(wishlistItems.Select(item => WishlistsController.MapToCard(item)), ct)
             ));
+        }
+
+        /// <summary>
+        /// Feeds the behavioural engine (historical_search_phrases + search counter) for
+        /// authenticated callers. Queue publish only — never fails or delays the search.
+        /// </summary>
+        private void PublishSearchExecuted(string? userId, string rawQuery, SearchResult result)
+        {
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrWhiteSpace(result.CanonicalPhrase)) return;
+            try
+            {
+                _events.Publish(new SearchExecutedEvent(
+                    UserId: userId,
+                    RawQuery: rawQuery,
+                    CanonicalPhrase: result.CanonicalPhrase,
+                    SemanticClusterId: result.SemanticClusterId ?? string.Empty,
+                    OccurredAt: DateTimeOffset.UtcNow));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to publish SearchExecutedEvent");
+            }
         }
 
         /// <summary>

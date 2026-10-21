@@ -28,12 +28,16 @@ namespace Hodrac_Backend_MVP2.Services
                 {
                     await MongoIndexDefinitions.EnsureIndexesAsync(_db);
                     _logger.LogInformation("MongoDB indexes ensured");
+
+                    // Starter inference rules: insert-if-missing, never overwrites existing docs.
+                    var inserted = await TagInferenceRuleSeed.SeedAsync(_db, stoppingToken);
+                    _logger.LogInformation("Tag inference rules ensured ({Inserted} starter rules inserted)", inserted);
                     return;
                 }
                 catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
                 {
                     _logger.LogWarning(ex,
-                        "MongoDB unavailable; indexes not ensured. Profile/personalisation features will fail until it is reachable. Retrying in {Delay}",
+                        "MongoDB unavailable; indexes/starter rules not ensured. Profile/personalisation features will fail until it is reachable. Retrying in {Delay}",
                         RetryDelay);
                 }
 

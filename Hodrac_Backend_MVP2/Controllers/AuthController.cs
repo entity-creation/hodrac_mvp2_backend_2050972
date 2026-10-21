@@ -104,17 +104,7 @@ public class AuthController : ControllerBase
 
         // Create the MongoDB psychographic profile immediately on registration.
         // It starts empty — populated progressively by interactions and onboarding.
-        var profile = new UserPsychographicProfile
-        {
-            Id                      = $"prof_{user.Id}",
-            AuthUserReferenceId     = user.Id,
-            AnonymizedMarketplaceId = $"anon_{Guid.NewGuid():N}",
-            SystemTelemetry = new SystemTelemetry
-            {
-                FirstSeenAt              = DateTime.UtcNow,
-                LastInteractionDeltaAt   = DateTime.UtcNow,
-            }
-        };
+        var profile = Hodrac_Backend_MVP2.NoSql.Repositories.ProfileRepository.NewMinimalProfile(user.Id, DateTime.UtcNow);
         // Best-effort: if Mongo is down the account still works; the profile is
         // created later by onboarding / the first behavior event.
         try
