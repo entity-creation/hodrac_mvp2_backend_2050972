@@ -246,11 +246,17 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddSignalR();
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+// Extra origins (e.g. the admin dashboard) via Cors:AllowedOrigins, comma-separated.
+var corsOrigins = new[] { builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173", "http://localhost:5173" }
+    .Concat((builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
+        .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    .Select(o => o.TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
-        policy.WithOrigins(
-                builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173", "http://localhost:5173"
-              )
+        policy.WithOrigins(corsOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()

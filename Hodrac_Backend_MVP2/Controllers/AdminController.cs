@@ -109,13 +109,20 @@ public class AdminController : ControllerBase
 
         // ── Daily series (UTC date buckets; zero days omitted) ────────────────
         // timestamptz → .Date translates to date_trunc('day', col, 'UTC').
-        var newUsersDaily = await _db.Users
+        // Users.CreatedAt is a DateTimeOffset: Npgsql can't shape a UTC-date
+        // GroupBy key on it back into DateTime, so bucket the (window-limited)
+        // timestamps in memory instead.
+        var newUserTimestamps = await _db.Users
             .AsNoTracking()
             .Where(u => u.CreatedAt >= windowStartOffset)
-            .GroupBy(u => u.CreatedAt.UtcDateTime.Date)
+            .Select(u => u.CreatedAt)
+            .ToListAsync(ct);
+
+        var newUsersDaily = newUserTimestamps
+            .GroupBy(c => c.UtcDateTime.Date)
             .Select(g => new { Day = g.Key, Count = g.Count() })
             .OrderBy(x => x.Day)
-            .ToListAsync(ct);
+            .ToList();
 
         var newTripsDaily = await _db.TripPosts
             .AsNoTracking()

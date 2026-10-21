@@ -471,6 +471,15 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<int>("FamilyFriendlyScore")
                         .HasColumnType("integer");
 
+                    b.Property<int>("FeaturedOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("FeaturedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsFeatured")
+                        .HasColumnType("boolean");
+
                     b.Property<double>("Latitude")
                         .HasColumnType("double precision");
 

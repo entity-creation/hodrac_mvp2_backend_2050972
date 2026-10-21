@@ -57,6 +57,7 @@ public class ExploreController : ControllerBase
         [FromQuery] string?      categories,     // comma-separated category keys
         [FromQuery] Guid?        countryId,
         [FromQuery] string?      accessibility,  // "Train" | "Boat Only" | "Flight" | "Road"
+        [FromQuery] bool?        featured,       // true = only currently featured
 
         // Score filters
         [FromQuery] int?         minLuxury,
@@ -104,6 +105,12 @@ public class ExploreController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(accessibility))
             query = query.Where(d => d.AccessibilityType == accessibility);
+
+        if (featured == true)
+        {
+            var now = DateTimeOffset.UtcNow;
+            query = query.Where(d => d.IsFeatured && (d.FeaturedUntil == null || d.FeaturedUntil > now));
+        }
 
         if (minLuxury.HasValue)     query = query.Where(d => d.LuxuryRating >= minLuxury.Value);
         if (maxLuxury.HasValue)     query = query.Where(d => d.LuxuryRating <= maxLuxury.Value);
@@ -359,7 +366,8 @@ public class ExploreController : ControllerBase
         SafetyLevel      : d.SafetyLevel,
         LuxuryRating     : d.LuxuryRating,
         Tags             : d.DestinationTags.Select(dt => dt.Tag.TagName).ToList(),
-        Categories       : d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList()
+        Categories       : d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList(),
+        IsFeatured       : d.IsCurrentlyFeatured(DateTimeOffset.UtcNow)
     );
 }
 

@@ -147,7 +147,10 @@ public class AdminDestinationsController : ControllerBase
                 d.DestinationCategories.Select(dc => dc.Category.Key).OrderBy(k => k).ToList(),
                 d.Images.Count,
                 d.WishlistDestinations.Count,
-                _db.PartnerLinks.Count(l => l.DestinationId == d.DestinationId)))
+                _db.PartnerLinks.Count(l => l.DestinationId == d.DestinationId),
+                d.IsFeatured,
+                d.FeaturedUntil,
+                d.FeaturedOrder))
             .AsSplitQuery()
             .ToListAsync(ct);
 
@@ -542,6 +545,118 @@ public class AdminDestinationsController : ControllerBase
     }
 
     // ══ Tags ══════════════════════════════════════════════════════════════════
+
+    // ══ Featured destinations ═════════════════════════════════════════════════
+
+    /// <summary>All flagged destinations in display order, including expired ones (IsActive = false).</summary>
+    [HttpGet("featured-destinations")]
+    public async Task<ActionResult<List<AdminFeaturedDestinationDto>>> GetFeaturedDestinations(CancellationToken ct = default)
+        => Ok(await LoadFeaturedAsync(ct));
+
+    [HttpPost("destinations/{id:guid}/feature")]
+    public async Task<ActionResult<List<AdminFeaturedDestinationDto>>> FeatureDestination(
+        Guid id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] FeatureDestinationRequest? request,
+        CancellationToken ct = default)
+    {
+        var featuredUntil = request?.FeaturedUntil;
+        if (featuredUntil is not null && featuredUntil <= DateTimeOffset.UtcNow)
+        {
+            ModelState.AddModelError(nameof(FeatureDestinationRequest.FeaturedUntil), "FeaturedUntil must be in the future.");
+            return ValidationProblem(ModelState);
+        }
+        if (request?.Order is < 1)
+        {
+            ModelState.AddModelError(nameof(FeatureDestinationRequest.Order), "Order is 1-based.");
+            return ValidationProblem(ModelState);
+        }
+
+        var destination = await _db.Destinations.FirstOrDefaultAsync(d => d.DestinationId == id, ct);
+        if (destination is null) return NotFound();
+
+        var others = await _db.Destinations
+            .Where(d => d.IsFeatured && d.DestinationId != id)
+            .OrderBy(d => d.FeaturedOrder).ThenBy(d => d.DestinationName)
+            .ToListAsync(ct);
+
+        var position = Math.Clamp((request?.Order ?? others.Count + 1) - 1, 0, others.Count);
+        others.Insert(position, destination);
+
+        destination.IsFeatured = true;
+        destination.FeaturedUntil = featuredUntil;
+        for (var i = 0; i < others.Count; i++)
+            others[i].FeaturedOrder = i + 1;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(await LoadFeaturedAsync(ct));
+    }
+
+    [HttpPost("destinations/{id:guid}/unfeature")]
+    public async Task<IActionResult> UnfeatureDestination(Guid id, CancellationToken ct = default)
+    {
+        var destination = await _db.Destinations.FirstOrDefaultAsync(d => d.DestinationId == id, ct);
+        if (destination is null) return NotFound();
+
+        destination.IsFeatured = false;
+        destination.FeaturedUntil = null;
+        destination.FeaturedOrder = 0;
+
+        var remaining = await _db.Destinations
+            .Where(d => d.IsFeatured && d.DestinationId != id)
+            .OrderBy(d => d.FeaturedOrder).ThenBy(d => d.DestinationName)
+            .ToListAsync(ct);
+        for (var i = 0; i < remaining.Count; i++)
+            remaining[i].FeaturedOrder = i + 1;
+
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    [HttpPut("featured-destinations/order")]
+    public async Task<ActionResult<List<AdminFeaturedDestinationDto>>> ReorderFeaturedDestinations(
+        ReorderFeaturedDestinationsRequest request, CancellationToken ct = default)
+    {
+        var featured = await _db.Destinations.Where(d => d.IsFeatured).ToListAsync(ct);
+        var ids = request.DestinationIds ?? new List<Guid>();
+
+        if (ids.Count != ids.Distinct().Count()
+            || ids.Count != featured.Count
+            || !featured.All(d => ids.Contains(d.DestinationId)))
+        {
+            ModelState.AddModelError(nameof(ReorderFeaturedDestinationsRequest.DestinationIds),
+                "List every featured destination exactly once.");
+            return ValidationProblem(ModelState);
+        }
+
+        var byId = featured.ToDictionary(d => d.DestinationId);
+        for (var i = 0; i < ids.Count; i++)
+            byId[ids[i]].FeaturedOrder = i + 1;
+
+        await _db.SaveChangesAsync(ct);
+        return Ok(await LoadFeaturedAsync(ct));
+    }
+
+    private async Task<List<AdminFeaturedDestinationDto>> LoadFeaturedAsync(CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return await _db.Destinations
+            .AsNoTracking()
+            .Where(d => d.IsFeatured)
+            .OrderBy(d => d.FeaturedOrder).ThenBy(d => d.DestinationName)
+            .Select(d => new AdminFeaturedDestinationDto(
+                d.DestinationId,
+                d.DestinationName,
+                d.Country.CountryName,
+                d.Images
+                    .OrderBy(i => i.ImageType == "Hero" ? 0 : 1)
+                    .ThenBy(i => i.DisplayOrder)
+                    .Select(i => i.ThumbnailUrl != "" ? i.ThumbnailUrl : i.ImageUrl)
+                    .FirstOrDefault(),
+                d.FeaturedOrder,
+                d.FeaturedUntil,
+                d.FeaturedUntil == null || d.FeaturedUntil > now))
+            .ToListAsync(ct);
+    }
 
     [HttpGet("tags")]
     public async Task<ActionResult<List<AdminTagDto>>> GetTags(CancellationToken ct = default)
@@ -1014,7 +1129,10 @@ public class AdminDestinationsController : ControllerBase
             d.DestinationCities.Select(x => new AdminRefDto(x.CityId, x.City.CityName, null)).OrderBy(x => x.Name).ToList(),
             wishlistCount,
             tripPostCount,
-            partnerLinkCount);
+            partnerLinkCount,
+            d.IsFeatured,
+            d.FeaturedUntil,
+            d.FeaturedOrder);
     }
 
     private T DeserializeOrDefault<T>(string? json, Func<T> fallback) where T : class

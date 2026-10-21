@@ -9,6 +9,8 @@ namespace Hodrac_Backend_MVP2.Interfaces
 
         Task<Destination?> GetByIdAsync(Guid id, CancellationToken ct = default);
 
+        Task<List<Destination>> GetFeaturedAsync(int limit, CancellationToken ct = default);
+
         Task<List<Destination>> GetByPhoneticCodeAsync(
             string metaphoneCode, CancellationToken ct = default);
 

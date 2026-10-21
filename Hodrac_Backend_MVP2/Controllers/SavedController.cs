@@ -75,7 +75,8 @@ namespace Hodrac_Backend_MVP2.Controllers
                     d.SafetyLevel,
                     d.LuxuryRating,
                     d.DestinationTags.Select(dt => dt.Tag.TagName).ToList(),
-                    d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList()
+                    d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList(),
+                    IsFeatured: d.IsCurrentlyFeatured(DateTimeOffset.UtcNow)
                 )), ct)
             ));
         }

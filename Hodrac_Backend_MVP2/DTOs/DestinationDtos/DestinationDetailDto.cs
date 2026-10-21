@@ -20,6 +20,7 @@ namespace Hodrac_Backend_MVP2.DTOs.DestinationDtos
     List<string> Currencies,
     List<string> Cities,
     List<DestinationImageDto> Images,
-    PartnerDto? Partner = null
+    PartnerDto? Partner = null,
+    bool IsFeatured = false
 );
 }

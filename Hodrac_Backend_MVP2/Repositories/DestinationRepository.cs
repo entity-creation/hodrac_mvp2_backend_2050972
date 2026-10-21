@@ -47,6 +47,19 @@ public class DestinationRepository : IDestinationRepository
     public async Task<Destination?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => await BaseQuery().FirstOrDefaultAsync(d => d.DestinationId == id, ct);
 
+    // ── Featured (admin-curated, expiry applied at read time) ─────────────────
+
+    public async Task<List<Destination>> GetFeaturedAsync(int limit, CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return await BaseQuery()
+            .Where(d => d.IsFeatured && (d.FeaturedUntil == null || d.FeaturedUntil > now))
+            .OrderBy(d => d.FeaturedOrder)
+            .ThenByDescending(d => d.SearchHitCount)
+            .Take(limit)
+            .ToListAsync(ct);
+    }
+
     // ── Phonetic fuzzy lookup — used in step 1 of search pipeline ─────────────
     // Returns destinations whose MetaphoneCode or DoubleMetaphonePrimary matches.
     // The search service normalizes the query to a Metaphone code before calling this.

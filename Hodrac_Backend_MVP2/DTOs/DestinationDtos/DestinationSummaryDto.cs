@@ -11,6 +11,7 @@ namespace Hodrac_Backend_MVP2.DTOs.DestinationDtos
     int LuxuryRating,
     List<string> Tags,
     List<string> Categories,
-    PartnerDto? Partner = null
+    PartnerDto? Partner = null,
+    bool IsFeatured = false
 );
 }

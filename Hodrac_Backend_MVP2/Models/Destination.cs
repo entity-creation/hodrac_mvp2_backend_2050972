@@ -68,6 +68,19 @@ public class Destination
     /// <summary>1–5: 1 = very safe, 5 = exercise caution</summary>
     public int SafetyLevel { get; set; }
 
+    // ── Featuring ─────────────────────────────────────────────────────────────
+    /// <summary>Shown on GET /api/destinations/featured while IsFeatured and not past FeaturedUntil.</summary>
+    public bool IsFeatured { get; set; }
+
+    /// <summary>Null = featured until manually unfeatured.</summary>
+    public DateTimeOffset? FeaturedUntil { get; set; }
+
+    /// <summary>Ascending display order among featured destinations.</summary>
+    public int FeaturedOrder { get; set; }
+
+    public bool IsCurrentlyFeatured(DateTimeOffset now) =>
+        IsFeatured && (FeaturedUntil == null || FeaturedUntil > now);
+
     // ── Foreign keys ──────────────────────────────────────────────────────────
     public Guid CountryId { get; set; }
     public Country Country { get; set; } = null!;

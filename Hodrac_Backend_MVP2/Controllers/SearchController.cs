@@ -67,7 +67,8 @@ namespace Hodrac_Backend_MVP2.Controllers
                     d.Images.FirstOrDefault()?.ThumbnailUrl ?? string.Empty,
                     d.AverageCostPerDay, d.SafetyLevel, d.LuxuryRating,
                     d.DestinationTags.Select(dt => dt.Tag.TagName).ToList(),
-                    d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList()
+                    d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList(),
+                    IsFeatured: d.IsCurrentlyFeatured(DateTimeOffset.UtcNow)
                 )), ct),
                 Wishlists: await _partners.AttachAsync(wishlistItems.Select(item => WishlistsController.MapToCard(item)), ct)
             ));

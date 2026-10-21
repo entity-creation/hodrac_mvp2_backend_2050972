@@ -66,6 +66,15 @@ public class DestinationsController : ControllerBase
         });
     }
 
+    // ── GET /api/destinations/featured?limit=12 ───────────────────────────────
+
+    [HttpGet("featured")]
+    public async Task<IActionResult> GetFeatured([FromQuery] int limit = 12, CancellationToken ct = default)
+    {
+        var items = await _destinations.GetFeaturedAsync(Math.Clamp(limit, 1, 50), ct);
+        return Ok(await _partners.AttachAsync(items.Select(item => MapToSummary(item)), ct));
+    }
+
     // ── GET /api/destinations/{id} ────────────────────────────────────────────
 
     [HttpGet("{id:guid}")]
@@ -181,7 +190,8 @@ public class DestinationsController : ControllerBase
         SafetyLevel      : d.SafetyLevel,
         LuxuryRating     : d.LuxuryRating,
         Tags             : d.DestinationTags.Select(dt => dt.Tag.TagName).ToList(),
-        Categories       : d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList()
+        Categories       : d.DestinationCategories.Select(dc => dc.Category.CategoryName).ToList(),
+        IsFeatured       : d.IsCurrentlyFeatured(DateTimeOffset.UtcNow)
     );
 
     private static DestinationDetailDto MapToDetail(Destination? d)
@@ -209,7 +219,8 @@ public class DestinationsController : ControllerBase
             Cities            : d.DestinationCities.Select(dc => dc.City.CityName).ToList(),
             Images            : d.Images.Select(i => new DestinationImageDto(
                                     i.ImageUrl, i.ThumbnailUrl, i.Caption,
-                                    i.DisplayOrder, i.ImageType)).ToList()
+                                    i.DisplayOrder, i.ImageType)).ToList(),
+            IsFeatured        : d.IsCurrentlyFeatured(DateTimeOffset.UtcNow)
         );
     }
 }

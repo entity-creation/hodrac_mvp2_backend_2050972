@@ -22,7 +22,10 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         List<string> CategoryKeys,
         int ImageCount,
         int WishlistCount,            // wishlists that include this destination
-        int PartnerLinkCount
+        int PartnerLinkCount,
+        bool IsFeatured,
+        DateTimeOffset? FeaturedUntil,
+        int FeaturedOrder
     );
 
     /// <summary>Generic id + display name (+ key/code) used for pickers and detail references.</summary>
@@ -71,7 +74,34 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         List<AdminRefDto> Cities,
         int WishlistCount,
         int TripPostCount,
-        int PartnerLinkCount
+        int PartnerLinkCount,
+        bool IsFeatured,
+        DateTimeOffset? FeaturedUntil,
+        int FeaturedOrder
+    );
+
+    // ─── Featured destinations ────────────────────────────────────────────────
+
+    /// <summary>FeaturedUntil must be in the future (null = until unfeatured).
+    /// Order is the 1-based position among featured destinations (default: last).</summary>
+    public record FeatureDestinationRequest(
+        DateTimeOffset? FeaturedUntil,
+        int? Order
+    );
+
+    /// <summary>Must list every currently flagged destination exactly once.</summary>
+    public record ReorderFeaturedDestinationsRequest(
+        List<Guid> DestinationIds
+    );
+
+    public record AdminFeaturedDestinationDto(
+        Guid DestinationId,
+        string DestinationName,
+        string CountryName,
+        string? HeroThumbnailUrl,
+        int FeaturedOrder,
+        DateTimeOffset? FeaturedUntil,
+        bool IsActive               // false once FeaturedUntil has passed
     );
 
     /// <summary>
