@@ -143,6 +143,7 @@ builder.Services.AddSingleton<IMongoClient>(_ =>
     settings.ConnectTimeout = TimeSpan.FromSeconds(5);
     return new MongoClient(settings);
 });
+builder.Services.AddScoped<OnboardingProfileSync>();
 builder.Services.AddHostedService<MongoIndexInitializer>();
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
     sp.GetRequiredService<IMongoClient>()

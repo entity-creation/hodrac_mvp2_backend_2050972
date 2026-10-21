@@ -34,6 +34,15 @@ public class ApplicationUser : IdentityUser
 
     public bool HasCompletedOnboarding { get; set; } = false;
 
+    // Durable copy of the onboarding answers (source of truth). The Mongo
+    // profile is filled from these asynchronously and re-synced on startup,
+    // so answers survive Mongo outages and app restarts.
+    [MaxLength(100)] public string? OnboardingWhoTheyTravelWith { get; set; }
+    [MaxLength(100)] public string? OnboardingTripTypePreference { get; set; }
+    [MaxLength(100)] public string? OnboardingBudgetProfile { get; set; }
+    [MaxLength(100)] public string? OnboardingPrimaryPriority { get; set; }
+    public DateTimeOffset? OnboardingCompletedAt { get; set; }
+
     // ── Account lifecycle ─────────────────────────────────────────────────────
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

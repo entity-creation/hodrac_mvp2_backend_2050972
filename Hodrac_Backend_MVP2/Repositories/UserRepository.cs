@@ -65,6 +65,27 @@ public class UserRepository : IUserRepository
             .ExecuteUpdateAsync(s => s.SetProperty(
                 u => u.HasCompletedOnboarding, true), ct);
 
+    public async Task SaveOnboardingAsync(string userId, string? whoTheyTravelWith, string? tripTypePreference,
+        string? budgetProfile, string? primaryPriority, CancellationToken ct = default)
+    {
+        static string? Clean(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        var who = Clean(whoTheyTravelWith);
+        var trip = Clean(tripTypePreference);
+        var budget = Clean(budgetProfile);
+        var priority = Clean(primaryPriority);
+        var now = DateTimeOffset.UtcNow;
+
+        await _db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.HasCompletedOnboarding, true)
+                .SetProperty(u => u.OnboardingCompletedAt, now)
+                .SetProperty(u => u.OnboardingWhoTheyTravelWith, u => who ?? u.OnboardingWhoTheyTravelWith)
+                .SetProperty(u => u.OnboardingTripTypePreference, u => trip ?? u.OnboardingTripTypePreference)
+                .SetProperty(u => u.OnboardingBudgetProfile, u => budget ?? u.OnboardingBudgetProfile)
+                .SetProperty(u => u.OnboardingPrimaryPriority, u => priority ?? u.OnboardingPrimaryPriority), ct);
+    }
+
     public async Task UpdateLastLoginAsync(
         string userId, CancellationToken ct = default)
     {

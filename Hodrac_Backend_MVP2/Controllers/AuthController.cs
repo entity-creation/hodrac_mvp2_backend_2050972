@@ -335,7 +335,12 @@ public class AuthController : ControllerBase
         CancellationToken ct = default)
     {
         var userId = _currentUser.UserIdString;
-        await _users.MarkOnboardingCompleteAsync(userId, ct);
+
+        // Answers are stored durably in Postgres first; the Mongo profile copy is
+        // eventually consistent (and re-synced on startup by OnboardingProfileSync).
+        await _users.SaveOnboardingAsync(userId,
+            request?.WhoTheyTravelWith, request?.TripTypePreference,
+            request?.BudgetProfile, request?.PrimaryPriority, ct);
 
         // Persisted asynchronously to the MongoDB profile by BehaviorEventWorker →
         // TagInferenceService, so a slow Mongo never fails this request.

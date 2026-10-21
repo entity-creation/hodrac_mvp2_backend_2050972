@@ -249,6 +249,12 @@ public sealed class InsightsRebuilder
 
             var userIds = batch.Select(p => p.AuthUserReferenceId).Where(id => !string.IsNullOrEmpty(id)).ToList();
 
+            // Onboarding answers: Postgres is the source of truth; fill the profile copy from it.
+            var pgAnswers = await OnboardingProfileSync.LoadAnswersAsync(_db, userIds, ct);
+            foreach (var profile in batch)
+                if (pgAnswers.TryGetValue(profile.AuthUserReferenceId, out var a))
+                    profile.ExplicitOnboardingAnswers = OnboardingProfileSync.Merge(a, profile.ExplicitOnboardingAnswers);
+
             // Saves (Postgres, all-time)
             var guidByUser = new Dictionary<string, Guid>();
             foreach (var id in userIds)
@@ -325,6 +331,7 @@ public sealed class InsightsRebuilder
         var hasData = saves.Count > 0 || events.Count > 0;
 
         var vectorDeltas = ProfileInference.OnboardingRuleDeltas(rules, profile.ExplicitOnboardingAnswers);
+        updates.Add(u.Set(p => p.ExplicitOnboardingAnswers, profile.ExplicitOnboardingAnswers ?? new OnboardingAnswers()));
 
         if (hasData)
         {

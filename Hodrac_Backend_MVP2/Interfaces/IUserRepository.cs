@@ -20,6 +20,10 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task<bool> CheckPasswordAsync(ApplicationUser user, string password);
 
         Task MarkOnboardingCompleteAsync(string userId, CancellationToken ct = default);
+
+        /// <summary>Sets HasCompletedOnboarding and stores the answers; blank answers keep the stored value.</summary>
+        Task SaveOnboardingAsync(string userId, string? whoTheyTravelWith, string? tripTypePreference,
+            string? budgetProfile, string? primaryPriority, CancellationToken ct = default);
         Task UpdateLastLoginAsync(string userId, CancellationToken ct = default);
         Task UpdateAvatarAsync(string userId, string avatarUrl, CancellationToken ct = default);
 
