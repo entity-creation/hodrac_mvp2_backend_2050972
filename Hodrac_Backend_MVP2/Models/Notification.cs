@@ -8,7 +8,8 @@ namespace Hodrac_Backend_MVP2.Models
         InterestApproved,   // your request to join was approved
         InterestDeclined,   // your request to join was declined
         NewThreadMessage,   // new message in a trip thread you're in
-        TripStartingSoon    // reminder, optional future use
+        TripStartingSoon,   // reminder, optional future use
+        TripCancelled       // a trip you posted or asked to join was cancelled
     }
 
     public class Notification

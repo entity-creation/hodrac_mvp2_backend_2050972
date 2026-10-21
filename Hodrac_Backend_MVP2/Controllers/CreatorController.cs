@@ -1,5 +1,7 @@
 using Hodrac.DTOs;
 using Hodrac_Backend_MVP2.Data;
+using Hodrac_Backend_MVP2.DTOs.AdminDtos;
+using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -15,24 +17,31 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// Endpoints:
 ///   GET    /api/creators                            — list all creators (public)
 ///   GET    /api/creators/{id}                       — get one creator (public)
-///   POST   /api/creators                            — register a new creator (auth required)
-///   PATCH  /api/creators/{id}                       — update creator profile (auth required)
+///   POST   /api/creators                            — register a new creator (Admin policy)
+///   PATCH  /api/creators/{id}                       — update creator profile incl. IsVerified (Admin policy)
+///   GET    /api/admin/creators?page=&amp;pageSize=&amp;search=&amp;verified=  — admin listing (Admin policy)
 ///
 ///   GET    /api/wishlists/{wishlistId}/attributions          — get all attributions for a wishlist (public)
-///   POST   /api/wishlists/{wishlistId}/attributions          — attach a creator (auth required)
-///   PATCH  /api/wishlists/{wishlistId}/attributions/{id}     — update an attribution (auth required)
-///   DELETE /api/wishlists/{wishlistId}/attributions/{id}     — soft-delete (set IsActive=false) (auth required)
+///   POST   /api/wishlists/{wishlistId}/attributions          — attach a creator
+///   PATCH  /api/wishlists/{wishlistId}/attributions/{id}     — update an attribution
+///   DELETE /api/wishlists/{wishlistId}/attributions/{id}     — soft-delete (set IsActive=false)
+///
+/// Attribution writes: platform templates (OwnerUserId == null) require the Admin policy;
+/// user-owned wishlists allow the owner, Owner/Editor collaborators, and admins.
 /// </summary>
 [ApiController]
 public class CreatorController : ControllerBase
 {
-    private readonly HodracDbContext      _db;
-    private readonly ICurrentUserService  _currentUser;
+    private readonly HodracDbContext       _db;
+    private readonly ICurrentUserService   _currentUser;
+    private readonly IAuthorizationService _authorization;
 
-    public CreatorController(HodracDbContext db, ICurrentUserService currentUser)
+    public CreatorController(
+        HodracDbContext db, ICurrentUserService currentUser, IAuthorizationService authorization)
     {
-        _db          = db;
-        _currentUser = currentUser;
+        _db            = db;
+        _currentUser   = currentUser;
+        _authorization = authorization;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -63,11 +72,65 @@ public class CreatorController : ControllerBase
     }
 
     /// <summary>
-    /// Register a new creator. Any authenticated user can register a creator
-    /// (i.e. the Hodrac admin team adds them before linking to a wishlist).
+    /// Admin listing: paged, includes the internal ContactEmail and attribution counts.
+    /// search matches DisplayName, Handle or PlatformName (ILIKE).
+    /// </summary>
+    [HttpGet("api/admin/creators")]
+    [Authorize(Policy = "Admin")]
+    public async Task<ActionResult<AdminPagedResult<AdminCreatorDto>>> AdminListCreators(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] bool? verified = null,
+        CancellationToken ct = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = _db.Creators.AsNoTracking();
+
+        if (verified is not null) query = query.Where(c => c.IsVerified == verified.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{EscapeLike(search.Trim())}%";
+            query = query.Where(c =>
+                EF.Functions.ILike(c.DisplayName, pattern) ||
+                EF.Functions.ILike(c.Handle, pattern) ||
+                EF.Functions.ILike(c.PlatformName, pattern));
+        }
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderBy(c => c.DisplayName)
+            .ThenBy(c => c.CreatorId)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new AdminCreatorDto(
+                c.CreatorId,
+                c.DisplayName,
+                c.Handle,
+                c.PlatformName,
+                c.ProfileUrl,
+                c.AvatarUrl,
+                c.Bio,
+                c.ContactEmail,
+                c.IsVerified,
+                c.CreatedAt,
+                c.WishlistAttributions.Count,
+                c.WishlistAttributions.Count(a => a.IsActive)))
+            .ToListAsync(ct);
+
+        return Ok(new AdminPagedResult<AdminCreatorDto>(items, page, pageSize, total));
+    }
+
+    /// <summary>
+    /// Register a new creator. Admin only — the Hodrac admin team adds creators
+    /// before linking them to a wishlist.
     /// </summary>
     [HttpPost("api/creators")]
-    [Authorize]
+    [Authorize(Policy = "Admin")]
     public async Task<IActionResult> CreateCreator(
         [FromBody] CreateCreatorRequest req, CancellationToken ct)
     {
@@ -98,14 +161,21 @@ public class CreatorController : ControllerBase
         return CreatedAtAction(nameof(GetCreator), new { id = creator.CreatorId }, ToDto(creator));
     }
 
-    /// <summary>Update a creator's profile fields. Partial updates supported.</summary>
+    /// <summary>Update a creator's profile fields (incl. IsVerified). Admin only. Partial updates supported.</summary>
     [HttpPatch("api/creators/{id:guid}")]
-    [Authorize]
+    [Authorize(Policy = "Admin")]
     public async Task<IActionResult> UpdateCreator(
         Guid id, [FromBody] UpdateCreatorRequest req, CancellationToken ct)
     {
         var creator = await _db.Creators.FindAsync(new object[] { id }, ct);
         if (creator is null) return NotFound(new { error = "Creator not found." });
+
+        // Platform + handle is unique; check before saving instead of surfacing a 500.
+        var platform = req.PlatformName ?? creator.PlatformName;
+        var handle   = req.Handle       ?? creator.Handle;
+        if ((platform != creator.PlatformName || handle != creator.Handle)
+            && await _db.Creators.AnyAsync(c => c.CreatorId != id && c.PlatformName == platform && c.Handle == handle, ct))
+            return Conflict(new { error = $"A creator with handle '{handle}' on {platform} already exists." });
 
         if (req.DisplayName  is not null) creator.DisplayName  = req.DisplayName;
         if (req.Handle       is not null) creator.Handle       = req.Handle;
@@ -166,7 +236,7 @@ public class CreatorController : ControllerBase
             return NotFound(new { error = "Wishlist not found." });
 
         // Permission check: owner or editor
-        if (!CanEdit(wishlist))
+        if (!await CanEditAsync(wishlist))
             return Forbid();
 
         // Verify the creator exists
@@ -227,7 +297,7 @@ public class CreatorController : ControllerBase
 
         if (attribution is null) return NotFound(new { error = "Attribution not found." });
 
-        if (!CanEdit(attribution.Wishlist))
+        if (!await CanEditAsync(attribution.Wishlist))
             return Forbid();
 
         if (req.OriginalContentUrl    is not null) attribution.OriginalContentUrl    = req.OriginalContentUrl;
@@ -258,7 +328,7 @@ public class CreatorController : ControllerBase
 
         if (attribution is null) return NotFound(new { error = "Attribution not found." });
 
-        if (!CanEdit(attribution.Wishlist))
+        if (!await CanEditAsync(attribution.Wishlist))
             return Forbid();
 
         attribution.IsActive = false;
@@ -272,21 +342,27 @@ public class CreatorController : ControllerBase
     // ═══════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Returns true if the calling user is the wishlist owner or has Editor role.
+    /// Admins may manage attributions on any wishlist. Platform templates (no owner)
+    /// are admin-only; user-owned wishlists also allow the owner and Owner/Editor collaborators.
     /// </summary>
-    private bool CanEdit(Wishlist wishlist)
+    private async Task<bool> CanEditAsync(Wishlist wishlist)
     {
         var userId = _currentUser.UserId;
         if (userId == Guid.Empty) return false;
 
-        // Template / platform wishlists have no owner — allow any authenticated user to manage
-        if (wishlist.OwnerUserId is null) return true;
+        if ((await _authorization.AuthorizeAsync(User, "Admin")).Succeeded) return true;
+
+        // Platform templates have no owner — only admins (handled above) may manage them.
+        if (wishlist.OwnerUserId is null) return false;
 
         if (wishlist.OwnerUserId == userId) return true;
 
         return wishlist.Collaborators.Any(
             c => c.UserId == userId && c.Role is "Owner" or "Editor");
     }
+
+    private static string EscapeLike(string value)
+        => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
 
     private static CreatorDto ToDto(Creator c) => new(
         c.CreatorId,

@@ -35,6 +35,26 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task<IdentityResult> ChangePasswordAsync(ApplicationUser user, string currentPassword, string newPassword);
 
         /// <summary>
+        /// Generates a confirmation token and emails the confirm-email link.
+        /// Never throws — returns false if the user has no email or sending failed.
+        /// Shared by POST /api/auth/register, /api/auth/resend-confirmation and the admin resend.
+        /// </summary>
+        Task<bool> TrySendConfirmationEmailAsync(ApplicationUser user);
+
+        // ── Lockout (Identity: LockoutEnabled + LockoutEnd + AccessFailedCount) ──
+        Task<bool> IsLockedOutAsync(ApplicationUser user);
+
+        /// <summary>Records a failed password attempt; Identity locks the account after MaxFailedAccessAttempts.</summary>
+        Task<IdentityResult> AccessFailedAsync(ApplicationUser user);
+        Task<IdentityResult> ResetAccessFailedCountAsync(ApplicationUser user);
+
+        /// <summary>Admin lock: enables lockout for the user and sets LockoutEnd (UTC).</summary>
+        Task<IdentityResult> LockAsync(ApplicationUser user, DateTimeOffset until);
+
+        /// <summary>Admin unlock: clears LockoutEnd and the failed-attempt count.</summary>
+        Task<IdentityResult> UnlockAsync(ApplicationUser user);
+
+        /// <summary>
         /// Looks up a user by email and returns their Guid (for collaboration invites).
         /// Returns null if no user has that email.
         /// </summary>

@@ -12,6 +12,7 @@ namespace Hodrac_Backend_MVP2.Services
         Task NotifyInterestApproved(TripPost trip, Guid requesterUserId);
         Task NotifyInterestDeclined(TripPost trip, Guid requesterUserId);
         Task NotifyNewThreadMessage(Guid tripPostId, List<Guid> recipientUserIds, Guid senderUserId);
+        Task NotifyTripCancelled(TripPost trip, IEnumerable<Guid> recipientUserIds, Guid? actorUserId);
     }
 
     // Creates the in-app Notification rows and pushes each one to its
@@ -62,6 +63,15 @@ namespace Hodrac_Backend_MVP2.Services
                 Type = NotificationType.NewThreadMessage,
                 TripPostId = tripPostId,
                 ActorUserId = senderUserId
+            }).ToArray());
+
+        public Task NotifyTripCancelled(TripPost trip, IEnumerable<Guid> recipientUserIds, Guid? actorUserId) =>
+            SaveAndPushAsync(recipientUserIds.Distinct().Select(recipientId => new Notification
+            {
+                RecipientUserId = recipientId,
+                Type = NotificationType.TripCancelled,
+                TripPostId = trip.Id,
+                ActorUserId = actorUserId
             }).ToArray());
 
         private async Task SaveAndPushAsync(params Notification[] notifications)

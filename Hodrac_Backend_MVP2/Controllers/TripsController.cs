@@ -152,7 +152,8 @@ namespace Hodrac_Backend_MVP2.Controllers
         {
             var trip = await LoadForDtoAsync(id);
 
-            if (trip is null)
+            // Moderator-hidden trips are invisible to everyone but the author.
+            if (trip is null || (trip.IsHidden && trip.AuthorUserId != CurrentUserId))
                 return NotFound();
 
             var myInterestStatus = await _db.TripInterests
@@ -176,13 +177,13 @@ namespace Hodrac_Backend_MVP2.Controllers
             var followedIds = new List<Guid>(); // TODO: wire up real follow graph
 
             var trips = await WithDtoIncludes()
-                .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open)
+                .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open && !t.IsHidden)
                 .OrderByDescending(t => t.CreatedAt)
                 .Take(50)
                 .ToListAsync();
 
             var result = await WithDtoIncludes()
-    .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open)
+    .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open && !t.IsHidden)
     .OrderByDescending(t => t.CreatedAt)
     .Take(50)
     .Select(trip => new
@@ -204,7 +205,7 @@ namespace Hodrac_Backend_MVP2.Controllers
         }
 
         // Shared by Browse (signed-in) and BrowsePublic (anonymous). Only
-        // Open trips are ever listed.
+        // Open, non-hidden (moderation) trips are ever listed.
         //
         // Matches on either a single Destination's name OR any stop inside
         // a Wishlist's itinerary, so a wishlist trip through Kyoto shows up
@@ -218,7 +219,7 @@ namespace Hodrac_Backend_MVP2.Controllers
             DateOnly? from,
             DateOnly? to)
         {
-            query = query.Where(t => t.Status == TripPostStatus.Open);
+            query = query.Where(t => t.Status == TripPostStatus.Open && !t.IsHidden);
 
             // A destination matches if it's the trip's own destination or any
             // stop on the trip's wishlist.
@@ -404,7 +405,8 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .ToListAsync();
 
             var tripIds = interests.Select(i => i.TripPostId).Distinct().ToList();
-            var trips = await WithDtoIncludes().Where(t => tripIds.Contains(t.Id)).ToListAsync();
+            // Hidden (moderated) trips drop out of other people's request lists.
+            var trips = await WithDtoIncludes().Where(t => tripIds.Contains(t.Id) && !t.IsHidden).ToListAsync();
             var tripById = trips.ToDictionary(t => t.Id);
 
             var result = interests
@@ -424,12 +426,20 @@ namespace Hodrac_Backend_MVP2.Controllers
             return result;
         }
 
-        // Every trip the current user has posted, with a pending-request
-        // count (for the badge) and whether a thread exists yet, so the
-        // page can show "Open chat" vs. nothing without a thread lookup
-        // per card.
+        // MyTripPostDto plus the moderation flag, so authors can see that a
+        // post of theirs has been hidden by an admin.
+        public record MyTripPostWithModerationDto(
+            TripPostDto Trip,
+            int PendingInterestCount,
+            bool HasThread,
+            bool IsHidden);
+
+        // Every trip the current user has posted (hidden ones included, with
+        // IsHidden set), with a pending-request count (for the badge) and
+        // whether a thread exists yet, so the page can show "Open chat" vs.
+        // nothing without a thread lookup per card.
         [HttpGet("mine/posts")]
-        public async Task<ActionResult<List<MyTripPostDto>>> GetMyPosts()
+        public async Task<ActionResult<List<MyTripPostWithModerationDto>>> GetMyPosts()
         {
             var trips = await WithDtoIncludes()
                 .Where(t => t.AuthorUserId == CurrentUserId)
@@ -451,10 +461,11 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .ToHashSet();
 
             return trips
-                .Select(t => new MyTripPostDto(
+                .Select(t => new MyTripPostWithModerationDto(
                     TripPostDto.FromEntity(t),
                     pendingCounts.GetValueOrDefault(t.Id, 0),
-                    threadTripIds.Contains(t.Id)))
+                    threadTripIds.Contains(t.Id),
+                    t.IsHidden))
                 .ToList();
         }
 
@@ -474,7 +485,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                 await LockTripAsync(id);
 
                 trip = await _db.TripPosts.FirstOrDefaultAsync(t => t.Id == id);
-                if (trip is null || trip.Status != TripPostStatus.Open) return NotFound();
+                if (trip is null || trip.Status != TripPostStatus.Open || trip.IsHidden) return NotFound();
                 if (trip.AuthorUserId == CurrentUserId) return BadRequest("You can't join your own trip.");
 
                 var existing = await _db.TripInterests
@@ -566,6 +577,9 @@ namespace Hodrac_Backend_MVP2.Controllers
                 {
                     if (trip.Status != TripPostStatus.Open)
                         return Conflict($"This trip is {trip.Status.ToString().ToLowerInvariant()}; requests can't be approved.");
+
+                    if (trip.IsHidden)
+                        return Conflict("This trip has been hidden by a moderator; requests can't be approved.");
 
                     if (trip.MaxGroupSize is not null)
                     {

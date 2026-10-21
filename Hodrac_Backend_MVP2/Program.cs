@@ -134,9 +134,16 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 // ─── MongoDB ──────────────────────────────────────────────────────────────────
+// Short timeouts: when Mongo is unreachable, requests that touch it fail in
+// seconds instead of hanging for the driver's 30s default.
 builder.Services.AddSingleton<IMongoClient>(_ =>
-    new MongoClient(builder.Configuration.GetConnectionString("MongoDB"))
-);
+{
+    var settings = MongoClientSettings.FromConnectionString(builder.Configuration.GetConnectionString("MongoDB"));
+    settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+    settings.ConnectTimeout = TimeSpan.FromSeconds(5);
+    return new MongoClient(settings);
+});
+builder.Services.AddHostedService<MongoIndexInitializer>();
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
     sp.GetRequiredService<IMongoClient>()
       .GetDatabase(builder.Configuration["MongoDB:DatabaseName"] ?? "hodrac_behavioral")
@@ -281,12 +288,22 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// ─── One-off seeding: `dotnet run -- --seed-poc` ──────────────────────────────
+// Applies pending migrations, seeds the Mauritius/Lagos/Abuja/Edo proof-of-
+// concept content (idempotent — safe to re-run), then exits without serving.
+//if (args.Contains("--seed-poc"))
+//{
+//    using var scope = app.Services.CreateScope();
+//    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+//    await db.Database.MigrateAsync();
+//    await Hodrac_Backend_MVP2.Infrastucture.Seeder.AfricaPocSeeder.SeedAsync(db);
+//    app.Logger.LogInformation("Proof-of-concept seed complete.");
+//    return;
+//}
+
 // ─── Startup initializers ─────────────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<IMongoDatabase>();
-    await MongoIndexDefinitions.EnsureIndexesAsync(db);
-}
+// MongoDB indexes are ensured in the background by MongoIndexInitializer so an
+// unreachable Mongo doesn't stop the API from starting.
 
 if (app.Environment.IsDevelopment())
 {

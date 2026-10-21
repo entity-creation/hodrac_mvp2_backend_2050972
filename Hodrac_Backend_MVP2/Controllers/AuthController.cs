@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using Hodrac_Backend_MVP2.Events;
@@ -18,7 +19,10 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// <summary>
 /// POST /api/auth/register       — create account
 /// POST /api/auth/login          — issue access + refresh tokens
+///                                 (403 "Account locked." only after a correct password;
+///                                 wrong passwords count toward Identity lockout)
 /// POST /api/auth/refresh        — rotate refresh token, issue new access token
+///                                 (403 "Account locked." + all tokens revoked when admin-locked)
 /// POST /api/auth/logout         — revoke refresh token(s)
 /// GET  /api/auth/me             — current user profile (requires auth)
 /// PATCH /api/auth/me            — update display name / avatar
@@ -42,6 +46,7 @@ public class AuthController : ControllerBase
     private readonly IBehaviorEventQueue _events;
     private readonly IConfiguration _config;
     private readonly ILogger<AuthController> _logger;
+    private readonly IdentityOptions _identityOptions;
 
     public AuthController(
         IUserRepository users,
@@ -51,7 +56,8 @@ public class AuthController : ControllerBase
         IEmailSender email,
         IBehaviorEventQueue events,
         IConfiguration config,
-        ILogger<AuthController> logger)
+        ILogger<AuthController> logger,
+        IOptions<IdentityOptions> identityOptions)
     {
         _users       = users;
         _tokens      = tokens;
@@ -61,6 +67,7 @@ public class AuthController : ControllerBase
         _events      = events;
         _config      = config;
         _logger      = logger;
+        _identityOptions = identityOptions.Value;
     }
 
     // ── POST /api/auth/register ───────────────────────────────────────────────
@@ -108,7 +115,16 @@ public class AuthController : ControllerBase
                 LastInteractionDeltaAt   = DateTime.UtcNow,
             }
         };
-        await _profiles.UpsertAsync(profile);
+        // Best-effort: if Mongo is down the account still works; the profile is
+        // created later by onboarding / the first behavior event.
+        try
+        {
+            await _profiles.UpsertAsync(profile);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not create Mongo profile for new user {UserId}", user.Id);
+        }
 
         // Confirmation email is best-effort — never fail registration over it.
         // Login is NOT gated on EmailConfirmed; the frontend can nudge via /me.
@@ -143,8 +159,27 @@ public class AuthController : ControllerBase
 
         // Deliberately identical error for wrong email vs wrong password
         // — prevents user enumeration attacks
-        if (user is null || !await _users.CheckPasswordAsync(user, request.Password))
+        if (user is null)
             return Unauthorized(new { error = "Invalid email or password." });
+
+        var lockedOut = await _users.IsLockedOutAsync(user);
+
+        if (!await _users.CheckPasswordAsync(user, request.Password))
+        {
+            // Count toward Identity lockout (MaxFailedAccessAttempts / DefaultLockoutTimeSpan).
+            // Skipped while already locked: AccessFailedAsync would overwrite an admin's
+            // longer LockoutEnd with the 15-minute default.
+            if (!lockedOut)
+                await _users.AccessFailedAsync(user);
+            return Unauthorized(new { error = "Invalid email or password." });
+        }
+
+        // Lock status is only revealed once the password has been verified.
+        if (lockedOut)
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "Account locked." });
+
+        if (user.AccessFailedCount > 0)
+            await _users.ResetAccessFailedCountAsync(user);
 
         var accessToken  = _tokens.GenerateAccessToken(user);
         var refreshToken = await _tokens.GenerateRefreshTokenAsync(
@@ -183,6 +218,13 @@ public class AuthController : ControllerBase
         var user = await _users.GetByIdAsync(request.UserId, ct);
         if (user is null)
             return Unauthorized(new { error = "User not found." });
+
+        // Admin-locked: the presented token is already rotated out; revoke the rest too.
+        if (IsAdminLock(user))
+        {
+            await _tokens.RevokeAllRefreshTokensAsync(user.Id, ct);
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "Account locked." });
+        }
 
         // A refresh means the user is actively using the app (access tokens are
         // 15 minutes) — keeps the email digest from emailing active users.
@@ -477,33 +519,19 @@ public class AuthController : ControllerBase
             Request.Headers.UserAgent.ToString().Length)];
     }
 
-    /// <summary>Sends the confirmation email. Never throws — returns false on failure.</summary>
-    private async Task<bool> TrySendConfirmationEmailAsync(ApplicationUser user)
-    {
-        if (string.IsNullOrWhiteSpace(user.Email)) return false;
+    /// <summary>Sends the confirmation email (shared with the admin resend). Never throws.</summary>
+    private Task<bool> TrySendConfirmationEmailAsync(ApplicationUser user)
+        => _users.TrySendConfirmationEmailAsync(user);
 
-        try
-        {
-            var token = EncodeToken(await _users.GenerateEmailConfirmationTokenAsync(user));
-            var link  = BuildFrontendLink("confirm-email", user.Id, token);
-
-            await _email.SendAsync(
-                to       : user.Email,
-                subject  : "Confirm your Hodrac email",
-                bodyLines: new List<string>
-                {
-                    $"Hi {user.DisplayName},",
-                    "Welcome to Hodrac! Please confirm your email address using the link below.",
-                },
-                deepLink : link);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to send confirmation email to {UserId}", user.Id);
-            return false;
-        }
-    }
+    /// <summary>
+    /// True for a lock that outlasts Identity's automatic failed-password lockout
+    /// window — i.e. an admin lock. Used by refresh so that 5 wrong password guesses
+    /// by a third party can't kill the real user's existing sessions.
+    /// </summary>
+    private bool IsAdminLock(ApplicationUser user)
+        => user.LockoutEnabled
+           && user.LockoutEnd is { } end
+           && end > DateTimeOffset.UtcNow.Add(_identityOptions.Lockout.DefaultLockoutTimeSpan);
 
     private string BuildFrontendLink(string path, string userId, string encodedToken)
     {

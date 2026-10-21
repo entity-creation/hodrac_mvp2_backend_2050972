@@ -155,6 +155,7 @@ namespace Hodrac_Backend_MVP2.Services
             NotificationType.InterestReceived => $"{count} new {(count == 1 ? "person" : "people")} interested in joining your trip",
             NotificationType.InterestApproved => "You were approved to join a trip",
             NotificationType.InterestDeclined => "A trip request was declined",
+            NotificationType.TripCancelled => $"{count} trip{(count == 1 ? " you were part of was" : "s you were part of were")} cancelled",
             NotificationType.NewThreadMessage => $"{count} new message{(count == 1 ? "" : "s")} in your trip chat",
             _ => "New trip activity"
         };

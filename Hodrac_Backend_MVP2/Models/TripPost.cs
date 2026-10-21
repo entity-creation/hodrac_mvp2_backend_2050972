@@ -53,6 +53,15 @@ namespace Hodrac_Backend_MVP2.Models
 
         public TripPostStatus Status { get; set; } = TripPostStatus.Open;
 
+        // Moderation: an admin-hidden trip is removed from every listing of
+        // other people's trips and 404s for everyone except its author.
+        // Independent of Status (a hidden trip keeps its Open/Closed state).
+        public const int MaxHiddenReasonLength = 500;
+        public bool IsHidden { get; set; }
+        public DateTime? HiddenAt { get; set; }
+        public string? HiddenReason { get; set; }
+        public Guid? HiddenByUserId { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

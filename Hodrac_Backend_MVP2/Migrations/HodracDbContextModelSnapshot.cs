@@ -1237,7 +1237,20 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<string>("FreeTextDestination")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("HiddenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("HiddenByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HiddenReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<bool>("IsDateFlexible")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsHidden")
                         .HasColumnType("boolean");
 
                     b.Property<int?>("MaxGroupSize")
@@ -1260,6 +1273,8 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.HasIndex("DestinationId", "StartDate");
 
                     b.HasIndex("WishlistId", "StartDate");
+
+                    b.HasIndex("Status", "IsHidden", "StartDate");
 
                     b.ToTable("TripPosts", t =>
                         {

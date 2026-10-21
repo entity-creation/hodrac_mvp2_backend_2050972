@@ -152,6 +152,13 @@ public class TripPostConfiguration : IEntityTypeConfiguration<TripPost>
 
         builder.HasIndex(t => new { t.WishlistId, t.StartDate });
 
+        builder.Property(t => t.HiddenReason)
+            .HasMaxLength(TripPost.MaxHiddenReasonLength);
+
+        // Browse/public listings filter on Status = Open AND NOT IsHidden and
+        // order by StartDate.
+        builder.HasIndex(t => new { t.Status, t.IsHidden, t.StartDate });
+
         builder.HasMany(t => t.Interests)
             .WithOne(i => i.TripPost!)
             .HasForeignKey(i => i.TripPostId)
