@@ -328,6 +328,52 @@ public class WishlistRepository : IWishlistRepository
     public void SetXminOriginalValue(Wishlist trackedWishlist, uint clientXmin)
         => _db.Entry(trackedWishlist).Property(w => w.xmin).OriginalValue = clientXmin;
 
+    // ── Public share links ────────────────────────────────────────────────────
+
+    public async Task<WishlistShareState?> GetShareStateAsync(Guid wishlistId, CancellationToken ct = default)
+        => await _db.Wishlists
+            .AsNoTracking()
+            .Where(w => w.WishlistId == wishlistId)
+            .Select(w => new WishlistShareState(w.WishlistId, w.IsTemplate, w.OwnerUserId, w.ShareToken, w.ShareEnabledAt))
+            .FirstOrDefaultAsync(ct);
+
+    // Single conditional UPDATE so two concurrent "share" calls can't mint
+    // different tokens: whichever lands first wins, the other just reads it back.
+    public async Task<WishlistShareState?> EnableShareAsync(
+        Guid wishlistId, string candidateToken, CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        await _db.Wishlists
+            .Where(w => w.WishlistId == wishlistId && !w.IsTemplate && w.ShareToken == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(w => w.ShareToken, candidateToken)
+                .SetProperty(w => w.ShareEnabledAt, now), ct);
+
+        var state = await GetShareStateAsync(wishlistId, ct);
+        return state is null || state.IsTemplate ? null : state;
+    }
+
+    public async Task<bool> DisableShareAsync(Guid wishlistId, CancellationToken ct = default)
+    {
+        var exists = await _db.Wishlists.AnyAsync(w => w.WishlistId == wishlistId && !w.IsTemplate, ct);
+        if (!exists) return false;
+
+        await _db.Wishlists
+            .Where(w => w.WishlistId == wishlistId && !w.IsTemplate && w.ShareToken != null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(w => w.ShareToken, (string?)null)
+                .SetProperty(w => w.ShareEnabledAt, (DateTimeOffset?)null), ct);
+        return true;
+    }
+
+    public async Task<Wishlist?> GetBySharedTokenAsync(string token, CancellationToken ct = default)
+        => await BaseQuery()
+            .FirstOrDefaultAsync(w =>
+                w.ShareToken == token &&
+                w.ShareEnabledAt != null &&
+                !w.IsTemplate,
+            ct);
+
     // ── Delete (Owner only) ───────────────────────────────────────────────────
 
     public async Task DeleteUserWishlistAsync(

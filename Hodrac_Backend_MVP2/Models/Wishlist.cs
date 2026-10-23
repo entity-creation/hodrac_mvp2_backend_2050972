@@ -76,6 +76,17 @@ public class Wishlist
 
     /// <summary>Self-referencing navigation. EF configured via fluent API to avoid cascade cycle.</summary>
     public Wishlist? ForkedFrom { get; set; }
+
+    // ── Public sharing (user-owned forks only, opt-in) ───────────────────────
+    /// <summary>
+    /// Random URL-safe token for the read-only public link
+    /// (GET /api/shared/wishlists/{token}). Null = not shared. Only ever shown to the owner.
+    /// </summary>
+    [MaxLength(64)]
+    public string? ShareToken { get; set; }
+
+    /// <summary>When the current share link was created. Null when not shared.</summary>
+    public DateTimeOffset? ShareEnabledAt { get; set; }
     // ── Optimistic concurrency ────────────────────────────────────────────────
     /// <summary>
     /// PostgreSQL xmin system column — used as the optimistic concurrency token.

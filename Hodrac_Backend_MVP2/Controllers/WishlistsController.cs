@@ -401,7 +401,10 @@ public class WishlistsController : ControllerBase
                                         a.CreatedAt
                                     ))
                                     .ToList(),
-            Xmin: w.xmin
+            Xmin: w.xmin,
+            // The share token is the owner's secret: never echo it to collaborators
+            // or anonymous viewers (callerId is Guid.Empty for them).
+            ShareToken: callerId != Guid.Empty && w.OwnerUserId == callerId ? w.ShareToken : null
         );
     }
 

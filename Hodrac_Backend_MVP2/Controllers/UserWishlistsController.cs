@@ -3,7 +3,9 @@ using Hodrac_Backend_MVP2.Infrastructure.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -26,6 +28,11 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// PUT    /api/user-wishlists/{id}/itinerary/days/{dayId}/items/{itemId}
 /// DELETE /api/user-wishlists/{id}/itinerary/days/{dayId}/items/{itemId}
 /// PUT    /api/user-wishlists/{id}/itinerary/order
+///
+/// Public read-only sharing (opt-in, owner only; templates are already public):
+/// POST   /api/user-wishlists/{id}/share   — create (or return the existing) share link
+/// DELETE /api/user-wishlists/{id}/share   — revoke the share link
+/// GET    /api/shared/wishlists/{token}    — anonymous read-only view of a shared wishlist
 /// </summary>
 [ApiController]
 [Route("api/user-wishlists")]
@@ -38,14 +45,17 @@ public class UserWishlistsController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly IHubContext<WishlistHub> _wishlistHub;
     private readonly IPartnerService _partners;
+    private readonly IShareService _share;
 
     public UserWishlistsController(
         IWishlistRepository wishlists,
         ICollaboratorRepository collaborators,
         ICurrentUserService currentUser,
         IHubContext<WishlistHub> wishlistHub,
-        IPartnerService partners)
+        IPartnerService partners,
+        IShareService share)
     {
+        _share = share;
         _wishlists     = wishlists;
         _collaborators = collaborators;
         _currentUser   = currentUser;
@@ -130,6 +140,80 @@ public class UserWishlistsController : ControllerBase
         if (!_currentUser.IsAuthenticated) return Unauthorized();
         var wishlists = await _collaborators.GetSharedWishlistsAsync(_currentUser.UserId, ct);
         return Ok(await _partners.AttachAsync(wishlists.Select(wishlist => WishlistsController.MapToCard(wishlist)), ct));
+    }
+
+    // ══ Public share link ═════════════════════════════════════════════════════
+
+    // ── POST /api/user-wishlists/{id}/share ──────────────────────────────────
+    // Idempotent: returns the existing token if the wishlist is already shared.
+
+    [HttpPost("{id:guid}/share")]
+    public async Task<IActionResult> EnableShare(Guid id, CancellationToken ct = default)
+    {
+        var (state, error) = await GetOwnedShareStateAsync(id, ct);
+        if (error is not null) return error;
+
+        if (state!.ShareToken is null)
+        {
+            state = await _wishlists.EnableShareAsync(id, ShareService.NewShareToken(), ct);
+            if (state?.ShareToken is null) return NotFound();
+        }
+
+        return Ok(new WishlistShareLinkDto(
+            state.ShareToken,
+            _share.BuildFrontendUrl(ShareTypes.SharedWishlist, state.ShareToken),
+            state.ShareEnabledAt));
+    }
+
+    // ── DELETE /api/user-wishlists/{id}/share ────────────────────────────────
+
+    [HttpDelete("{id:guid}/share")]
+    public async Task<IActionResult> DisableShare(Guid id, CancellationToken ct = default)
+    {
+        var (_, error) = await GetOwnedShareStateAsync(id, ct);
+        if (error is not null) return error;
+
+        return await _wishlists.DisableShareAsync(id, ct) ? NoContent() : NotFound();
+    }
+
+    // ── GET /api/shared/wishlists/{token} ────────────────────────────────────
+    // Anonymous, read-only. Viewer-specific flags are always off (role "None")
+    // and the share token itself is never echoed back.
+
+    [HttpGet("/api/shared/wishlists/{token}")]
+    [AllowAnonymous]
+    [EnableRateLimiting("public-browse")]
+    public async Task<IActionResult> GetSharedByToken(string token, CancellationToken ct = default)
+    {
+        if (!ShareService.IsValidShareToken(token)) return NotFound();
+
+        var wishlist = await _wishlists.GetBySharedTokenAsync(token, ct);
+        if (wishlist is null) return NotFound();
+
+        var snapshot = await _wishlists.GetActiveSnapshotAsync(wishlist.WishlistId, ct);
+        return Ok(await _partners.AttachAsync(WishlistsController.MapToDetail(wishlist, Guid.Empty, snapshot), ct));
+    }
+
+    /// <summary>
+    /// Owner-only gate for share management: 401 anonymous, 404 missing (or no access at all),
+    /// 400 template, 403 collaborator who isn't the owner.
+    /// </summary>
+    private async Task<(WishlistShareState? State, IActionResult? Error)> GetOwnedShareStateAsync(Guid id, CancellationToken ct)
+    {
+        if (!_currentUser.IsAuthenticated) return (null, Unauthorized());
+
+        var state = await _wishlists.GetShareStateAsync(id, ct);
+        if (state is null) return (null, NotFound());
+        if (state.IsTemplate)
+            return (null, BadRequest("Platform wishlists are already public; share them via /api/share/wishlist/{id}."));
+
+        if (state.OwnerUserId != _currentUser.UserId)
+        {
+            var role = await _collaborators.GetRoleAsync(id, _currentUser.UserId, ct);
+            return (null, role is null ? NotFound() : Forbid());
+        }
+
+        return (state, null);
     }
 
     // ══ Itinerary editing ═════════════════════════════════════════════════════
@@ -444,11 +528,12 @@ public class UserWishlistsController : ControllerBase
 
         var snapshot = await _wishlists.GetActiveSnapshotAsync(id, ct);
         var dto = await _partners.AttachAsync(WishlistsController.MapToDetail(updated, _currentUser.UserId, snapshot), ct);
+        // The group includes collaborators: never broadcast the owner's share token.
         await _wishlistHub.Clients
             .Group(id.ToString())
             .SendAsync(
                 "WishlistUpdated",
-                dto, ct
+                dto with { ShareToken = null }, ct
             );
         return dto;
     }

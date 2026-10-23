@@ -130,10 +130,12 @@ namespace Hodrac_Backend_MVP2.Controllers
             await _db.SaveChangesAsync();
 
             var loaded = await LoadForDtoAsync(trip.Id);
+            // A brand-new trip has no approved members yet (just the author).
+            var createdDto = TripPostDto.FromEntity(loaded!, myInterestStatus: null, approvedCount: 0);
             await _tripPostHub.Clients
                 .All
-                .SendAsync("TripPostCreated", TripPostDto.FromEntity(loaded!));
-            return CreatedAtAction(nameof(GetTrip), new { id = trip.Id }, TripPostDto.FromEntity(loaded!));
+                .SendAsync("TripPostCreated", createdDto);
+            return CreatedAtAction(nameof(GetTrip), new { id = trip.Id }, createdDto);
         }
 
         // ---- Feed / browse / detail ----
@@ -156,15 +158,27 @@ namespace Hodrac_Backend_MVP2.Controllers
             if (trip is null || (trip.IsHidden && trip.AuthorUserId != CurrentUserId))
                 return NotFound();
 
-            var myInterestStatus = await _db.TripInterests
-                .Where(i =>
-                    i.TripPostId == trip.Id &&
-                    i.RequesterUserId == CurrentUserId &&
-                    i.Status != TripInterestStatus.Withdrawn)
-                .Select(i => i.Status.ToString())
+            // Viewer's own interest status + the approved-member count in one query.
+            var viewer = await _db.TripPosts
+                .Where(t => t.Id == trip.Id)
+                .Select(t => new
+                {
+                    MyInterestStatus = _db.TripInterests
+                        .Where(i =>
+                            i.TripPostId == t.Id &&
+                            i.RequesterUserId == CurrentUserId &&
+                            i.Status != TripInterestStatus.Withdrawn)
+                        .Select(i => i.Status.ToString())
+                        .FirstOrDefault(),
+                    ApprovedCount = _db.TripInterests
+                        .Count(i =>
+                            i.TripPostId == t.Id &&
+                            i.Status == TripInterestStatus.Approved &&
+                            i.RequesterUserId != t.AuthorUserId)
+                })
                 .FirstOrDefaultAsync();
 
-            return TripPostDto.FromEntity(trip, myInterestStatus);
+            return TripPostDto.FromEntity(trip, viewer?.MyInterestStatus, viewer?.ApprovedCount ?? 0);
         }
 
         // Trips from people the current user follows. Assumes a Follows
@@ -175,12 +189,6 @@ namespace Hodrac_Backend_MVP2.Controllers
         {
             // var followedIds = await _follows.GetFollowedUserIdsAsync(CurrentUserId);
             var followedIds = new List<Guid>(); // TODO: wire up real follow graph
-
-            var trips = await WithDtoIncludes()
-                .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open && !t.IsHidden)
-                .OrderByDescending(t => t.CreatedAt)
-                .Take(50)
-                .ToListAsync();
 
             var result = await WithDtoIncludes()
     .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open && !t.IsHidden)
@@ -195,12 +203,17 @@ namespace Hodrac_Backend_MVP2.Controllers
                 i.RequesterUserId == CurrentUserId &&
                 i.Status != TripInterestStatus.Withdrawn)
             .Select(i => i.Status.ToString())
-            .FirstOrDefault()
+            .FirstOrDefault(),
+        ApprovedCount = _db.TripInterests
+            .Count(i =>
+                i.TripPostId == trip.Id &&
+                i.Status == TripInterestStatus.Approved &&
+                i.RequesterUserId != trip.AuthorUserId)
     })
     .ToListAsync();
 
             return result
-                .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus))
+                .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus, x.ApprovedCount))
                 .ToList();
         }
 
@@ -276,11 +289,15 @@ namespace Hodrac_Backend_MVP2.Controllers
                 i.RequesterUserId == CurrentUserId &&
                 i.Status != TripInterestStatus.Withdrawn)
             .Select(i => i.Status.ToString())
-            .FirstOrDefault()
+            .FirstOrDefault(),
+                ApprovedCount = _db.TripInterests
+                .Count(i => i.TripPostId == trip.Id &&
+                i.Status == TripInterestStatus.Approved &&
+                i.RequesterUserId != trip.AuthorUserId)
             }).ToListAsync();
 
             return result
-    .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus))
+    .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus, x.ApprovedCount))
     .ToList();
         }
 
@@ -320,6 +337,23 @@ namespace Hodrac_Backend_MVP2.Controllers
                 TotalCount: total,
                 TotalPages: (int)Math.Ceiling(total / (double)pageSize),
                 Items: trips.Select(PublicTripPostDto.FromEntity).ToList()));
+        }
+
+        // Logged-out single-trip view for shared links. Same projection as
+        // the public list (no author id, no participant counts). Hidden
+        // (moderated) trips 404; Closed/Cancelled trips still resolve so the
+        // link shows the trip's status instead of breaking.
+        [HttpGet("public/{id:guid}")]
+        [AllowAnonymous]
+        [EnableRateLimiting("public-browse")]
+        public async Task<ActionResult<PublicTripPostDto>> GetPublicTrip(Guid id)
+        {
+            var trip = await WithDtoIncludes()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == id && !t.IsHidden);
+
+            if (trip is null) return NotFound();
+            return PublicTripPostDto.FromEntity(trip);
         }
 
         // Partial update - every field is optional; only provided ones change.
@@ -406,8 +440,19 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             var tripIds = interests.Select(i => i.TripPostId).Distinct().ToList();
             // Hidden (moderated) trips drop out of other people's request lists.
-            var trips = await WithDtoIncludes().Where(t => tripIds.Contains(t.Id) && !t.IsHidden).ToListAsync();
-            var tripById = trips.ToDictionary(t => t.Id);
+            var trips = await WithDtoIncludes()
+                .Where(t => tripIds.Contains(t.Id) && !t.IsHidden)
+                .Select(t => new
+                {
+                    Trip = t,
+                    ApprovedCount = _db.TripInterests
+                        .Count(i =>
+                            i.TripPostId == t.Id &&
+                            i.Status == TripInterestStatus.Approved &&
+                            i.RequesterUserId != t.AuthorUserId)
+                })
+                .ToListAsync();
+            var tripById = trips.ToDictionary(t => t.Trip.Id);
 
             var result = interests
     .Where(i => tripById.ContainsKey(i.TripPostId))
@@ -418,8 +463,9 @@ namespace Hodrac_Backend_MVP2.Controllers
         i.RequestedAt,
         i.RespondedAt,
         TripPostDto.FromEntity(
-            tripById[i.TripPostId],
-            i.Status.ToString()
+            tripById[i.TripPostId].Trip,
+            i.Status.ToString(),
+            tripById[i.TripPostId].ApprovedCount
         )))
     .ToList();
 
@@ -448,11 +494,20 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             var tripIds = trips.Select(t => t.Id).ToList();
 
-            var pendingCounts = await _db.TripInterests
-                .Where(i => tripIds.Contains(i.TripPostId) && i.Status == TripInterestStatus.Requested)
+            // Pending (badge) and approved (participant) counts in one grouped query.
+            // The caller is the author of every trip here, so excluding their own
+            // id keeps ApprovedCount author-free.
+            var interestCounts = await _db.TripInterests
+                .Where(i => tripIds.Contains(i.TripPostId)
+                    && (i.Status == TripInterestStatus.Requested || i.Status == TripInterestStatus.Approved))
                 .GroupBy(i => i.TripPostId)
-                .Select(g => new { TripPostId = g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.TripPostId, x => x.Count);
+                .Select(g => new
+                {
+                    TripPostId = g.Key,
+                    Pending = g.Count(i => i.Status == TripInterestStatus.Requested),
+                    Approved = g.Count(i => i.Status == TripInterestStatus.Approved && i.RequesterUserId != CurrentUserId)
+                })
+                .ToDictionaryAsync(x => x.TripPostId);
 
             var threadTripIds = (await _db.TripThreads
                 .Where(t => tripIds.Contains(t.TripPostId))
@@ -462,8 +517,8 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             return trips
                 .Select(t => new MyTripPostWithModerationDto(
-                    TripPostDto.FromEntity(t),
-                    pendingCounts.GetValueOrDefault(t.Id, 0),
+                    TripPostDto.FromEntity(t, null, interestCounts.GetValueOrDefault(t.Id)?.Approved ?? 0),
+                    interestCounts.GetValueOrDefault(t.Id)?.Pending ?? 0,
                     threadTripIds.Contains(t.Id),
                     t.IsHidden))
                 .ToList();

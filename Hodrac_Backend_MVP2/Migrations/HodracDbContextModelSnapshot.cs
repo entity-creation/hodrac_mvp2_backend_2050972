@@ -1469,6 +1469,13 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTimeOffset?>("ShareEnabledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShareToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("ShortStory")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1513,6 +1520,10 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.HasIndex("IsTemplate");
 
                     b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("ShareToken")
+                        .IsUnique()
+                        .HasFilter("\"ShareToken\" IS NOT NULL");
 
                     b.HasIndex("TotalGlobalSaveCount");
 

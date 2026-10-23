@@ -24,6 +24,7 @@ namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
     List<WishlistCreatorAttributionDto> CreatorAttributions,
     uint Xmin,
     string UserRole,              // "Owner" | "Editor" | "Viewer" | "None"
-    PartnerDto? Partner = null
+    PartnerDto? Partner = null,
+    string? ShareToken = null     // public share token — only ever set for the owner
     );
 }

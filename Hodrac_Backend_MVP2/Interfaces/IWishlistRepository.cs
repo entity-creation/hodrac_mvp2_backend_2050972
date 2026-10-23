@@ -65,6 +65,22 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task DeleteUserWishlistAsync(
             Guid wishlistId, Guid userId, CancellationToken ct = default);
 
+        // Public share links (user-owned wishlists only)
+        /// <summary>Lightweight ownership/share state; null if the wishlist doesn't exist.</summary>
+        Task<WishlistShareState?> GetShareStateAsync(Guid wishlistId, CancellationToken ct = default);
+
+        /// <summary>
+        /// Sets <paramref name="candidateToken"/> as the share token only if none exists yet
+        /// (atomic), then returns whatever token is now stored. Null if not found / template.
+        /// </summary>
+        Task<WishlistShareState?> EnableShareAsync(Guid wishlistId, string candidateToken, CancellationToken ct = default);
+
+        /// <summary>Clears ShareToken and ShareEnabledAt. Returns false if not found / template.</summary>
+        Task<bool> DisableShareAsync(Guid wishlistId, CancellationToken ct = default);
+
+        /// <summary>Full detail graph (as GetUserWishlistByIdAsync) for an enabled share token, else null.</summary>
+        Task<Wishlist?> GetBySharedTokenAsync(string token, CancellationToken ct = default);
+
         // Save / bookmark
         Task<bool> SaveWishlistAsync(Guid wishlistId, Guid userId, CancellationToken ct = default);
         Task<bool> UnsaveWishlistAsync(Guid wishlistId, Guid userId, CancellationToken ct = default);
@@ -81,4 +97,12 @@ namespace Hodrac_Backend_MVP2.Interfaces
         Task IncrementSaveCountAsync(Guid wishlistId, CancellationToken ct = default);
         Task DecrementSaveCountAsync(Guid wishlistId, CancellationToken ct = default);
     }
+
+    /// <summary>Ownership + public-share state of a wishlist (no detail graph).</summary>
+    public record WishlistShareState(
+        Guid WishlistId,
+        bool IsTemplate,
+        Guid? OwnerUserId,
+        string? ShareToken,
+        DateTimeOffset? ShareEnabledAt);
 }

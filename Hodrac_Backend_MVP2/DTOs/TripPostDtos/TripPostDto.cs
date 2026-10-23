@@ -21,9 +21,28 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         int? MaxGroupSize,
         string? MyInterestStatus,
         TripPostStatus Status,
-        DateTime CreatedAt)
+        DateTime CreatedAt,
+        // Participant counts - signed-in responses only (PublicTripPostDto
+        // never carries them). ApprovedCount excludes the author; GoingCount
+        // is ApprovedCount + 1 (the author); SpotsLeft is null when the trip
+        // has no MaxGroupSize.
+        int ApprovedCount = 0,
+        int GoingCount = 1,
+        int? SpotsLeft = null)
     {
-        public static TripPostDto FromEntity(TripPost trip, string? myInterestStatus = null)
+        public static TripPostDto FromEntity(TripPost trip, string? myInterestStatus = null, int approvedCount = 0)
+        {
+            var dto = Build(trip, myInterestStatus);
+            var going = Math.Max(approvedCount, 0) + 1;
+            return dto with
+            {
+                ApprovedCount = Math.Max(approvedCount, 0),
+                GoingCount = going,
+                SpotsLeft = trip.MaxGroupSize is int max ? Math.Max(max - going, 0) : null
+            };
+        }
+
+        private static TripPostDto Build(TripPost trip, string? myInterestStatus)
         {
             if (trip.Destination is not null)
             {

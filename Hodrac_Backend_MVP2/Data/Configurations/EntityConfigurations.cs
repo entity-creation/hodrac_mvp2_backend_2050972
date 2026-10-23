@@ -38,6 +38,12 @@ public class WishlistConfiguration : IEntityTypeConfiguration<Wishlist>
         builder.HasIndex(w => w.OwnerUserId);
         builder.HasIndex(w => w.TotalGlobalSaveCount);
         builder.HasIndex(w => w.CreatedAt);
+
+        // Public share links: token lookups must be fast and unambiguous.
+        builder.Property(w => w.ShareToken).HasMaxLength(64);
+        builder.HasIndex(w => w.ShareToken)
+               .IsUnique()
+               .HasFilter("\"ShareToken\" IS NOT NULL");
     }
 }
 

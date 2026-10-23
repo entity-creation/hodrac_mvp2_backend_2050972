@@ -24,7 +24,11 @@ using System.Text;
 using System.Threading.RateLimiting;
 
 
-var builder = WebApplication.CreateBuilder(args);
+// One-off command flags (e.g. --seed-solohouse) are stripped before the args reach
+// configuration: the command-line provider would otherwise treat a bare flag as a
+// key and swallow the next argument (such as a --ConnectionStrings override) as its value.
+var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse" };
+var builder = WebApplication.CreateBuilder(args.Where(a => !commandFlags.Contains(a)).ToArray());
 
 // ─── PostgreSQL + EF Core + pgvector ─────────────────────────────────────────
 builder.Services.AddDbContext<HodracDbContext>(options =>
@@ -185,6 +189,7 @@ builder.Services.AddScoped<PopularWishlistService>();
 builder.Services.AddScoped<FeaturedWishlistService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPartnerService, PartnerService>();
+builder.Services.AddScoped<IShareService, ShareService>();
 
 // ─── Currency rates (daily refresh, cached in memory + Postgres) ──────────────
 builder.Services.AddHttpClient(CurrencyRateService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));
@@ -251,7 +256,7 @@ builder.Services.AddSignalR();
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 // Extra origins (e.g. the admin dashboard) via Cors:AllowedOrigins, comma-separated.
-var corsOrigins = new[] { builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173", "http://localhost:5173" }
+var corsOrigins = new[] { builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173", "http://localhost:5174" }
     .Concat((builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
         .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
     .Select(o => o.TrimEnd('/'))
@@ -308,6 +313,36 @@ var app = builder.Build();
 //    await db.Database.MigrateAsync();
 //    await Hodrac_Backend_MVP2.Infrastucture.Seeder.AfricaPocSeeder.SeedAsync(db);
 //    app.Logger.LogInformation("Proof-of-concept seed complete.");
+//    return;
+//}
+
+// ─── Sales mockup (dev only): `dotnet run -- --seed-solohouse` / `--remove-solohouse` ──
+// Refuses to touch the Render (production) database so the mockup never goes live.
+//if (args.Contains("--seed-solohouse") || args.Contains("--remove-solohouse"))
+//{
+//    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+//    if (pgHost.Contains("render.com", StringComparison.OrdinalIgnoreCase) || pgHost.StartsWith("dpg-", StringComparison.OrdinalIgnoreCase))
+//    {
+//        app.Logger.LogError("Refusing to run the Solo House mockup against the Render database ({Host}). Point ConnectionStrings:Postgres at a local dev database first.", pgHost);
+//        return;
+//    }
+
+//    using var scope = app.Services.CreateScope();
+//    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+//    // The InitialMigration uses the pgvector type before a later migration enables
+//    // the extension, so a brand-new database needs it created up front.
+//    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+//    await db.Database.MigrateAsync();
+//    if (args.Contains("--remove-solohouse"))
+//    {
+//        await Hodrac_Backend_MVP2.Infrastucture.Seeder.SoloHouseMockSeeder.RemoveAsync(db);
+//        app.Logger.LogInformation("Solo House mockup removed from {Host}.", pgHost);
+//    }
+//    else
+//    {
+//        await Hodrac_Backend_MVP2.Infrastucture.Seeder.SoloHouseMockSeeder.SeedAsync(db);
+//        app.Logger.LogInformation("Solo House mockup seeded into {Host}.", pgHost);
+//    }
 //    return;
 //}
 
