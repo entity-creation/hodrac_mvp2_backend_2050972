@@ -699,6 +699,33 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.ToTable("FeaturedWishlistPool");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HeroWishlistSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("HeroUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("HeroWishlistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SetByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HeroWishlistId");
+
+                    b.ToTable("HeroWishlistSettings", t =>
+                        {
+                            t.HasCheckConstraint("CK_HeroWishlistSetting_Singleton", "\"Id\" = 1");
+                        });
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ItineraryDay", b =>
                 {
                     b.Property<Guid>("ItineraryDayId")
@@ -1994,6 +2021,16 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .IsRequired();
 
                     b.Navigation("Wishlist");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HeroWishlistSetting", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Wishlist", "HeroWishlist")
+                        .WithMany()
+                        .HasForeignKey("HeroWishlistId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("HeroWishlist");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ItineraryDay", b =>

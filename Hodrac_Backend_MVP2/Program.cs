@@ -190,6 +190,8 @@ builder.Services.AddScoped<FeaturedWishlistService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPartnerService, PartnerService>();
 builder.Services.AddScoped<IShareService, ShareService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IHeroWishlistService, HeroWishlistService>();
 
 // ─── Currency rates (daily refresh, cached in memory + Postgres) ──────────────
 builder.Services.AddHttpClient(CurrencyRateService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));

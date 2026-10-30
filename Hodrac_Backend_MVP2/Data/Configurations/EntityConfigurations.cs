@@ -476,6 +476,24 @@ public class PartnerLinkClickConfiguration : IEntityTypeConfiguration<PartnerLin
     }
 }
 
+public class HeroWishlistSettingConfiguration : IEntityTypeConfiguration<HeroWishlistSetting>
+{
+    public void Configure(EntityTypeBuilder<HeroWishlistSetting> builder)
+    {
+        builder.HasKey(s => s.Id);
+        builder.Property(s => s.Id).ValueGeneratedNever();
+
+        // Single row only.
+        builder.ToTable(t => t.HasCheckConstraint("CK_HeroWishlistSetting_Singleton", "\"Id\" = 1"));
+
+        // Deleting the wishlist clears the hero instead of blocking the delete.
+        builder.HasOne(s => s.HeroWishlist)
+            .WithMany()
+            .HasForeignKey(s => s.HeroWishlistId)
+            .OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
 public class PartnerLeadConfiguration : IEntityTypeConfiguration<PartnerLead>
 {
     public void Configure(EntityTypeBuilder<PartnerLead> builder)

@@ -69,6 +69,7 @@ public class HodracDbContext : IdentityDbContext<ApplicationUser>, IDataProtecti
     public DbSet<PartnerLinkClick> PartnerLinkClicks => Set<PartnerLinkClick>();
     public DbSet<PartnerLead> PartnerLeads => Set<PartnerLead>();
     public DbSet<CurrencyRateSnapshot> CurrencyRateSnapshots => Set<CurrencyRateSnapshot>();
+    public DbSet<HeroWishlistSetting> HeroWishlistSettings => Set<HeroWishlistSetting>();
 
     /// <summary>ASP.NET Core Data Protection key ring (signs reset/confirmation tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;

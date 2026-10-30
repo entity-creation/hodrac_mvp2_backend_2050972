@@ -38,6 +38,7 @@ public class WishlistsController : ControllerBase
     private readonly IBehaviorEventQueue _events;
     private readonly IProfileRepository _profiles;
     private readonly ILogger<WishlistsController> _logger;
+    private readonly IHeroWishlistService _hero;
 
     public WishlistsController(
         IWishlistRepository wishlists,
@@ -49,8 +50,10 @@ public class WishlistsController : ControllerBase
         IPartnerService partners,
         IBehaviorEventQueue events,
         IProfileRepository profiles,
-        ILogger<WishlistsController> logger)
+        ILogger<WishlistsController> logger,
+        IHeroWishlistService hero)
     {
+        _hero = hero;
         _events = events;
         _profiles = profiles;
         _logger = logger;
@@ -123,6 +126,24 @@ public class WishlistsController : ControllerBase
         var rankedIds = await _popularService.GetRankedWishlistIdsAsync(effectiveUserId, limit, ct);
         var wishlists = await _wishlists.GetPopularTemplatesAsync(rankedIds, limit, ct);
         return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard), ct));
+    }
+
+    // ── GET /api/wishlists/hero ───────────────────────────────────────────────
+    // Admin-chosen landing-page hero (see AdminHeroController). 204 when none
+    // applies, so the frontend falls back to the first featured wishlist.
+    // The card is cached server-side for 60s and evicted when the hero changes;
+    // `partner` is attached per request because its trackingUrl is personalised
+    // for logged-in users, so the HTTP cache is private.
+
+    [HttpGet("hero")]
+    public async Task<IActionResult> GetHero(CancellationToken ct = default)
+    {
+        var card = await _hero.GetActiveCardAsync(ct);
+        if (card is null) return NoContent();
+
+        Response.Headers.CacheControl = "private, max-age=60";
+        var withPartner = await _partners.AttachAsync(new[] { card }, ct);
+        return Ok(withPartner[0]);
     }
 
     // ── GET /api/wishlists/featured ───────────────────────────────────────────
