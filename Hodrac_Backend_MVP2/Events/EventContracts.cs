@@ -32,6 +32,19 @@ public record SearchExecutedEvent(
     DateTimeOffset OccurredAt
 );
 
+/// <summary>
+/// Published when a logged-in user clicks through to a partner (GET /api/out/{linkId}).
+/// Bots/prefetches are never published. Tags are the linked destination/wishlist tags.
+/// </summary>
+public record PartnerClickedEvent(
+    string UserId,
+    string LinkId,
+    string PartnerId,
+    string Source,
+    List<string> TargetTags,
+    DateTimeOffset OccurredAt
+);
+
 /// <summary>Published when a user completes the personalization modal.</summary>
 public record OnboardingCompletedEvent(
     string UserId,

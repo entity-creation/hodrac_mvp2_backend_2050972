@@ -17,6 +17,7 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///   GET  /api/admin/insights/wishlists/{id}/audience
 ///   GET  /api/admin/insights/wishlists?segmentType=travelerType|budget|priority|prototype&amp;segment=&amp;limit=20
 ///   GET  /api/admin/insights/destinations/{id}/audience          (destination_click events, last 90 days)
+///   GET  /api/admin/insights/partners/{id}/audience              (logged-in, non-bot partner clicks, last 90 days)
 ///   GET  /api/admin/insights/tags?segmentType=&amp;segment=&amp;limit=20  (segmentType also accepts income)
 ///   POST /api/admin/insights/rebuild                             → 202 { jobId, … } | 409 if one is running
 ///   GET  /api/admin/insights/rebuild/{jobId}                     → job status / progress
@@ -70,6 +71,13 @@ public class AdminInsightsController : ControllerBase
     {
         var dto = await _insights.GetDestinationAudienceAsync(id, ct);
         return dto is null ? NotFound(new { error = "Destination not found." }) : Ok(dto);
+    }
+
+    [HttpGet("partners/{id:guid}/audience")]
+    public async Task<ActionResult<AdminPartnerAudienceDto>> GetPartnerAudience(Guid id, CancellationToken ct = default)
+    {
+        var dto = await _insights.GetPartnerAudienceAsync(id, ct);
+        return dto is null ? NotFound(new { error = "Partner not found." }) : Ok(dto);
     }
 
     [HttpGet("tags")]

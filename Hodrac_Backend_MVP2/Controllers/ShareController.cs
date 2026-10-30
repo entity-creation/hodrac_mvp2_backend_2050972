@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,15 +17,6 @@ namespace Hodrac_Backend_MVP2.Controllers;
 [EnableRateLimiting("public-browse")]
 public class ShareController : ControllerBase
 {
-    // Link-preview crawlers. They get the meta tags without a meta-refresh so
-    // they don't follow it to the SPA (which has no server-rendered tags);
-    // browsers get both the meta refresh and the JS redirect.
-    private static readonly Regex CrawlerUserAgent = new(
-        "facebookexternalhit|facebot|twitterbot|whatsapp|slackbot|linkedinbot|discordbot|telegrambot|"
-        + "pinterest|redditbot|applebot|skypeuripreview|vkshare|embedly|iframely|googlebot|bingbot|"
-        + "mastodon|snapchat|viber|line/|kakaotalk|bot\\b|crawler|spider|preview",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     private readonly IShareService _share;
 
     public ShareController(IShareService share) => _share = share;
@@ -70,8 +60,10 @@ public class ShareController : ControllerBase
             };
         }
 
-        var userAgent = Request.Headers.UserAgent.ToString();
-        var isCrawler = !string.IsNullOrEmpty(userAgent) && CrawlerUserAgent.IsMatch(userAgent);
+        // Link-preview crawlers get the meta tags without a meta-refresh so they
+        // don't follow it to the SPA (which has no server-rendered tags);
+        // browsers get both the meta refresh and the JS redirect.
+        var isCrawler = BotDetector.IsCrawler(Request.Headers.UserAgent.ToString());
 
         // Revocable links must stop working promptly, so they aren't cached.
         Response.Headers.CacheControl = info.Type == ShareTypes.SharedWishlist ? "no-store" : "public, max-age=300";

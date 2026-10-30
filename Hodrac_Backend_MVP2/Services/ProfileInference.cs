@@ -22,6 +22,7 @@ public static class ProfileInference
     public const string EventDestinationClick = "destination_click";
     public const string EventSearch = "search";
     public const string EventWishlistView = "wishlist_view";
+    public const string EventPartnerClick = "partner_click";
 
     /// <summary>tag_counts weight per tag on a wishlist save.</summary>
     public const int SaveTagWeight = 2;

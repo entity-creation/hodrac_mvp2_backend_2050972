@@ -973,6 +973,11 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AppendUtm")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("BookingUrl")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -1032,12 +1037,24 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<DateTime>("ClickedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsBot")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<Guid>("LinkId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Referrer")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("unknown");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(500)
@@ -1046,9 +1063,15 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("VisitorId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("LinkId", "ClickedAt");
+
+                    b.HasIndex("LinkId", "IsBot", "ClickedAt");
 
                     b.ToTable("PartnerLinkClicks");
                 });

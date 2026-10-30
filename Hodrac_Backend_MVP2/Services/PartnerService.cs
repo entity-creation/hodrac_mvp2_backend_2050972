@@ -3,6 +3,7 @@ using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.DTOs.WishlistDtos;
 using Hodrac_Backend_MVP2.Models;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 
 namespace Hodrac_Backend_MVP2.Services
@@ -22,12 +23,22 @@ namespace Hodrac_Backend_MVP2.Services
         private readonly HodracDbContext _db;
         private readonly IHttpContextAccessor _httpContext;
         private readonly IConfiguration _config;
+        private readonly ICurrentUserService _currentUser;
+        private readonly IDataProtectionProvider _dataProtection;
+        private string? _clickToken;
 
-        public PartnerService(HodracDbContext db, IHttpContextAccessor httpContext, IConfiguration config)
+        public PartnerService(
+            HodracDbContext db,
+            IHttpContextAccessor httpContext,
+            IConfiguration config,
+            ICurrentUserService currentUser,
+            IDataProtectionProvider dataProtection)
         {
             _db = db;
             _httpContext = httpContext;
             _config = config;
+            _currentUser = currentUser;
+            _dataProtection = dataProtection;
         }
 
         public async Task<List<DestinationSummaryDto>> AttachAsync(IEnumerable<DestinationSummaryDto> items, CancellationToken ct = default)
@@ -112,21 +123,32 @@ namespace Hodrac_Backend_MVP2.Services
         private Dictionary<Guid, PartnerDto> Pick(List<PartnerLink> links, Func<PartnerLink, Guid> key)
         {
             var baseUrl = TrackingBaseUrl();
+            var query = ClickQuery();
             return links
                 .GroupBy(key)
                 .ToDictionary(
                     g => g.Key,
-                    g => ToDto(g.OrderByDescending(l => l.Priority).ThenBy(l => l.CreatedAt).First(), baseUrl));
+                    g => ToDto(g.OrderByDescending(l => l.Priority).ThenBy(l => l.CreatedAt).First(), baseUrl, query));
         }
 
-        private static PartnerDto ToDto(PartnerLink link, string baseUrl) => new(
+        private static PartnerDto ToDto(PartnerLink link, string baseUrl, string query) => new(
             PartnerId: link.PartnerId,
             Name: link.Partner.Name,
             LogoUrl: link.Partner.LogoUrl,
             BookingUrl: link.BookingUrl,
-            TrackingUrl: $"{baseUrl}/api/out/{link.LinkId}",
+            TrackingUrl: $"{baseUrl}/api/out/{link.LinkId}{query}",
             CtaLabel: link.CtaLabel ?? link.Partner.DefaultCtaLabel,
             IsSponsored: link.IsSponsored);
+
+        // Logged-in callers get ?c=<signed user token> so the click can be
+        // attributed even though the browser navigation carries no JWT.
+        // Anonymous callers get the plain URL. One token per request.
+        private string ClickQuery()
+        {
+            if (!_currentUser.IsAuthenticated || _currentUser.UserId == Guid.Empty) return string.Empty;
+            _clickToken ??= PartnerClickToken.Create(_dataProtection, _currentUser.UserId);
+            return $"?{PartnerClickToken.QueryKey}={Uri.EscapeDataString(_clickToken)}";
+        }
 
         // Prefer the configured public API URL (correct behind proxies/TLS
         // termination); fall back to the current request's host.

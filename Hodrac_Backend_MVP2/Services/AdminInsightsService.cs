@@ -176,6 +176,30 @@ public class AdminInsightsService
             clicks, users.Count, MinBucketSize, audience);
     }
 
+    /// <summary>
+    /// Audience of logged-in, non-bot users who clicked through to the partner in
+    /// the last EventWindowDays days. Null when the partner does not exist.
+    /// </summary>
+    public async Task<AdminPartnerAudienceDto?> GetPartnerAudienceAsync(Guid partnerId, CancellationToken ct)
+    {
+        var partner = await _db.Partners.AsNoTracking()
+            .Where(p => p.PartnerId == partnerId)
+            .Select(p => new { p.PartnerId, p.Name })
+            .FirstOrDefaultAsync(ct);
+        if (partner is null) return null;
+
+        var since = DateTime.UtcNow.AddDays(-EventWindowDays);
+        var clicks = _db.PartnerLinkClicks.AsNoTracking()
+            .Where(c => c.Link.PartnerId == partnerId && !c.IsBot && c.UserId != null && c.ClickedAt >= since);
+
+        var clickCount = await clicks.CountAsync(ct);
+        var users = await clicks.Select(c => c.UserId!.Value).Distinct().ToListAsync(ct);
+
+        var audience = await ComputeAudienceAsync(UserIdFilter(users.Select(u => u.ToString())), 20, ct);
+        return new AdminPartnerAudienceDto(partner.PartnerId, partner.Name, EventWindowDays,
+            clickCount, users.Count, MinBucketSize, audience);
+    }
+
     public async Task<AdminTagInsightsDto> GetTagsAsync(InsightSegmentType? type, string? segment, int limit, CancellationToken ct)
     {
         var match = type is null || string.IsNullOrWhiteSpace(segment)

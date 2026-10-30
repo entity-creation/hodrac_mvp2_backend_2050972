@@ -9,7 +9,7 @@ namespace Hodrac_Backend_MVP2.Services;
 /// Implements the bidirectional tag inference loop described in Part 4 of the spec.
 ///
 /// Triggered by: WishlistSavedEvent, DestinationClickedEvent, SearchExecutedEvent,
-/// OnboardingCompletedEvent (via BehaviorEventWorker).
+/// OnboardingCompletedEvent, PartnerClickedEvent (via BehaviorEventWorker).
 /// Reads: tag_inference_rules collection.
 /// Writes: interaction_event_stream (raw events), user_psychographic_profiles
 /// (tag counts, event-type counters, clamped vectors, derived fields) and
@@ -150,6 +150,32 @@ public class TagInferenceService
         await _profiles.EnsureExistsAsync(evt.UserId, at);
         await _profiles.PushSearchPhraseAsync(evt.UserId, phrase, at);
         await RecomputeDerivedAsync(evt.UserId);
+    }
+
+    // ─── PartnerClicked ───────────────────────────────────────────────────────
+
+    public async Task HandlePartnerClickedAsync(PartnerClickedEvent evt)
+    {
+        if (string.IsNullOrEmpty(evt.UserId) || string.IsNullOrEmpty(evt.LinkId)) return;
+        var at = evt.OccurredAt.UtcDateTime;
+        var tags = ProfileInference.NormalizeTags(evt.TargetTags);
+
+        await _events.InsertAsync(new InteractionEvent
+        {
+            EventId = $"evt_{Guid.NewGuid():N}",
+            UserId = evt.UserId,
+            EventType = ProfileInference.EventPartnerClick,
+            EntityId = evt.LinkId,
+            EntityTags = tags,
+            Timestamp = at,
+            Context = new EventContext { Page = string.IsNullOrEmpty(evt.Source) ? "unknown" : evt.Source, Position = 0 }
+        });
+
+        // Counter + last-interaction only: no tag_counts / vector changes, so
+        // partner placements don't skew the inferred profile.
+        await _profiles.EnsureExistsAsync(evt.UserId, at);
+        await _profiles.RecordInteractionAsync(evt.UserId, ProfileInference.EventPartnerClick,
+            new Dictionary<string, int>(), at);
     }
 
     // ─── OnboardingCompleted ──────────────────────────────────────────────────

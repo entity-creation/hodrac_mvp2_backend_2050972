@@ -61,6 +61,12 @@ public class PartnerLink
     public DateTime? StartsAt { get; set; }
     public DateTime? EndsAt { get; set; }
 
+    /// <summary>
+    /// Append utm_source=hodrac &amp; co. to the redirect. Turn off for partners whose
+    /// booking URL breaks with extra query parameters.
+    /// </summary>
+    public bool AppendUtm { get; set; } = true;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<PartnerLinkClick> Clicks { get; set; } = new List<PartnerLinkClick>();
@@ -76,8 +82,22 @@ public class PartnerLinkClick
     public Guid LinkId { get; set; }
     public PartnerLink Link { get; set; } = null!;
 
-    /// <summary>Set when the click carried a valid JWT; usually null for plain link navigations.</summary>
+    /// <summary>
+    /// The logged-in user, from the signed <c>c</c> token PartnerService puts in
+    /// trackingUrl (or a JWT if one was sent). Null for anonymous visitors.
+    /// </summary>
     public Guid? UserId { get; set; }
+
+    /// <summary>Anonymous first-party visitor id (hodrac_vid cookie on the API domain). No IP is stored.</summary>
+    [MaxLength(64)]
+    public string? VisitorId { get; set; }
+
+    /// <summary>Where the click came from — one of <see cref="PartnerClickSources.All"/>, or "unknown".</summary>
+    [Required, MaxLength(30)]
+    public string Source { get; set; } = PartnerClickSources.Unknown;
+
+    /// <summary>Crawler / link-preview / prefetch hit. Still redirected, excluded from stats by default.</summary>
+    public bool IsBot { get; set; }
 
     [MaxLength(2000)]
     public string? Referrer { get; set; }
@@ -86,6 +106,26 @@ public class PartnerLinkClick
     public string? UserAgent { get; set; }
 
     public DateTime ClickedAt { get; set; } = DateTime.UtcNow;
+}
+
+public static class PartnerClickSources
+{
+    public const string Unknown = "unknown";
+    public const string Other = "other";
+
+    public static readonly IReadOnlyList<string> All = new[]
+    {
+        "destination_detail", "destination_card", "wishlist_detail", "wishlist_card",
+        "featured", "search", "share", "trip", Other
+    };
+
+    /// <summary>Missing → "unknown"; a whitelisted value (case-insensitive) → itself; anything else → "other".</summary>
+    public static string Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return Unknown;
+        var trimmed = value.Trim();
+        return All.FirstOrDefault(s => string.Equals(s, trimmed, StringComparison.OrdinalIgnoreCase)) ?? Other;
+    }
 }
 
 // ─── PartnerLead ──────────────────────────────────────────────────────────────

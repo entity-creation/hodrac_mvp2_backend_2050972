@@ -453,6 +453,10 @@ public class PartnerLinkConfiguration : IEntityTypeConfiguration<PartnerLink>
         builder.HasIndex(l => new { l.DestinationId, l.IsActive });
         builder.HasIndex(l => new { l.WishlistId, l.IsActive });
 
+        // Sentinel true: EF only omits the column (letting the DB default apply)
+        // when the value is true, so an explicit false is always written.
+        builder.Property(l => l.AppendUtm).HasDefaultValue(true).HasSentinel(true);
+
         builder.HasMany(l => l.Clicks)
             .WithOne(c => c.Link)
             .HasForeignKey(c => c.LinkId)
@@ -465,6 +469,10 @@ public class PartnerLinkClickConfiguration : IEntityTypeConfiguration<PartnerLin
     public void Configure(EntityTypeBuilder<PartnerLinkClick> builder)
     {
         builder.HasIndex(c => new { c.LinkId, c.ClickedAt });
+        builder.HasIndex(c => new { c.LinkId, c.IsBot, c.ClickedAt });
+
+        builder.Property(c => c.Source).HasDefaultValue(PartnerClickSources.Unknown);
+        builder.Property(c => c.IsBot).HasDefaultValue(false);
     }
 }
 

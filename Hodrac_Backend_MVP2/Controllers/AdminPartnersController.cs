@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Text;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
@@ -17,14 +18,15 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///   POST   /api/admin/partners
 ///   PATCH  /api/admin/partners/{id}
 ///   POST   /api/admin/partners/{id}/activate | /deactivate
-///   GET    /api/admin/partners/{id}/stats?from=&amp;to=
+///   GET    /api/admin/partners/{id}/stats?from=&amp;to=&amp;includeBots=false
+///   GET    /api/admin/partners/{id}/clicks/export?from=&amp;to=   — CSV (no personal data)
 /// Links
 ///   GET    /api/admin/partner-links?partnerId=&amp;destinationId=&amp;wishlistId=&amp;active=
 ///   GET    /api/admin/partner-links/{linkId}
 ///   POST   /api/admin/partner-links
 ///   PATCH  /api/admin/partner-links/{linkId}
 ///   DELETE /api/admin/partner-links/{linkId}
-///   GET    /api/admin/partner-links/{linkId}/stats?from=&amp;to=
+///   GET    /api/admin/partner-links/{linkId}/stats?from=&amp;to=&amp;includeBots=false
 /// Leads
 ///   GET    /api/admin/partner-leads?page=&amp;pageSize=&amp;search=&amp;status=
 ///   GET    /api/admin/partner-leads/{id}
@@ -159,6 +161,7 @@ public class AdminPartnersController : ControllerBase
         Guid id,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
+        [FromQuery] bool includeBots = false,
         CancellationToken ct = default)
     {
         if (!await _db.Partners.AnyAsync(p => p.PartnerId == id, ct)) return NotFound();
@@ -167,7 +170,79 @@ public class AdminPartnersController : ControllerBase
             return ValidationProblem(ModelState);
 
         var clicks = _db.PartnerLinkClicks.Where(c => c.Link.PartnerId == id);
-        return Ok(await BuildStats(clicks, rangeFrom, rangeTo, ct));
+        return Ok(await BuildStats(clicks, rangeFrom, rangeTo, includeBots, ct));
+    }
+
+    /// <summary>
+    /// Monthly-report CSV for the partner: one row per (UTC day, link, source) with
+    /// clicks and unique visitors. Bots excluded; no personal data.
+    /// </summary>
+    [HttpGet("partners/{id:guid}/clicks/export")]
+    public async Task<IActionResult> ExportPartnerClicks(
+        Guid id,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        CancellationToken ct = default)
+    {
+        var partner = await _db.Partners
+            .AsNoTracking()
+            .Where(p => p.PartnerId == id)
+            .Select(p => new { p.Name })
+            .FirstOrDefaultAsync(ct);
+        if (partner is null) return NotFound();
+
+        if (!TryResolveRange(from, to, out var rangeFrom, out var rangeTo))
+            return ValidationProblem(ModelState);
+
+        var rows = await _db.PartnerLinkClicks
+            .AsNoTracking()
+            .Where(c => c.Link.PartnerId == id && !c.IsBot && c.ClickedAt >= rangeFrom && c.ClickedAt < rangeTo)
+            .GroupBy(c => new { Day = c.ClickedAt.Date, c.LinkId, c.Source })
+            .Select(g => new
+            {
+                g.Key.Day,
+                g.Key.LinkId,
+                g.Key.Source,
+                Clicks = g.Count(),
+                UniqueVisitors = g
+                    .Select(c => c.UserId != null ? c.UserId.ToString() : c.VisitorId)
+                    .Where(k => k != null)
+                    .Distinct()
+                    .Count()
+            })
+            .ToListAsync(ct);
+
+        var linkIds = rows.Select(r => r.LinkId).Distinct().ToList();
+        var targetNames = await _db.PartnerLinks
+            .AsNoTracking()
+            .Where(l => linkIds.Contains(l.LinkId))
+            .Select(l => new
+            {
+                l.LinkId,
+                Name = l.Destination != null ? l.Destination.DestinationName : l.Wishlist != null ? l.Wishlist.WishlistName : null
+            })
+            .ToDictionaryAsync(l => l.LinkId, l => l.Name, ct);
+
+        var csv = new StringBuilder();
+        csv.Append("date,target,source,clicks,uniqueVisitors\r\n");
+        foreach (var row in rows
+                     .Select(r => new { r, Target = targetNames.GetValueOrDefault(r.LinkId) ?? r.LinkId.ToString() })
+                     .OrderBy(x => x.r.Day).ThenBy(x => x.Target).ThenBy(x => x.r.Source))
+        {
+            csv.Append(DateOnly.FromDateTime(row.r.Day).ToString("yyyy-MM-dd")).Append(',')
+               .Append(CsvField(row.Target)).Append(',')
+               .Append(CsvField(row.r.Source)).Append(',')
+               .Append(row.r.Clicks).Append(',')
+               .Append(row.r.UniqueVisitors).Append("\r\n");
+        }
+
+        // UTF-8 with BOM so Excel detects the encoding.
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+        var slug = System.Text.RegularExpressions.Regex.Replace(partner.Name.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        var fileName = $"partner-clicks-{(slug.Length == 0 ? "partner" : slug)}-{rangeFrom:yyyy-MM-dd}-to-{rangeTo:yyyy-MM-dd}.csv";
+
+        _logger.LogInformation("Admin exported click report for partner {PartnerId}", id);
+        return File(bytes, "text/csv", fileName);
     }
 
     // ══ Partner links ═════════════════════════════════════════════════════════
@@ -231,7 +306,8 @@ public class AdminPartnersController : ControllerBase
             Priority = request.Priority,
             IsActive = request.IsActive,
             StartsAt = startsAt,
-            EndsAt = endsAt
+            EndsAt = endsAt,
+            AppendUtm = request.AppendUtm
         };
 
         _db.PartnerLinks.Add(link);
@@ -281,6 +357,7 @@ public class AdminPartnersController : ControllerBase
         if (request.IsSponsored is not null) link.IsSponsored = request.IsSponsored.Value;
         if (request.Priority is not null) link.Priority = request.Priority.Value;
         if (request.IsActive is not null) link.IsActive = request.IsActive.Value;
+        if (request.AppendUtm is not null) link.AppendUtm = request.AppendUtm.Value;
 
         await _db.SaveChangesAsync(ct);
 
@@ -306,6 +383,7 @@ public class AdminPartnersController : ControllerBase
         Guid linkId,
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
+        [FromQuery] bool includeBots = false,
         CancellationToken ct = default)
     {
         if (!await _db.PartnerLinks.AnyAsync(l => l.LinkId == linkId, ct)) return NotFound();
@@ -314,7 +392,7 @@ public class AdminPartnersController : ControllerBase
             return ValidationProblem(ModelState);
 
         var clicks = _db.PartnerLinkClicks.Where(c => c.LinkId == linkId);
-        return Ok(await BuildStats(clicks, rangeFrom, rangeTo, ct));
+        return Ok(await BuildStats(clicks, rangeFrom, rangeTo, includeBots, ct));
     }
 
     // ══ Leads ═════════════════════════════════════════════════════════════════
@@ -422,7 +500,8 @@ public class AdminPartnersController : ControllerBase
         l.IsActive,
         l.StartsAt,
         l.EndsAt,
-        l.CreatedAt);
+        l.CreatedAt,
+        l.AppendUtm);
 
     private static readonly Expression<Func<PartnerLead, AdminPartnerLeadDto>> ToLeadDto = l => new AdminPartnerLeadDto(
         l.Id,
@@ -521,17 +600,32 @@ public class AdminPartnersController : ControllerBase
     }
 
     private static async Task<ClickStatsDto> BuildStats(
-        IQueryable<PartnerLinkClick> clicks, DateTime from, DateTime to, CancellationToken ct)
+        IQueryable<PartnerLinkClick> clicks, DateTime from, DateTime to, bool includeBots, CancellationToken ct)
     {
-        var inRange = clicks.Where(c => c.ClickedAt >= from && c.ClickedAt < to);
+        var allInRange = clicks.Where(c => c.ClickedAt >= from && c.ClickedAt < to);
+        var inRange = includeBots ? allInRange : allInRange.Where(c => !c.IsBot);
 
         var total = await inRange.CountAsync(ct);
+        var botClicksExcluded = includeBots ? 0 : await allInRange.CountAsync(c => c.IsBot, ct);
+        var loggedInClicks = await inRange.CountAsync(c => c.UserId != null, ct);
 
         var uniqueUsers = await inRange
             .Where(c => c.UserId != null)
             .Select(c => c.UserId)
             .Distinct()
             .CountAsync(ct);
+
+        // A person = their user id when known, otherwise their anonymous visitor cookie.
+        var uniqueVisitors = await inRange
+            .Select(c => c.UserId != null ? c.UserId.ToString() : c.VisitorId)
+            .Where(k => k != null)
+            .Distinct()
+            .CountAsync(ct);
+
+        var bySource = await inRange
+            .GroupBy(c => c.Source)
+            .Select(g => new SourceClicksDto(g.Key, g.Count()))
+            .ToListAsync(ct);
 
         // ClickedAt is timestamptz; Npgsql translates .Date to date_trunc('day', ..., 'UTC').
         var daily = await inRange
@@ -545,7 +639,12 @@ public class AdminPartnersController : ControllerBase
             to,
             total,
             uniqueUsers,
-            daily.Select(d => new DailyClicksDto(DateOnly.FromDateTime(d.Day), d.Clicks)).ToList());
+            daily.Select(d => new DailyClicksDto(DateOnly.FromDateTime(d.Day), d.Clicks)).ToList(),
+            uniqueVisitors,
+            loggedInClicks,
+            botClicksExcluded,
+            includeBots,
+            bySource.OrderByDescending(s => s.Clicks).ThenBy(s => s.Source).ToList());
     }
 
     /// <summary>Npgsql requires UTC for timestamptz; treat unspecified as UTC.</summary>
@@ -563,6 +662,21 @@ public class AdminPartnersController : ControllerBase
 
     private static string? NullIfBlank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// RFC 4180 quoting, plus a leading apostrophe for values starting with
+    /// = + - @ (tab/CR) so spreadsheets don't evaluate them as formulas.
+    /// (Same rules as AdminNewsletterController.)
+    /// </summary>
+    private static string CsvField(string? value)
+    {
+        value ??= string.Empty;
+        if (value.Length > 0 && "=+-@\t\r".Contains(value[0]))
+            value = "'" + value;
+
+        var needsQuotes = value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0 || value != value.Trim();
+        return needsQuotes ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
+    }
 
     private static string EscapeLike(string value)
         => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");

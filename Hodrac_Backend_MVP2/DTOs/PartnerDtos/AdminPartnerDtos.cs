@@ -58,7 +58,8 @@ namespace Hodrac_Backend_MVP2.DTOs.PartnerDtos
         bool IsActive,
         DateTime? StartsAt,
         DateTime? EndsAt,
-        DateTime CreatedAt
+        DateTime CreatedAt,
+        bool AppendUtm          // utm_* tags added to the redirect
     );
 
     /// <summary>Exactly one of DestinationId / WishlistId is required.</summary>
@@ -72,7 +73,8 @@ namespace Hodrac_Backend_MVP2.DTOs.PartnerDtos
         [Range(-1000, 1000)] int Priority = 0,
         bool IsActive = true,
         DateTime? StartsAt = null,
-        DateTime? EndsAt = null
+        DateTime? EndsAt = null,
+        bool AppendUtm = true
     );
 
     /// <summary>
@@ -91,20 +93,32 @@ namespace Hodrac_Backend_MVP2.DTOs.PartnerDtos
         DateTime? StartsAt,
         DateTime? EndsAt,
         bool ClearStartsAt = false,
-        bool ClearEndsAt = false
+        bool ClearEndsAt = false,
+        bool? AppendUtm = null
     );
 
     // ─── Click stats ──────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Bot / prefetch clicks are excluded from every figure unless includeBots=true;
+    /// BotClicksExcluded is how many were left out (0 when included).
+    /// </summary>
     public record ClickStatsDto(
         DateTime From,
         DateTime To,
         int TotalClicks,
         int UniqueUsers,        // distinct logged-in users; anonymous clicks excluded
-        List<DailyClicksDto> Daily
+        List<DailyClicksDto> Daily,
+        int UniqueVisitors,     // distinct coalesce(UserId, VisitorId); clicks with neither are not counted
+        int LoggedInClicks,
+        int BotClicksExcluded,
+        bool IncludesBots,
+        List<SourceClicksDto> BySource
     );
 
     public record DailyClicksDto(DateOnly Date, int Clicks);
+
+    public record SourceClicksDto(string Source, int Clicks);
 
     // ─── Leads ────────────────────────────────────────────────────────────────
 

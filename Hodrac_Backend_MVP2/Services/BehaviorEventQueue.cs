@@ -20,6 +20,7 @@ public interface IBehaviorEventQueue
     void Publish(DestinationClickedEvent evt);
     void Publish(OnboardingCompletedEvent evt);
     void Publish(SearchExecutedEvent evt);
+    void Publish(PartnerClickedEvent evt);
 }
 
 public class BehaviorEventQueue : IBehaviorEventQueue
@@ -35,6 +36,7 @@ public class BehaviorEventQueue : IBehaviorEventQueue
     public void Publish(DestinationClickedEvent evt) => _channel.Writer.TryWrite(evt);
     public void Publish(OnboardingCompletedEvent evt) => _channel.Writer.TryWrite(evt);
     public void Publish(SearchExecutedEvent evt) => _channel.Writer.TryWrite(evt);
+    public void Publish(PartnerClickedEvent evt) => _channel.Writer.TryWrite(evt);
 }
 
 public class BehaviorEventWorker : BackgroundService
@@ -95,6 +97,7 @@ public class BehaviorEventWorker : BackgroundService
             case DestinationClickedEvent e: await inference.HandleDestinationClickedAsync(e); break;
             case OnboardingCompletedEvent e: await inference.HandleOnboardingCompletedAsync(e); break;
             case SearchExecutedEvent e: await inference.HandleSearchExecutedAsync(e); break;
+            case PartnerClickedEvent e: await inference.HandlePartnerClickedAsync(e); break;
         }
     }
 

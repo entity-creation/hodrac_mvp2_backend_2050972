@@ -76,6 +76,19 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         int MinBucketSize,
         AudienceBreakdownDto Clickers);
 
+    /// <summary>
+    /// GET /api/admin/insights/partners/{id}/audience — logged-in, non-bot clickers
+    /// of the partner's links (Postgres PartnerLinkClicks, last WindowDays days).
+    /// </summary>
+    public record AdminPartnerAudienceDto(
+        Guid PartnerId,
+        string PartnerName,
+        int WindowDays,
+        int LoggedInClickCount,
+        int UniqueUsers,
+        int MinBucketSize,
+        AudienceBreakdownDto Clickers);
+
     /// <summary>GET /api/admin/insights/tags?segmentType=&amp;segment=&amp;limit=</summary>
     public record AdminTagInsightsDto(
         string? SegmentType,
