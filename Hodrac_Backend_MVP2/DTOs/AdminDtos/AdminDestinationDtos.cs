@@ -5,6 +5,21 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
 {
     // Paged lists reuse Hodrac_Backend_MVP2.DTOs.PartnerDtos.AdminPagedResult<T>.
 
+    // ─── Destination form options (GET /api/admin/destination-options) ────────
+
+    public record DestinationOptionsDto(
+        List<string> AccessibilityTypes,
+        List<Hodrac_Backend_MVP2.Services.TimeZoneOptionDto> TimeZones,
+        DestinationNonStandardValuesDto NonStandard);
+
+    public record DestinationNonStandardValuesDto(
+        List<NonStandardValueDto> AccessibilityTypes,
+        List<NonStandardValueDto> TimeZones,
+        int MissingAccessibility,
+        int MissingTimeZone);
+
+    public record NonStandardValueDto(string Value, int Count);
+
     // ─── Destinations ─────────────────────────────────────────────────────────
 
     public record AdminDestinationListItemDto(

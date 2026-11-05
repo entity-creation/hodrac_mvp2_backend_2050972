@@ -56,7 +56,7 @@ public class ExploreController : ControllerBase
         [FromQuery] string?      tags,           // comma-separated tag keys
         [FromQuery] string?      categories,     // comma-separated category keys
         [FromQuery] Guid?        countryId,
-        [FromQuery] string?      accessibility,  // "Train" | "Boat Only" | "Flight" | "Road"
+        [FromQuery] string?      accessibility,  // Walk | Car | Public transit | Train | Boat | Flight (old names accepted)
         [FromQuery] bool?        featured,       // true = only currently featured
 
         // Score filters
@@ -104,7 +104,10 @@ public class ExploreController : ControllerBase
             query = query.Where(d => d.CountryId == countryId.Value);
 
         if (!string.IsNullOrWhiteSpace(accessibility))
-            query = query.Where(d => d.AccessibilityType == accessibility);
+        {
+            var access = DestinationReferenceData.NormalizeAccessibility(accessibility) ?? accessibility.Trim();
+            query = query.Where(d => d.AccessibilityType == access);
+        }
 
         if (featured == true)
         {

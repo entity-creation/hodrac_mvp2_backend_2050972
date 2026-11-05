@@ -42,7 +42,7 @@ public class Destination
     /// <summary>1–5</summary>
     public int LuxuryRating { get; set; }
 
-    /// <summary>"Train" | "Boat Only" | "Flight"</summary>
+    /// <summary>Walk | Car | Public transit | Train | Boat | Flight (see DestinationReferenceData)</summary>
     [MaxLength(50)]
     public string AccessibilityType { get; set; } = string.Empty;
 

@@ -220,7 +220,7 @@ public class LookupController : ControllerBase
                 priceStats?.MaxCostPerDay ?? 1000),
             LuxuryRatings: new RangeDto(1, 5),
             SafetyLevels: new RangeDto(1, 5),
-            AccessibilityTypes: new[] { "Train", "Boat Only", "Flight", "Road" },
+            AccessibilityTypes: Hodrac_Backend_MVP2.Services.DestinationReferenceData.AccessibilityTypes.ToArray(),
 
             // Wishlist filters
             WishlistPriceRange: new PriceRangeDto(

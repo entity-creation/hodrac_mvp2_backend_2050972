@@ -159,7 +159,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 30m, LuxuryRating = DeriveLuxury(30m, mapping["Iolani Palace"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Iolani Palace"].tags), AdventurePaceScore = AdventureScore(mapping["Iolani Palace"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Iolani Palace"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Iolani Palace"].tags), Latitude = 21.3059, Longitude = -157.8583, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Iolani Palace"].tags), Latitude = 21.3059, Longitude = -157.8583, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Bishop Museum ──
         new Destination { DestinationId = dBishop, DestinationName = "Bishop Museum", CleanNormalizedSearchName = "bishop museum", MetaphoneCode = "BXP MSM", DoubleMetaphonePrimary = "PXP MSM", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -181,9 +181,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "2 to 3 hours."
             }
             """,
-            AverageCostPerDay = 28m, LuxuryRating = DeriveLuxury(28m, mapping["Bishop Museum"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 28m, LuxuryRating = DeriveLuxury(28m, mapping["Bishop Museum"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Bishop Museum"].tags), AdventurePaceScore = AdventureScore(mapping["Bishop Museum"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Bishop Museum"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Bishop Museum"].tags), Latitude = 21.3269, Longitude = -157.8721, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Bishop Museum"].tags), Latitude = 21.3269, Longitude = -157.8721, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Leonard's Bakery ──
         new Destination { DestinationId = dLeonards, DestinationName = "Leonard's Bakery", CleanNormalizedSearchName = "leonards bakery", MetaphoneCode = "LNRTS BKR", DoubleMetaphonePrimary = "LNRTS PKR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -207,7 +207,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 10m, LuxuryRating = DeriveLuxury(10m, mapping["Leonard's Bakery"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Leonard's Bakery"].tags), AdventurePaceScore = AdventureScore(mapping["Leonard's Bakery"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Leonard's Bakery"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Leonard's Bakery"].tags), Latitude = 21.2887, Longitude = -157.8171, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Leonard's Bakery"].tags), Latitude = 21.2887, Longitude = -157.8171, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Pearl Harbor & USS Arizona Memorial ──
         new Destination { DestinationId = dPearlHarbor, DestinationName = "Pearl Harbor & USS Arizona Memorial", CleanNormalizedSearchName = "pearl harbor uss arizona memorial", MetaphoneCode = "PRL HRBR ARSN MMRL", DoubleMetaphonePrimary = "PRL HRBR ARSN MMRL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -232,7 +232,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 5m, LuxuryRating = DeriveLuxury(5m, mapping["Pearl Harbor & USS Arizona Memorial"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Pearl Harbor & USS Arizona Memorial"].tags), AdventurePaceScore = AdventureScore(mapping["Pearl Harbor & USS Arizona Memorial"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Pearl Harbor & USS Arizona Memorial"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Pearl Harbor & USS Arizona Memorial"].tags), Latitude = 21.3649, Longitude = -157.9500, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Pearl Harbor & USS Arizona Memorial"].tags), Latitude = 21.3649, Longitude = -157.9500, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── USS Bowfin Submarine Museum & Park ──
         new Destination { DestinationId = dBowfin, DestinationName = "USS Bowfin Submarine Museum & Park", CleanNormalizedSearchName = "uss bowfin submarine museum park", MetaphoneCode = "AS BFN SPMRN MSM PRK", DoubleMetaphonePrimary = "AS PFN SPMRN MSM PRK", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -256,7 +256,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 22m, LuxuryRating = DeriveLuxury(22m, mapping["USS Bowfin Submarine Museum & Park"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["USS Bowfin Submarine Museum & Park"].tags), AdventurePaceScore = AdventureScore(mapping["USS Bowfin Submarine Museum & Park"].tags), AestheticTrendScore = AestheticTrendScore(mapping["USS Bowfin Submarine Museum & Park"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["USS Bowfin Submarine Museum & Park"].tags), Latitude = 21.3634, Longitude = -157.9538, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["USS Bowfin Submarine Museum & Park"].tags), Latitude = 21.3634, Longitude = -157.9538, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── USS Missouri Battleship ──
         new Destination { DestinationId = dMissouri, DestinationName = "USS Missouri Battleship", CleanNormalizedSearchName = "uss missouri battleship", MetaphoneCode = "AS MSR BTLXP", DoubleMetaphonePrimary = "AS MSR PTLXP", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -280,7 +280,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 40m, LuxuryRating = DeriveLuxury(40m, mapping["USS Missouri Battleship"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["USS Missouri Battleship"].tags), AdventurePaceScore = AdventureScore(mapping["USS Missouri Battleship"].tags), AestheticTrendScore = AestheticTrendScore(mapping["USS Missouri Battleship"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["USS Missouri Battleship"].tags), Latitude = 21.3556, Longitude = -157.9536, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["USS Missouri Battleship"].tags), Latitude = 21.3556, Longitude = -157.9536, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Ko Olina Lagoons ──
         new Destination { DestinationId = dKoOlina, DestinationName = "Ko Olina Lagoons", CleanNormalizedSearchName = "ko olina lagoons", MetaphoneCode = "K OLN LKNS", DoubleMetaphonePrimary = "K OLN LKNS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -304,7 +304,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Ko Olina Lagoons"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Ko Olina Lagoons"].tags), AdventurePaceScore = AdventureScore(mapping["Ko Olina Lagoons"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Ko Olina Lagoons"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ko Olina Lagoons"].tags), Latitude = 21.3339, Longitude = -158.1219, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ko Olina Lagoons"].tags), Latitude = 21.3339, Longitude = -158.1219, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Germaine's Luau ──
         new Destination { DestinationId = dGermaines, DestinationName = "Germaine's Luau", CleanNormalizedSearchName = "germaines luau", MetaphoneCode = "JRMNS LW", DoubleMetaphonePrimary = "KRMNS LW", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -326,9 +326,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "3 to 4 hours including transportation."
             }
             """,
-            AverageCostPerDay = 175m, LuxuryRating = DeriveLuxury(175m, mapping["Germaine's Luau"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 175m, LuxuryRating = DeriveLuxury(175m, mapping["Germaine's Luau"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Germaine's Luau"].tags), AdventurePaceScore = AdventureScore(mapping["Germaine's Luau"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Germaine's Luau"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Germaine's Luau"].tags), Latitude = 21.3389, Longitude = -158.1178, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Germaine's Luau"].tags), Latitude = 21.3389, Longitude = -158.1178, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Diamond Head State Monument ──
         new Destination { DestinationId = dDiamondHead, DestinationName = "Diamond Head State Monument", CleanNormalizedSearchName = "diamond head state monument", MetaphoneCode = "TMNT HT STT MNMNT", DoubleMetaphonePrimary = "TMNT HT STT MNMNT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -353,7 +353,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 15m, LuxuryRating = DeriveLuxury(15m, mapping["Diamond Head State Monument"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Diamond Head State Monument"].tags), AdventurePaceScore = AdventureScore(mapping["Diamond Head State Monument"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Diamond Head State Monument"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Diamond Head State Monument"].tags), Latitude = 21.2620, Longitude = -157.8058, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Diamond Head State Monument"].tags), Latitude = 21.2620, Longitude = -157.8058, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Hanauma Bay Nature Preserve ──
         new Destination { DestinationId = dHanauma, DestinationName = "Hanauma Bay Nature Preserve", CleanNormalizedSearchName = "hanauma bay nature preserve", MetaphoneCode = "HNM B NTR PRSRF", DoubleMetaphonePrimary = "HNM P NTR PRSRF", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -378,7 +378,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 28m, LuxuryRating = DeriveLuxury(28m, mapping["Hanauma Bay Nature Preserve"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Hanauma Bay Nature Preserve"].tags), AdventurePaceScore = AdventureScore(mapping["Hanauma Bay Nature Preserve"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Hanauma Bay Nature Preserve"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Hanauma Bay Nature Preserve"].tags), Latitude = 21.2690, Longitude = -157.6938, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Hanauma Bay Nature Preserve"].tags), Latitude = 21.2690, Longitude = -157.6938, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Makapuʻu Lighthouse Trail ──
         new Destination { DestinationId = dMakapuu, DestinationName = "Makapuʻu Lighthouse Trail", CleanNormalizedSearchName = "makapuu lighthouse trail", MetaphoneCode = "MKP LTHS TRL", DoubleMetaphonePrimary = "MKP LTHS TRL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -403,7 +403,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Makapuʻu Lighthouse Trail"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Makapuʻu Lighthouse Trail"].tags), AdventurePaceScore = AdventureScore(mapping["Makapuʻu Lighthouse Trail"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Makapuʻu Lighthouse Trail"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Makapuʻu Lighthouse Trail"].tags), Latitude = 21.3106, Longitude = -157.6494, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Makapuʻu Lighthouse Trail"].tags), Latitude = 21.3106, Longitude = -157.6494, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Koko Head Crater Trail ──
         new Destination { DestinationId = dKokoHead, DestinationName = "Koko Head Crater Trail", CleanNormalizedSearchName = "koko head crater trail", MetaphoneCode = "KK HT KRTR TRL", DoubleMetaphonePrimary = "KK HT KRTR TRL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -427,7 +427,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Koko Head Crater Trail"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Koko Head Crater Trail"].tags), AdventurePaceScore = AdventureScore(mapping["Koko Head Crater Trail"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Koko Head Crater Trail"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Koko Head Crater Trail"].tags), Latitude = 21.2814, Longitude = -157.6997, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Koko Head Crater Trail"].tags), Latitude = 21.2814, Longitude = -157.6997, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Mauka Warriors Luau ──
         new Destination { DestinationId = dMaukaWarriors, DestinationName = "Mauka Warriors Luau", CleanNormalizedSearchName = "mauka warriors luau", MetaphoneCode = "MK WRRRS LW", DoubleMetaphonePrimary = "MK WRRRS LW", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -451,7 +451,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 160m, LuxuryRating = DeriveLuxury(160m, mapping["Mauka Warriors Luau"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Mauka Warriors Luau"].tags), AdventurePaceScore = AdventureScore(mapping["Mauka Warriors Luau"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Mauka Warriors Luau"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Mauka Warriors Luau"].tags), Latitude = 21.3467, Longitude = -158.0894, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Mauka Warriors Luau"].tags), Latitude = 21.3467, Longitude = -158.0894, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Lanikai Pillbox Trail ──
         new Destination { DestinationId = dLanikaiPillbox, DestinationName = "Lanikai Pillbox Trail", CleanNormalizedSearchName = "lanikai pillbox trail", MetaphoneCode = "LNK PLPKS TRL", DoubleMetaphonePrimary = "LNK PLPKS TRL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -475,7 +475,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Lanikai Pillbox Trail"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Lanikai Pillbox Trail"].tags), AdventurePaceScore = AdventureScore(mapping["Lanikai Pillbox Trail"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Lanikai Pillbox Trail"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Lanikai Pillbox Trail"].tags), Latitude = 21.3928, Longitude = -157.7147, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Lanikai Pillbox Trail"].tags), Latitude = 21.3928, Longitude = -157.7147, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Kailua & Lanikai Beaches ──
         new Destination { DestinationId = dKailuaLanikaiBeaches, DestinationName = "Kailua & Lanikai Beaches", CleanNormalizedSearchName = "kailua lanikai beaches", MetaphoneCode = "KL LNK BXS", DoubleMetaphonePrimary = "KL LNK PXS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -499,7 +499,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 15m, LuxuryRating = DeriveLuxury(15m, mapping["Kailua & Lanikai Beaches"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Kailua & Lanikai Beaches"].tags), AdventurePaceScore = AdventureScore(mapping["Kailua & Lanikai Beaches"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Kailua & Lanikai Beaches"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Kailua & Lanikai Beaches"].tags), Latitude = 21.3972, Longitude = -157.7394, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Kailua & Lanikai Beaches"].tags), Latitude = 21.3972, Longitude = -157.7394, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Rainbow Drive-In ──
         new Destination { DestinationId = dRainbowDriveIn, DestinationName = "Rainbow Drive-In", CleanNormalizedSearchName = "rainbow drive in", MetaphoneCode = "RNB TRF N", DoubleMetaphonePrimary = "RNP TRF N", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -523,7 +523,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 14m, LuxuryRating = DeriveLuxury(14m, mapping["Rainbow Drive-In"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Rainbow Drive-In"].tags), AdventurePaceScore = AdventureScore(mapping["Rainbow Drive-In"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Rainbow Drive-In"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Rainbow Drive-In"].tags), Latitude = 21.2871, Longitude = -157.8168, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Rainbow Drive-In"].tags), Latitude = 21.2871, Longitude = -157.8168, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Byodo-In Temple ──
         new Destination { DestinationId = dByodoIn, DestinationName = "Byodo-In Temple", CleanNormalizedSearchName = "byodo in temple", MetaphoneCode = "BT N TMPL", DoubleMetaphonePrimary = "PT N TMPL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -547,7 +547,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 6m, LuxuryRating = DeriveLuxury(6m, mapping["Byodo-In Temple"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Byodo-In Temple"].tags), AdventurePaceScore = AdventureScore(mapping["Byodo-In Temple"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Byodo-In Temple"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Byodo-In Temple"].tags), Latitude = 21.4319, Longitude = -157.8394, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Byodo-In Temple"].tags), Latitude = 21.4319, Longitude = -157.8394, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Hoʻomaluhia Botanical Garden ──
         new Destination { DestinationId = dHoomaluhia, DestinationName = "Hoʻomaluhia Botanical Garden", CleanNormalizedSearchName = "hoomaluhia botanical garden", MetaphoneCode = "HML BTNKL KRTN", DoubleMetaphonePrimary = "HML PTNKL KRTN", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -571,7 +571,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Hoʻomaluhia Botanical Garden"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Hoʻomaluhia Botanical Garden"].tags), AdventurePaceScore = AdventureScore(mapping["Hoʻomaluhia Botanical Garden"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Hoʻomaluhia Botanical Garden"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Hoʻomaluhia Botanical Garden"].tags), Latitude = 21.3897, Longitude = -157.8083, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Hoʻomaluhia Botanical Garden"].tags), Latitude = 21.3897, Longitude = -157.8083, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Kualoa Ranch ──
         new Destination { DestinationId = dKualoa, DestinationName = "Kualoa Ranch", CleanNormalizedSearchName = "kualoa ranch", MetaphoneCode = "KL RNX", DoubleMetaphonePrimary = "KL RNX", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -595,7 +595,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 180m, LuxuryRating = DeriveLuxury(180m, mapping["Kualoa Ranch"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Kualoa Ranch"].tags), AdventurePaceScore = AdventureScore(mapping["Kualoa Ranch"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Kualoa Ranch"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Kualoa Ranch"].tags), Latitude = 21.5228, Longitude = -157.8397, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Kualoa Ranch"].tags), Latitude = 21.5228, Longitude = -157.8397, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── North Shore Shark Adventures ──
         new Destination { DestinationId = dSharkTour, DestinationName = "North Shore Shark Adventures", CleanNormalizedSearchName = "north shore shark adventures", MetaphoneCode = "NR0 XR XRK ATFNTRS", DoubleMetaphonePrimary = "NR0 XR XRK ATFNTRS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -619,7 +619,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 135m, LuxuryRating = DeriveLuxury(135m, mapping["North Shore Shark Adventures"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["North Shore Shark Adventures"].tags), AdventurePaceScore = AdventureScore(mapping["North Shore Shark Adventures"].tags), AestheticTrendScore = AestheticTrendScore(mapping["North Shore Shark Adventures"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["North Shore Shark Adventures"].tags), Latitude = 21.5928, Longitude = -158.1067, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["North Shore Shark Adventures"].tags), Latitude = 21.5928, Longitude = -158.1067, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Waimea Bay ──
         new Destination { DestinationId = dWaimeaBay, DestinationName = "Waimea Bay", CleanNormalizedSearchName = "waimea bay", MetaphoneCode = "WM B", DoubleMetaphonePrimary = "WM P", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -643,7 +643,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Waimea Bay"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Waimea Bay"].tags), AdventurePaceScore = AdventureScore(mapping["Waimea Bay"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Waimea Bay"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Waimea Bay"].tags), Latitude = 21.6392, Longitude = -158.0656, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Waimea Bay"].tags), Latitude = 21.6392, Longitude = -158.0656, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Sunset Beach ──
         new Destination { DestinationId = dSunsetBeach, DestinationName = "Sunset Beach", CleanNormalizedSearchName = "sunset beach", MetaphoneCode = "SNST BX", DoubleMetaphonePrimary = "SNST PX", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -667,7 +667,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Sunset Beach"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Sunset Beach"].tags), AdventurePaceScore = AdventureScore(mapping["Sunset Beach"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Sunset Beach"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Sunset Beach"].tags), Latitude = 21.6656, Longitude = -158.0403, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Sunset Beach"].tags), Latitude = 21.6656, Longitude = -158.0403, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Giovanni's Shrimp Truck ──
         new Destination { DestinationId = dGiovannis, DestinationName = "Giovanni's Shrimp Truck", CleanNormalizedSearchName = "giovannis shrimp truck", MetaphoneCode = "JFNS XRMP TRK", DoubleMetaphonePrimary = "JFNS XRMP TRK", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -691,7 +691,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 18m, LuxuryRating = DeriveLuxury(18m, mapping["Giovanni's Shrimp Truck"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Giovanni's Shrimp Truck"].tags), AdventurePaceScore = AdventureScore(mapping["Giovanni's Shrimp Truck"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Giovanni's Shrimp Truck"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Giovanni's Shrimp Truck"].tags), Latitude = 21.6789, Longitude = -157.9539, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Giovanni's Shrimp Truck"].tags), Latitude = 21.6789, Longitude = -157.9539, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Matsumoto Shave Ice ──
         new Destination { DestinationId = dMatsumoto, DestinationName = "Matsumoto Shave Ice", CleanNormalizedSearchName = "matsumoto shave ice", MetaphoneCode = "MTSMT XF AS", DoubleMetaphonePrimary = "MTSMT XF AS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -715,7 +715,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 8m, LuxuryRating = DeriveLuxury(8m, mapping["Matsumoto Shave Ice"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Matsumoto Shave Ice"].tags), AdventurePaceScore = AdventureScore(mapping["Matsumoto Shave Ice"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Matsumoto Shave Ice"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Matsumoto Shave Ice"].tags), Latitude = 21.5964, Longitude = -158.1044, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Matsumoto Shave Ice"].tags), Latitude = 21.5964, Longitude = -158.1044, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Waikiki Beach ──
         new Destination { DestinationId = dWaikikiBeach, DestinationName = "Waikiki Beach", CleanNormalizedSearchName = "waikiki beach", MetaphoneCode = "WKK BX", DoubleMetaphonePrimary = "WKK PX", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -740,7 +740,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["Waikiki Beach"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Waikiki Beach"].tags), AdventurePaceScore = AdventureScore(mapping["Waikiki Beach"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Waikiki Beach"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Waikiki Beach"].tags), Latitude = 21.2761, Longitude = -157.8269, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Waikiki Beach"].tags), Latitude = 21.2761, Longitude = -157.8269, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── Ala Moana Center ──
         new Destination { DestinationId = dAlaMoana, DestinationName = "Ala Moana Center", CleanNormalizedSearchName = "ala moana center", MetaphoneCode = "AL MN SNTR", DoubleMetaphonePrimary = "AL MN SNTR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -764,7 +764,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Ala Moana Center"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Ala Moana Center"].tags), AdventurePaceScore = AdventureScore(mapping["Ala Moana Center"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Ala Moana Center"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ala Moana Center"].tags), Latitude = 21.2911, Longitude = -157.8434, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ala Moana Center"].tags), Latitude = 21.2911, Longitude = -157.8434, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
 
         // ── House Without a Key ──
         new Destination { DestinationId = dHouseWithoutAKey, DestinationName = "House Without a Key", CleanNormalizedSearchName = "house without a key", MetaphoneCode = "HS W0T K", DoubleMetaphonePrimary = "HS WTT K", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
@@ -788,7 +788,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 45m, LuxuryRating = DeriveLuxury(45m, mapping["House Without a Key"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["House Without a Key"].tags), AdventurePaceScore = AdventureScore(mapping["House Without a Key"].tags), AestheticTrendScore = AestheticTrendScore(mapping["House Without a Key"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["House Without a Key"].tags), Latitude = 21.2870, Longitude = -157.8322, SearchHitCount = 0, TimeZone = "Hawaii-Aleutian Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["House Without a Key"].tags), Latitude = 21.2870, Longitude = -157.8322, SearchHitCount = 0, TimeZone = "Pacific/Honolulu", SafetyLevel = 1, CountryId = usa.CountryId },
     };
 
             db.Destinations.AddRange(newDestinations);

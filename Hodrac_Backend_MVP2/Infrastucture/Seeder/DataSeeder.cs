@@ -418,7 +418,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 4, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["cultural_site"] },
 //                new List<string> { "cultural", "walkable", "history", "budget_friendly", "photography" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Takeshita Street",    "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/takeshita.jpg",
 //                BuildDesc("The global epicenter of Kawaii culture — a 350-meter pedestrian shopping street in Harajuku packed with youth fashion boutiques, themed cafes, and street food.",
@@ -435,7 +435,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 25, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "cultural", "walkable", "shopping", "budget_friendly", "tourist_hotspot", "crowded" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Cat Street",          "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/cat_street.jpg",
 //                BuildDesc("A winding pedestrian lane built over the old Shibuya River bed, connecting Harajuku to Shibuya. Lined with high-end boutiques, vintage shops, and artisan cafes — the sophisticated counterpart to Takeshita's chaos.",
@@ -452,7 +452,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                10, 100, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "walkable", "shopping", "premium", "tourist_hotspot" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Shibuya Crossing",    "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/shibuya_crossing.jpg",
 //                BuildDesc("The world's busiest pedestrian intersection, where five roads meet and up to 3,000 people cross simultaneously in the famous 'scramble.' An iconic symbol of Tokyo's organized chaos.",
@@ -469,7 +469,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 5, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["landmark_monument"] },
 //                new List<string> { "walkable", "crowded", "tourist_hotspot", "photography" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Shibuya Sky",         "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/shibuya_sky.webp",
 //                BuildDesc("An open-air 229-meter rooftop observation deck atop Shibuya Scramble Square. Offers 360-degree panoramic views of Tokyo including Skytree, Tokyo Tower, Imperial Palace, and on clear days, Mt. Fuji.",
@@ -486,7 +486,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                14, 18, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["viewpoint_scenic_spot"] },
 //                new List<string> { "architecture", "photography", "tourist_hotspot" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Senso-ji Temple (Asakusa Kannon)", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/sensoji.jpg",
 //                BuildDesc("Tokyo's oldest temple, founded in 645 AD. A vibrant spiritual landmark anchored by the famous Kaminarimon thunder gate and 250-meter Nakamise shopping street, offering an immersive Edo-period atmosphere.",
@@ -503,7 +503,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 15, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["cultural_site"] },
 //                new List<string> { "walkable", "crowded", "tourist_hotspot", "cultural", "shopping", "photography" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Kaminarimon Gate",    "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/kaminarimon.jpg",
 //                BuildDesc("The iconic 700kg vermilion lantern gate guarding Senso-ji Temple. One of Tokyo's most photographed landmarks, featuring Shinto gods guarding the front and Buddhist deities at the rear.",
@@ -520,7 +520,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 1, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["landmark_monument"] },
 //                new List<string> { "walkable", "crowded", "tourist_hotspot", "photography", "cultural" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Asakusa Streets",     "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/asakusa.jpg",
 //                BuildDesc("The heart of Tokyo's Shitamachi (old downtown), where Edo-period atmosphere lingers in the narrow back alleys, incense smoke from Senso-ji, and traditional craft shops. A maze of discovery beyond the main temple.",
@@ -537,7 +537,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                10, 30, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["market_street_life"] },
 //                new List<string> { "walkable", "crowded", "tourist_hotspot", "shopping", "food_focused" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Sumida Riverwalk",    "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/riverwalk.jpg",
 //                BuildDesc("A scenic riverside promenade along the Sumida River, linking ancient Asakusa temples to the futuristic Tokyo Skytree. Features a glass-floored pedestrian bridge, waterfront cafes, and 16 uniquely colored bridges.",
@@ -554,7 +554,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 10, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["activity_experience"] },
 //                new List<string> { "walkable", "romantic", "photography", "couple_friendly" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Shinjuku Gyoen",      "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/gyoen.jpg",
 //                BuildDesc("A 144-acre national garden featuring three distinct styles: French Formal, English Landscape, and Japanese Traditional. Famous for 1,000+ cherry trees and the longest sakura season in Tokyo due to early and late-blooming varieties.",
@@ -571,7 +571,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 5, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "walkable", "photography", "nature", "history" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Tokyo Metropolitan Government Building", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/tokyo_metropolitan.jpg",
 //                BuildDesc("A free 202-meter observation deck on the 45th floor of Kenzo Tange's postmodern masterpiece. Offers 360-degree city views including Mt. Fuji on clear days, and features evening projection mapping on the building exterior.",
@@ -588,7 +588,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                0, 5, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["viewpoint_scenic_spot"] },
 //                new List<string> { "photography", "budget_friendly", "architecture" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Shinjuku Golden Gai", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/golden_gai.jpg",
 //                BuildDesc("Six narrow alleys housing 200+ tiny themed bars, some fitting only five customers. A living relic of 1950s Tokyo that survived developers and arsonists, now beloved by writers, directors, musicians, and curious travelers.",
@@ -605,7 +605,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                15, 45, 9, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "nightlife", "best_at_night", "group_friendly", "social" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Kabukicho",           "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/kabukicho.jpg",
 //                BuildDesc("Japan's largest entertainment district — a hybrid of world-class attractions (Godzilla, namco TOKYO, Sword Art Online Quest) and neon-drenched nightlife bars. Recently transformed by the Tokyu Kabukicho Tower development.",
@@ -622,7 +622,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 100, 7, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["entertainment_nightlife"] },
 //                new List<string> { "nightlife", "best_at_night", "social" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Tsukiji Outer Market","https://wangq4yhmf94epv8.public.blob.vercel-storage.com/tsukiji.jpg",
 //                BuildDesc("Tokyo's surviving seafood and food culture hub — 400+ shops selling fresh fish, professional knives, and street food. Even after the wholesale market moved to Toyosu in 2018, this remains the city's most vibrant morning food district.",
@@ -639,7 +639,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 60, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["market_street_life"] },
 //                new List<string> { "crowded", "tourist_hotspot", "food_focused", "walkable" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("teamLab Borderless: Azabudai Hills", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/teamlab.jpg",
 //                BuildDesc("A 10,000 sqm digital art museum without a map — 75+ interconnected installations where art crosses between rooms, dragons fly down hallways, and flowers bloom at your feet. Reopened at Azabudai Hills in 2024.",
@@ -656,7 +656,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                10, 30, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["viewpoint_scenic_spot"] },
 //                new List<string> { "architecture", "photography", "tourist_hotspot" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Tokyo Disney",        "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/disney_tokyo.jpg",
 //                BuildDesc("The world's most visited Disney resort — Tokyo Disneyland and Tokyo DisneySea. In 2024-2026 celebrating DisneySea's 25th anniversary 'Sparkling Jubilee' with the massive Fantasy Springs expansion (Frozen, Tangled, Peter Pan lands).",
@@ -673,7 +673,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                49, 68, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["activity_experience"] },
 //                new List<string> { "family_friendly", "premium", "tourist_hotspot", "crowded" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            Make("Akihabara",           "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/akihabara.jpg",
 //                BuildDesc("Tokyo's Electric Town — global center of otaku culture, anime merchandise, retro gaming, maid cafes, and electronics. Evolved from post-WWII radio parts market to multi-floor shrines dedicated to every anime fandom.",
@@ -690,7 +690,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 100, 10, japan, tokyoCities, tokyoLangs, tokyoCurrs,
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "cultural", "shopping", "tourist_hotspot" },
-//                "Japan Standard Time"),
+//                "Asia/Tokyo"),
 
 //            // ── Panama destinations ───────────────────────────────────────────
 
@@ -709,7 +709,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                65, 190, 7, panama, new List<City> { panamaCity }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "walkable", "history", "cultural" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Panama Canal Miraflores Locks", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/panamacanal.jpg",
 //                BuildDesc("Panama's most visited landmark — a 4-floor visitor center with IMAX theater, museum, and outdoor viewing decks overlooking the original and expanded canal locks. Watch 100,000-ton vessels lifted by gravity and water alone.",
@@ -726,7 +726,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                150, 170, 7, panama, new List<City> { panamaCity }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["landmark_monument"] },
 //                new List<string> { "tourist_hotspot", "educational", "family_friendly" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Cinta Costera",       "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/cintacostera.jpg",
 //                BuildDesc("A 7-kilometer coastal beltway connecting Paitilla skyscrapers to Casco Viejo's colonial walls. Built on reclaimed land, it's Panama City's communal promenade for cycling, jogging, street food, and spectacular bay views.",
@@ -743,7 +743,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                10, 15, 7, panama, new List<City> { panamaCity }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "seasonal", "family_friendly", "walkable" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Mercado de Mariscos", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/mercado.jpeg",
 //                BuildDesc("Panama City's seafood market — the sensory epicenter where Pacific salt air meets the culinary pulse of the capital. Built in 1995 with Japanese government assistance, it's a working market serving both professional chefs and food-loving travelers.",
@@ -760,7 +760,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 15, 7, panama, new List<City> { panamaCity }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["market_street_life"] },
 //                new List<string> { "food_focused" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Biomuseo",            "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/biomuseo.jpg",
 //                BuildDesc("Frank Gehry's only Latin American building — a chaotic, colorful museum on the Amador Causeway telling the story of how the Isthmus of Panama rose from the sea and changed the world's climate and evolution. Features the immersive 'Panamarama' three-level projection space.",
@@ -777,7 +777,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                10, 20, 9, panama, new List<City> { panamaCity }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["landmark_monument"] },
 //                new List<string> { "architecture", "nature", "educational" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Bocas Town (Isla Colón)", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/bocastown.webp",
 //                BuildDesc("The vibrant Caribbean hub of Bocas del Toro archipelago — a kaleidoscopic grid of colorful buildings, international restaurants, and water taxi docks. Base camp for island hopping, surfing, and the legendary Filthy Friday boat party.",
@@ -794,7 +794,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 50, 7, panama, new List<City> { bocas }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "nightlife", "best_evening", "budget_friendly", "walkable" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Red Frog Beach",      "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/redfrog.jpeg",
 //                BuildDesc("Named for the Strawberry Poison Dart Frogs in its jungle, Red Frog Beach offers the balance of wild Caribbean power and resort-style comfort. Two access routes: rustic $5 jungle shortcut or $45 resort day pass with pool and golf carts.",
@@ -811,7 +811,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 190, 7, panama, new List<City> { bocas }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "good_short_visit", "premium", "budget_friendly", "nature" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Starfish Beach (Bocas del Toro)", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/starfishbeach.jpeg",
 //                BuildDesc("Playa Estrella — a calm, still-water Caribbean beach on Isla Colón's north end, home to giant orange cushion starfish in crystal-clear shallow water. Reached via $2.50 colectivo bus and 20-min coastal trail from Boca del Drago.",
@@ -828,7 +828,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                5, 10, 8, panama, new List<City> { bocas }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "nature", "group_friendly", "solo_friendly" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Wizard Beach",        "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/wizardbeach.jpeg",
 //                BuildDesc("Playa Primera — Isla Bastimentos's raw, untamed soul. A vast golden expanse backed by dense jungle with legendary surf (3-10ft waves) and almost zero visitors. High reward, high risk: the trail is steep and muddy, currents can be lethal, and theft from the treeline is a real concern.",
@@ -845,7 +845,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                10, 15, 4, panama, new List<City> { bocas }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "adventurous", "best_morning", "family_friendly" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Cayos Zapatilla",     "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/cayos.jpeg",
 //                BuildDesc("Pristine uninhabited UNESCO World Heritage islands within Bastimentos National Marine Park. White powder sand, the healthiest coral gardens in the region, nesting Hawksbill sea turtles, and nurse sharks in underwater caves. Accessed via organized tours with stepping-stone stops.",
@@ -862,7 +862,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                30, 100, 8, panama, new List<City> { bocas }, new List<Language> { spanish, english }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "tourist_hotspot", "nature" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("San Blas Islands (Via Carti)", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/carti.jpg",
 //                BuildDesc("The gateway to Guna Yala — the autonomous Guna people's territory. The Cartí port is reached via the El Llano-Cartí Road through primary rainforest, a 30km 4x4-only mountain route that acts as a natural filter keeping mass tourism out of the archipelago.",
@@ -879,7 +879,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                30, 50, 7, panama, new List<City> { gunaYala }, new List<Language> { spanish, english, guna }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["neighborhood_district"] },
 //                new List<string> { "crowded", "tourist_hotspot" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Isla Perro",          "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/isla-perro.jpg",
 //                BuildDesc("The most iconic snorkeling spot in San Blas — a small Guna-managed island where a sunken Army freighter rests just yards from the white sand beach. The wreck is now a thriving artificial reef teeming with tropical fish, carefully preserved by restricting large-scale development.",
@@ -896,7 +896,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                80, 250, 8, panama, new List<City> { gunaYala }, new List<Language> { spanish, guna }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "photography", "adventurous", "group_friendly", "nature", "good_short_visit" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Ibin's Beach Restaurant (Isla Banedup)", "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/ibins-restaurant.jpg",
 //                BuildDesc("A remote 'pirate-chic' beach restaurant on a tiny outer island of San Blas — accessible only by catamaran charter. Ibin, the owner, returned from cooking for Panama City celebrities to run this hidden gem serving fresh lobster, octopus curry, and cocktails with his feet in the sand.",
@@ -913,7 +913,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                30, 50, 8, panama, new List<City> { gunaYala }, new List<Language> { spanish, guna }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["food_experience"] },
 //                new List<string> { "local_favorite", "hidden_gem", "food_focused" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Isla Diablo",         "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/isla-diablo.jpg",
 //                BuildDesc("The social hub of San Blas — a Guna-managed island with more energy than its neighbors. Young travelers, hammocks over water, and a snack bar. Just minutes from Isla Perro's famous shipwreck snorkeling.",
@@ -930,7 +930,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                135, 250, 7, panama, new List<City> { gunaYala }, new List<Language> { spanish, guna }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "couple_friendly", "relaxing", "nature", "group_friendly" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 
 //            Make("Cayos Holandeses",    "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/dutch-cays.jpg",
 //                BuildDesc("The edge of the San Blas archipelago — the northernmost outer cays where sand is whiter, water is clearer, and silence is heavier. Accessible only by overnight expedition, the Dutch Cays offer the most vibrant coral in the archipelago and total digital detox.",
@@ -947,7 +947,7 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Seeder;
 //                200, 385, 8, panama, new List<City> { gunaYala }, new List<Language> { spanish, guna }, new List<Currency> { usd, pab },
 //                new List<Category> { cats["nature_outdoor"] },
 //                new List<string> { "best_morning", "premium", "good_short_visit", "nature" },
-//                "Eastern Standard Time"),
+//                "America/New_York"),
 //        };
 
 //        db.Destinations.AddRange(destinations);
@@ -1652,7 +1652,7 @@ public static class DataSeeder
                 Latitude = 35.6595,
                 Longitude = 139.7004,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1692,7 +1692,7 @@ public static class DataSeeder
                 Latitude = 35.6895,
                 Longitude = 139.6917,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 2,
                 CountryId = japan.CountryId
             },
@@ -1732,7 +1732,7 @@ public static class DataSeeder
                 Latitude = 35.6715,
                 Longitude = 139.7640,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1772,7 +1772,7 @@ public static class DataSeeder
                 Latitude = 35.6263,
                 Longitude = 139.8894,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1812,7 +1812,7 @@ public static class DataSeeder
                 Latitude = 35.4610,
                 Longitude = 138.7971,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1852,7 +1852,7 @@ public static class DataSeeder
                 Latitude = 35.3723,
                 Longitude = 138.8387,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1892,7 +1892,7 @@ public static class DataSeeder
                 Latitude = 35.4983,
                 Longitude = 138.7645,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1932,7 +1932,7 @@ public static class DataSeeder
                 Latitude = 34.9671,
                 Longitude = 135.7727,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -1972,7 +1972,7 @@ public static class DataSeeder
                 Latitude = 34.9948,
                 Longitude = 135.7851,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2012,7 +2012,7 @@ public static class DataSeeder
                 Latitude = 34.8840,
                 Longitude = 135.7903,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2052,7 +2052,7 @@ public static class DataSeeder
                 Latitude = 35.0050,
                 Longitude = 135.7658,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2092,7 +2092,7 @@ public static class DataSeeder
                 Latitude = 34.9863,
                 Longitude = 135.7567,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2132,7 +2132,7 @@ public static class DataSeeder
                 Latitude = 34.6624,
                 Longitude = 135.4316,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2171,7 +2171,7 @@ public static class DataSeeder
                 Latitude = 34.6624,
                 Longitude = 135.4316,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2211,7 +2211,7 @@ public static class DataSeeder
                 Latitude = 34.6688,
                 Longitude = 135.5013,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 2,
                 CountryId = japan.CountryId
             },
@@ -2251,7 +2251,7 @@ public static class DataSeeder
                 Latitude = 34.6863,
                 Longitude = 135.5262,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2291,7 +2291,7 @@ public static class DataSeeder
                 Latitude = 34.6500,
                 Longitude = 135.5070,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 2,
                 CountryId = japan.CountryId
             },
@@ -2331,7 +2331,7 @@ public static class DataSeeder
                 Latitude = 34.6666,
                 Longitude = 135.5030,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2371,7 +2371,7 @@ public static class DataSeeder
                 Latitude = 34.6585,
                 Longitude = 135.5040,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2411,7 +2411,7 @@ public static class DataSeeder
                 Latitude = 34.6700,
                 Longitude = 135.5000,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 2,
                 CountryId = japan.CountryId
             },
@@ -2451,7 +2451,7 @@ public static class DataSeeder
                 Latitude = 34.6690,
                 Longitude = 135.5020,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2491,7 +2491,7 @@ public static class DataSeeder
                 Latitude = 34.7053,
                 Longitude = 135.4906,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             },
@@ -2531,7 +2531,7 @@ public static class DataSeeder
                 Latitude = 34.6863,
                 Longitude = 135.5262,
                 SearchHitCount = 0,
-                TimeZone = "Japan Standard Time",
+                TimeZone = "Asia/Tokyo",
                 SafetyLevel = 1,
                 CountryId = japan.CountryId
             }

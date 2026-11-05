@@ -175,7 +175,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.6097,
             Longitude = -122.3422,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -219,7 +219,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.6093,
             Longitude = -122.3417,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -263,7 +263,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.6062,
             Longitude = -122.3435,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -307,7 +307,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.6015,
             Longitude = -122.3327,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -351,7 +351,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.6017,
             Longitude = -122.3331,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -395,7 +395,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.5952,
             Longitude = -122.3316,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -439,7 +439,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 47.6017,
             Longitude = -122.3330,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },

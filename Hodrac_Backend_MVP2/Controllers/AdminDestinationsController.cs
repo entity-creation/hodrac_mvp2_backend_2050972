@@ -164,6 +164,57 @@ public class AdminDestinationsController : ControllerBase
         return detail is null ? NotFound() : Ok(detail);
     }
 
+    // ── GET /api/admin/destination-options ────────────────────────────────────
+    // Dropdown values for the destination form. NonStandard lists stored values
+    // that aren't in the allowed lists (with counts), so admins can clean them up.
+
+    [HttpGet("destination-options")]
+    public async Task<ActionResult<DestinationOptionsDto>> GetDestinationOptions(CancellationToken ct = default)
+    {
+        var accessibilityValues = await _db.Destinations.AsNoTracking()
+            .GroupBy(d => d.AccessibilityType)
+            .Select(g => new { Value = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+        var timeZoneValues = await _db.Destinations.AsNoTracking()
+            .GroupBy(d => d.TimeZone)
+            .Select(g => new { Value = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var allowedAccessibility = DestinationReferenceData.AccessibilityTypes.ToHashSet(StringComparer.Ordinal);
+        var timeZones = DestinationReferenceData.TimeZones();
+        var allowedZones = timeZones.Select(z => z.Id).ToHashSet(StringComparer.Ordinal);
+
+        return Ok(new DestinationOptionsDto(
+            DestinationReferenceData.AccessibilityTypes.ToList(),
+            timeZones.ToList(),
+            new DestinationNonStandardValuesDto(
+                accessibilityValues.Where(v => !string.IsNullOrEmpty(v.Value) && !allowedAccessibility.Contains(v.Value))
+                    .Select(v => new NonStandardValueDto(v.Value, v.Count)).OrderByDescending(v => v.Count).ToList(),
+                timeZoneValues.Where(v => !string.IsNullOrEmpty(v.Value) && !allowedZones.Contains(v.Value))
+                    .Select(v => new NonStandardValueDto(v.Value, v.Count)).OrderByDescending(v => v.Count).ToList(),
+                MissingAccessibility: accessibilityValues.Where(v => string.IsNullOrEmpty(v.Value)).Sum(v => v.Count),
+                MissingTimeZone: timeZoneValues.Where(v => string.IsNullOrEmpty(v.Value)).Sum(v => v.Count))));
+    }
+
+    /// <summary>Canonical value ("" = cleared), or null with a ModelState error when not allowed.</summary>
+    private string? ValidateAccessibility(string? value)
+    {
+        var normalized = DestinationReferenceData.NormalizeAccessibility(value);
+        if (normalized is null)
+            ModelState.AddModelError("accessibilityType",
+                $"Must be one of: {string.Join(", ", DestinationReferenceData.AccessibilityTypes)}.");
+        return normalized;
+    }
+
+    private string? ValidateTimeZone(string? value)
+    {
+        var normalized = DestinationReferenceData.NormalizeTimeZone(value);
+        if (normalized is null)
+            ModelState.AddModelError("timeZone",
+                "Must be one of the time zone IDs from GET /api/admin/destination-options (e.g. \"Africa/Lagos\").");
+        return normalized;
+    }
+
     [HttpPost("destinations")]
     public async Task<ActionResult<AdminDestinationDetailDto>> CreateDestination(CreateDestinationRequest request, CancellationToken ct = default)
     {
@@ -187,6 +238,9 @@ public class AdminDestinationsController : ControllerBase
         var selection = await ResolveTaxonomy(
             request.TagKeys, request.CategoryKeys, request.LanguageIds, request.CurrencyIds, request.CityIds, countryId, ct);
 
+        var accessibility = ValidateAccessibility(request.AccessibilityType);
+        var timeZone = ValidateTimeZone(request.TimeZone);
+
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
         var nameLower = name.ToLower();
@@ -206,7 +260,7 @@ public class AdminDestinationsController : ControllerBase
             DescriptionJson = descriptionJson,
             AverageCostPerDay = request.AverageCostPerDay!.Value,
             LuxuryRating = request.LuxuryRating!.Value,
-            AccessibilityType = request.AccessibilityType?.Trim() ?? string.Empty,
+            AccessibilityType = accessibility ?? string.Empty,
             FamilyFriendlyScore = request.FamilyFriendlyScore ?? 3,
             AdventurePaceScore = request.AdventurePaceScore ?? 3,
             AestheticTrendScore = request.AestheticTrendScore ?? 3,
@@ -214,7 +268,7 @@ public class AdminDestinationsController : ControllerBase
             Latitude = request.Latitude!.Value,
             Longitude = request.Longitude!.Value,
             SearchHitCount = 0,
-            TimeZone = request.TimeZone?.Trim() ?? string.Empty,
+            TimeZone = timeZone ?? string.Empty,
             SafetyLevel = request.SafetyLevel!.Value,
             CountryId = countryId
         };
@@ -269,6 +323,9 @@ public class AdminDestinationsController : ControllerBase
         var selection = await ResolveTaxonomy(
             request.TagKeys, request.CategoryKeys, request.LanguageIds, request.CurrencyIds, request.CityIds, countryId, ct);
 
+        var accessibility = request.AccessibilityType is null ? null : ValidateAccessibility(request.AccessibilityType);
+        var timeZone = request.TimeZone is null ? null : ValidateTimeZone(request.TimeZone);
+
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
         var finalName = newName ?? destination.DestinationName;
@@ -298,8 +355,8 @@ public class AdminDestinationsController : ControllerBase
         if (request.FamilyFriendlyScore is not null) destination.FamilyFriendlyScore = request.FamilyFriendlyScore.Value;
         if (request.AdventurePaceScore is not null) destination.AdventurePaceScore = request.AdventurePaceScore.Value;
         if (request.AestheticTrendScore is not null) destination.AestheticTrendScore = request.AestheticTrendScore.Value;
-        if (request.AccessibilityType is not null) destination.AccessibilityType = request.AccessibilityType.Trim();
-        if (request.TimeZone is not null) destination.TimeZone = request.TimeZone.Trim();
+        if (accessibility is not null) destination.AccessibilityType = accessibility;
+        if (timeZone is not null) destination.TimeZone = timeZone;
         if (descriptionJson is not null) destination.DescriptionJson = descriptionJson;
         if (alternates is not null) destination.CommonAlternateSpellingsJson = JsonSerializer.Serialize(alternates, JsonOpts);
         if (vibeTags is not null) destination.PsychographicVibeTagsJson = JsonSerializer.Serialize(vibeTags, JsonOpts);

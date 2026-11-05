@@ -210,7 +210,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.8065,
             Longitude = -96.8058,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -254,7 +254,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7473,
             Longitude = -97.0945,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -297,7 +297,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7815,
             Longitude = -96.7602,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -341,7 +341,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7508,
             Longitude = -97.0827,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -385,7 +385,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7368,
             Longitude = -97.1086,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -428,7 +428,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7897,
             Longitude = -97.3477,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -471,7 +471,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7809,
             Longitude = -96.8025,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -515,7 +515,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7877,
             Longitude = -96.8000,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -559,7 +559,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7885,
             Longitude = -96.8009,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -603,7 +603,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7884,
             Longitude = -96.8003,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -646,7 +646,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7746,
             Longitude = -96.7861,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -689,7 +689,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7754,
             Longitude = -96.8088,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -733,7 +733,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7799,
             Longitude = -96.8085,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -777,7 +777,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7800,
             Longitude = -96.8089,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -821,7 +821,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7801,
             Longitude = -96.8078,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -864,7 +864,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7845,
             Longitude = -96.7838,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -907,7 +907,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.6958,
             Longitude = -97.6013,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -950,7 +950,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7307,
             Longitude = -97.3277,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -993,7 +993,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.9629,
             Longitude = -96.9903,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -1036,7 +1036,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7842,
             Longitude = -97.3467,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -1079,7 +1079,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.8600,
             Longitude = -96.7900,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -1122,7 +1122,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7274,
             Longitude = -97.3835,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -1165,7 +1165,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7188,
             Longitude = -97.3792,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -1208,7 +1208,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 32.7842,
             Longitude = -96.7839,
             SearchHitCount = 0,
-            TimeZone = "Central Standard Time",
+            TimeZone = "America/Chicago",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },

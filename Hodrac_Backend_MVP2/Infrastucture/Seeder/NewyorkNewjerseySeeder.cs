@@ -155,7 +155,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 8m, LuxuryRating = DeriveLuxury(8m, mapping["New York Pizza Suprema"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["New York Pizza Suprema"].tags), AdventurePaceScore = AdventureScore(mapping["New York Pizza Suprema"].tags), AestheticTrendScore = AestheticTrendScore(mapping["New York Pizza Suprema"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["New York Pizza Suprema"].tags), Latitude = 40.7505, Longitude = -73.9944, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["New York Pizza Suprema"].tags), Latitude = 40.7505, Longitude = -73.9944, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dJoes, DestinationName = "Joe's Pizza", CleanNormalizedSearchName = "joes pizza", MetaphoneCode = "JS PS", DoubleMetaphonePrimary = "JS PS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -175,7 +175,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 8m, LuxuryRating = DeriveLuxury(8m, mapping["Joe's Pizza"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Joe's Pizza"].tags), AdventurePaceScore = AdventureScore(mapping["Joe's Pizza"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Joe's Pizza"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Joe's Pizza"].tags), Latitude = 40.7307, Longitude = -74.0023, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Joe's Pizza"].tags), Latitude = 40.7307, Longitude = -74.0023, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dFF, DestinationName = "Football Factory at Legends", CleanNormalizedSearchName = "football factory at legends", MetaphoneCode = "FTBL FKTR AT LJNTS", DoubleMetaphonePrimary = "FTPL FKTR AT LJNTS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -195,7 +195,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 30m, LuxuryRating = DeriveLuxury(30m, mapping["Football Factory at Legends"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Football Factory at Legends"].tags), AdventurePaceScore = AdventureScore(mapping["Football Factory at Legends"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Football Factory at Legends"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Football Factory at Legends"].tags), Latitude = 40.7477, Longitude = -73.9857, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Football Factory at Legends"].tags), Latitude = 40.7477, Longitude = -73.9857, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dKtown, DestinationName = "Koreatown (NYC)", CleanNormalizedSearchName = "koreatown nyc", MetaphoneCode = "KRTN", DoubleMetaphonePrimary = "KRTN", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -215,7 +215,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 35m, LuxuryRating = DeriveLuxury(35m, mapping["Koreatown (NYC)"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Koreatown (NYC)"].tags), AdventurePaceScore = AdventureScore(mapping["Koreatown (NYC)"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Koreatown (NYC)"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Koreatown (NYC)"].tags), Latitude = 40.7480, Longitude = -73.9862, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Koreatown (NYC)"].tags), Latitude = 40.7480, Longitude = -73.9862, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dFanVillage, DestinationName = "Telemundo Fan Village (Rockefeller Center)", CleanNormalizedSearchName = "telemundo fan village rockefeller center", MetaphoneCode = "TLMNT FLJ RKFLR", DoubleMetaphonePrimary = "TLMNT FLJ RKFLR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -235,7 +235,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 10m, LuxuryRating = DeriveLuxury(10m, mapping["Telemundo Fan Village (Rockefeller Center)"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Telemundo Fan Village (Rockefeller Center)"].tags), AdventurePaceScore = AdventureScore(mapping["Telemundo Fan Village (Rockefeller Center)"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Telemundo Fan Village (Rockefeller Center)"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Telemundo Fan Village (Rockefeller Center)"].tags), Latitude = 40.7587, Longitude = -73.9787, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Telemundo Fan Village (Rockefeller Center)"].tags), Latitude = 40.7587, Longitude = -73.9787, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dHoboken, DestinationName = "Hoboken Waterfront", CleanNormalizedSearchName = "hoboken waterfront", MetaphoneCode = "HBKN WTRFRNT", DoubleMetaphonePrimary = "HPKN WTRFRNT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -253,9 +253,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "45 minutes to 1.5 hours."
             }
             """,
-            AverageCostPerDay = 15m, LuxuryRating = DeriveLuxury(15m, mapping["Hoboken Waterfront"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 15m, LuxuryRating = DeriveLuxury(15m, mapping["Hoboken Waterfront"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Hoboken Waterfront"].tags), AdventurePaceScore = AdventureScore(mapping["Hoboken Waterfront"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Hoboken Waterfront"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Hoboken Waterfront"].tags), Latitude = 40.7439, Longitude = -74.0324, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Hoboken Waterfront"].tags), Latitude = 40.7439, Longitude = -74.0324, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dMetLife, DestinationName = "MetLife Stadium", CleanNormalizedSearchName = "metlife stadium", MetaphoneCode = "MTLF STTM", DoubleMetaphonePrimary = "MTLF STTM", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -273,9 +273,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "4 to 5 hours total including a real transit buffer, the match, and a deliberate exit strategy."
             }
             """,
-            AverageCostPerDay = 320m, LuxuryRating = DeriveLuxury(320m, mapping["MetLife Stadium"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 320m, LuxuryRating = DeriveLuxury(320m, mapping["MetLife Stadium"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["MetLife Stadium"].tags), AdventurePaceScore = AdventureScore(mapping["MetLife Stadium"].tags), AestheticTrendScore = AestheticTrendScore(mapping["MetLife Stadium"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["MetLife Stadium"].tags), Latitude = 40.8135, Longitude = -74.0745, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["MetLife Stadium"].tags), Latitude = 40.8135, Longitude = -74.0745, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dMaddHatter, DestinationName = "Madd Hatter", CleanNormalizedSearchName = "madd hatter", MetaphoneCode = "MT HTR", DoubleMetaphonePrimary = "MT HTR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -295,7 +295,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 25m, LuxuryRating = DeriveLuxury(25m, mapping["Madd Hatter"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Madd Hatter"].tags), AdventurePaceScore = AdventureScore(mapping["Madd Hatter"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Madd Hatter"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Madd Hatter"].tags), Latitude = 40.7440, Longitude = -74.0295, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Madd Hatter"].tags), Latitude = 40.7440, Longitude = -74.0295, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dEdMarys, DestinationName = "Ed & Mary's", CleanNormalizedSearchName = "ed and marys", MetaphoneCode = "AT ANT MRS", DoubleMetaphonePrimary = "AT ANT MRS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -313,9 +313,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "1.5 to 2.5 hours."
             }
             """,
-            AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["Ed & Mary's"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["Ed & Mary's"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Ed & Mary's"].tags), AdventurePaceScore = AdventureScore(mapping["Ed & Mary's"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Ed & Mary's"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ed & Mary's"].tags), Latitude = 40.7178, Longitude = -74.0500, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ed & Mary's"].tags), Latitude = 40.7178, Longitude = -74.0500, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dHopsScotch, DestinationName = "HopsScotch Tavern", CleanNormalizedSearchName = "hopsscotch tavern", MetaphoneCode = "HPSKX TFRN", DoubleMetaphonePrimary = "HPSKX TFRN", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -333,9 +333,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "1.5 to 2.5 hours."
             }
             """,
-            AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["HopsScotch Tavern"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["HopsScotch Tavern"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["HopsScotch Tavern"].tags), AdventurePaceScore = AdventureScore(mapping["HopsScotch Tavern"].tags), AestheticTrendScore = AestheticTrendScore(mapping["HopsScotch Tavern"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["HopsScotch Tavern"].tags), Latitude = 40.7200, Longitude = -74.0450, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["HopsScotch Tavern"].tags), Latitude = 40.7200, Longitude = -74.0450, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dESB, DestinationName = "Empire State Building", CleanNormalizedSearchName = "empire state building", MetaphoneCode = "MPR ST BLTNK", DoubleMetaphonePrimary = "MPR ST PLTNK", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -355,7 +355,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 44m, LuxuryRating = DeriveLuxury(44m, mapping["Empire State Building"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Empire State Building"].tags), AdventurePaceScore = AdventureScore(mapping["Empire State Building"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Empire State Building"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Empire State Building"].tags), Latitude = 40.7484, Longitude = -73.9857, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Empire State Building"].tags), Latitude = 40.7484, Longitude = -73.9857, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dSummit, DestinationName = "SUMMIT One Vanderbilt", CleanNormalizedSearchName = "summit one vanderbilt", MetaphoneCode = "SMT ON FNTRPLT", DoubleMetaphonePrimary = "SMT ON FNTRPLT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -375,7 +375,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 44m, LuxuryRating = DeriveLuxury(44m, mapping["SUMMIT One Vanderbilt"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["SUMMIT One Vanderbilt"].tags), AdventurePaceScore = AdventureScore(mapping["SUMMIT One Vanderbilt"].tags), AestheticTrendScore = AestheticTrendScore(mapping["SUMMIT One Vanderbilt"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["SUMMIT One Vanderbilt"].tags), Latitude = 40.7527, Longitude = -73.9772, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["SUMMIT One Vanderbilt"].tags), Latitude = 40.7527, Longitude = -73.9772, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dTotr, DestinationName = "Top of the Rock", CleanNormalizedSearchName = "top of the rock", MetaphoneCode = "TP OF 0 RK", DoubleMetaphonePrimary = "TP OF T RK", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -395,7 +395,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 40m, LuxuryRating = DeriveLuxury(40m, mapping["Top of the Rock"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Top of the Rock"].tags), AdventurePaceScore = AdventureScore(mapping["Top of the Rock"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Top of the Rock"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Top of the Rock"].tags), Latitude = 40.7590, Longitude = -73.9787, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Top of the Rock"].tags), Latitude = 40.7590, Longitude = -73.9787, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dEdge, DestinationName = "Edge (Hudson Yards)", CleanNormalizedSearchName = "edge hudson yards", MetaphoneCode = "AJ HTSN YRTS", DoubleMetaphonePrimary = "AJ HTSN YRTS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -415,7 +415,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 39m, LuxuryRating = DeriveLuxury(39m, mapping["Edge (Hudson Yards)"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Edge (Hudson Yards)"].tags), AdventurePaceScore = AdventureScore(mapping["Edge (Hudson Yards)"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Edge (Hudson Yards)"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Edge (Hudson Yards)"].tags), Latitude = 40.7538, Longitude = -74.0022, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Edge (Hudson Yards)"].tags), Latitude = 40.7538, Longitude = -74.0022, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dBryant, DestinationName = "Bryant Park", CleanNormalizedSearchName = "bryant park", MetaphoneCode = "BRNT PRK", DoubleMetaphonePrimary = "PRNT PRK", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -435,7 +435,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Bryant Park"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Bryant Park"].tags), AdventurePaceScore = AdventureScore(mapping["Bryant Park"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Bryant Park"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Bryant Park"].tags), Latitude = 40.7536, Longitude = -73.9832, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Bryant Park"].tags), Latitude = 40.7536, Longitude = -73.9832, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dNYPL, DestinationName = "New York Public Library", CleanNormalizedSearchName = "new york public library", MetaphoneCode = "NY PBLK LBRR", DoubleMetaphonePrimary = "NY PPLK LPRR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -455,7 +455,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["New York Public Library"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["New York Public Library"].tags), AdventurePaceScore = AdventureScore(mapping["New York Public Library"].tags), AestheticTrendScore = AestheticTrendScore(mapping["New York Public Library"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["New York Public Library"].tags), Latitude = 40.7532, Longitude = -73.9822, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["New York Public Library"].tags), Latitude = 40.7532, Longitude = -73.9822, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dGCT, DestinationName = "Grand Central Terminal", CleanNormalizedSearchName = "grand central terminal", MetaphoneCode = "KRNT SNTRL TRMNL", DoubleMetaphonePrimary = "KRNT SNTRL TRMNL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -473,9 +473,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "20 to 30 minutes."
             }
             """,
-            AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Grand Central Terminal"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Grand Central Terminal"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Grand Central Terminal"].tags), AdventurePaceScore = AdventureScore(mapping["Grand Central Terminal"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Grand Central Terminal"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Grand Central Terminal"].tags), Latitude = 40.7527, Longitude = -73.9772, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Grand Central Terminal"].tags), Latitude = 40.7527, Longitude = -73.9772, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dTimesSq, DestinationName = "Times Square", CleanNormalizedSearchName = "times square", MetaphoneCode = "TMS SKR", DoubleMetaphonePrimary = "TMS SKR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -495,7 +495,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Times Square"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Times Square"].tags), AdventurePaceScore = AdventureScore(mapping["Times Square"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Times Square"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Times Square"].tags), Latitude = 40.7580, Longitude = -73.9855, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Times Square"].tags), Latitude = 40.7580, Longitude = -73.9855, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dBroadway, DestinationName = "Broadway Theater District", CleanNormalizedSearchName = "broadway theater district", MetaphoneCode = "PRTW 0TR TSTRKT", DoubleMetaphonePrimary = "PRTW TTR TSTRKT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -515,7 +515,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 120m, LuxuryRating = DeriveLuxury(120m, mapping["Broadway Theater District"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Broadway Theater District"].tags), AdventurePaceScore = AdventureScore(mapping["Broadway Theater District"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Broadway Theater District"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Broadway Theater District"].tags), Latitude = 40.7590, Longitude = -73.9845, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Broadway Theater District"].tags), Latitude = 40.7590, Longitude = -73.9845, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dOWO, DestinationName = "One World Observatory", CleanNormalizedSearchName = "one world observatory", MetaphoneCode = "ON WRLT OPSRFTR", DoubleMetaphonePrimary = "ON WRLT OPSRFTR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -535,7 +535,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 40m, LuxuryRating = DeriveLuxury(40m, mapping["One World Observatory"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["One World Observatory"].tags), AdventurePaceScore = AdventureScore(mapping["One World Observatory"].tags), AestheticTrendScore = AestheticTrendScore(mapping["One World Observatory"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["One World Observatory"].tags), Latitude = 40.7127, Longitude = -74.0134, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["One World Observatory"].tags), Latitude = 40.7127, Longitude = -74.0134, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = d911, DestinationName = "9/11 Memorial & Museum", CleanNormalizedSearchName = "911 memorial museum", MetaphoneCode = "911 MMRL MSM", DoubleMetaphonePrimary = "911 MMRL MSM", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -555,7 +555,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 30m, LuxuryRating = DeriveLuxury(30m, mapping["9/11 Memorial & Museum"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["9/11 Memorial & Museum"].tags), AdventurePaceScore = AdventureScore(mapping["9/11 Memorial & Museum"].tags), AestheticTrendScore = AestheticTrendScore(mapping["9/11 Memorial & Museum"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["9/11 Memorial & Museum"].tags), Latitude = 40.7115, Longitude = -74.0134, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["9/11 Memorial & Museum"].tags), Latitude = 40.7115, Longitude = -74.0134, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dOculus, DestinationName = "The Oculus", CleanNormalizedSearchName = "the oculus", MetaphoneCode = "0 OKLS", DoubleMetaphonePrimary = "T OKLS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -573,9 +573,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "20 to 30 minutes."
             }
             """,
-            AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["The Oculus"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["The Oculus"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["The Oculus"].tags), AdventurePaceScore = AdventureScore(mapping["The Oculus"].tags), AestheticTrendScore = AestheticTrendScore(mapping["The Oculus"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["The Oculus"].tags), Latitude = 40.7115, Longitude = -74.0099, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["The Oculus"].tags), Latitude = 40.7115, Longitude = -74.0099, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dSoL, DestinationName = "Statue of Liberty", CleanNormalizedSearchName = "statue of liberty", MetaphoneCode = "STT OF LPRT", DoubleMetaphonePrimary = "STT OF LPRT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -593,9 +593,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "3 to 4 hours including ferry time and both islands."
             }
             """,
-            AverageCostPerDay = 27m, LuxuryRating = DeriveLuxury(27m, mapping["Statue of Liberty"].tags), AccessibilityType = "Ferry",
+            AverageCostPerDay = 27m, LuxuryRating = DeriveLuxury(27m, mapping["Statue of Liberty"].tags), AccessibilityType = "Boat",
             FamilyFriendlyScore = FamilyScore(mapping["Statue of Liberty"].tags), AdventurePaceScore = AdventureScore(mapping["Statue of Liberty"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Statue of Liberty"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Statue of Liberty"].tags), Latitude = 40.6892, Longitude = -74.0445, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Statue of Liberty"].tags), Latitude = 40.6892, Longitude = -74.0445, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dEllis, DestinationName = "Ellis Island", CleanNormalizedSearchName = "ellis island", MetaphoneCode = "ALS ALNT", DoubleMetaphonePrimary = "ALS ALNT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -613,9 +613,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "1.5 to 2 hours, as part of the combined half-day ferry trip."
             }
             """,
-            AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Ellis Island"].tags), AccessibilityType = "Ferry",
+            AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Ellis Island"].tags), AccessibilityType = "Boat",
             FamilyFriendlyScore = FamilyScore(mapping["Ellis Island"].tags), AdventurePaceScore = AdventureScore(mapping["Ellis Island"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Ellis Island"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ellis Island"].tags), Latitude = 40.6995, Longitude = -74.0396, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Ellis Island"].tags), Latitude = 40.6995, Longitude = -74.0396, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dBB, DestinationName = "Brooklyn Bridge", CleanNormalizedSearchName = "brooklyn bridge", MetaphoneCode = "BRKLN BRTJ", DoubleMetaphonePrimary = "PRKLN PRTJ", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -635,7 +635,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Brooklyn Bridge"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Brooklyn Bridge"].tags), AdventurePaceScore = AdventureScore(mapping["Brooklyn Bridge"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Brooklyn Bridge"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Brooklyn Bridge"].tags), Latitude = 40.7061, Longitude = -73.9969, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Brooklyn Bridge"].tags), Latitude = 40.7061, Longitude = -73.9969, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dDumbo, DestinationName = "DUMBO", CleanNormalizedSearchName = "dumbo", MetaphoneCode = "TMB", DoubleMetaphonePrimary = "TMP", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -655,7 +655,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 10m, LuxuryRating = DeriveLuxury(10m, mapping["DUMBO"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["DUMBO"].tags), AdventurePaceScore = AdventureScore(mapping["DUMBO"].tags), AestheticTrendScore = AestheticTrendScore(mapping["DUMBO"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["DUMBO"].tags), Latitude = 40.7033, Longitude = -73.9894, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["DUMBO"].tags), Latitude = 40.7033, Longitude = -73.9894, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dBBP, DestinationName = "Brooklyn Bridge Park", CleanNormalizedSearchName = "brooklyn bridge park", MetaphoneCode = "BRKLN BRTJ PRK", DoubleMetaphonePrimary = "PRKLN PRTJ PRK", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -675,7 +675,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 0m, LuxuryRating = DeriveLuxury(0m, mapping["Brooklyn Bridge Park"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Brooklyn Bridge Park"].tags), AdventurePaceScore = AdventureScore(mapping["Brooklyn Bridge Park"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Brooklyn Bridge Park"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Brooklyn Bridge Park"].tags), Latitude = 40.7024, Longitude = -73.9903, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Brooklyn Bridge Park"].tags), Latitude = 40.7024, Longitude = -73.9903, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dJulianas, DestinationName = "Juliana's Pizza", CleanNormalizedSearchName = "julianas pizza", MetaphoneCode = "JLNS PS", DoubleMetaphonePrimary = "JLNS PS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -695,7 +695,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 22m, LuxuryRating = DeriveLuxury(22m, mapping["Juliana's Pizza"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Juliana's Pizza"].tags), AdventurePaceScore = AdventureScore(mapping["Juliana's Pizza"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Juliana's Pizza"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Juliana's Pizza"].tags), Latitude = 40.7025, Longitude = -73.9936, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Juliana's Pizza"].tags), Latitude = 40.7025, Longitude = -73.9936, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dPrince, DestinationName = "Prince Street Pizza", CleanNormalizedSearchName = "prince street pizza", MetaphoneCode = "PRNS STRT PS", DoubleMetaphonePrimary = "PRNS STRT PS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -715,7 +715,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 10m, LuxuryRating = DeriveLuxury(10m, mapping["Prince Street Pizza"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Prince Street Pizza"].tags), AdventurePaceScore = AdventureScore(mapping["Prince Street Pizza"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Prince Street Pizza"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Prince Street Pizza"].tags), Latitude = 40.7233, Longitude = -73.9958, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Prince Street Pizza"].tags), Latitude = 40.7233, Longitude = -73.9958, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dLombardis, DestinationName = "Lombardi's", CleanNormalizedSearchName = "lombardis", MetaphoneCode = "LMPRTS", DoubleMetaphonePrimary = "LMPRTS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -735,7 +735,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 26m, LuxuryRating = DeriveLuxury(26m, mapping["Lombardi's"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["Lombardi's"].tags), AdventurePaceScore = AdventureScore(mapping["Lombardi's"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Lombardi's"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Lombardi's"].tags), Latitude = 40.7223, Longitude = -73.9955, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Lombardi's"].tags), Latitude = 40.7223, Longitude = -73.9955, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dJohns, DestinationName = "John's of Bleecker Street", CleanNormalizedSearchName = "johns of bleecker street", MetaphoneCode = "JNS OF BLKR STRT", DoubleMetaphonePrimary = "JNS OF PLKR STRT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -755,7 +755,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 25m, LuxuryRating = DeriveLuxury(25m, mapping["John's of Bleecker Street"].tags), AccessibilityType = "Walk",
             FamilyFriendlyScore = FamilyScore(mapping["John's of Bleecker Street"].tags), AdventurePaceScore = AdventureScore(mapping["John's of Bleecker Street"].tags), AestheticTrendScore = AestheticTrendScore(mapping["John's of Bleecker Street"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["John's of Bleecker Street"].tags), Latitude = 40.7317, Longitude = -74.0027, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["John's of Bleecker Street"].tags), Latitude = 40.7317, Longitude = -74.0027, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dBKBoys, DestinationName = "Brooklyn Boys Pizza & Deli", CleanNormalizedSearchName = "brooklyn boys pizza deli", MetaphoneCode = "BRKLN BS PS TL", DoubleMetaphonePrimary = "PRKLN PS PS TL", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -775,7 +775,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 16m, LuxuryRating = DeriveLuxury(16m, mapping["Brooklyn Boys Pizza & Deli"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Brooklyn Boys Pizza & Deli"].tags), AdventurePaceScore = AdventureScore(mapping["Brooklyn Boys Pizza & Deli"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Brooklyn Boys Pizza & Deli"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Brooklyn Boys Pizza & Deli"].tags), Latitude = 40.5372, Longitude = -74.3646, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Brooklyn Boys Pizza & Deli"].tags), Latitude = 40.5372, Longitude = -74.3646, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dRazza, DestinationName = "Razza", CleanNormalizedSearchName = "razza", MetaphoneCode = "RS", DoubleMetaphonePrimary = "RS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -793,9 +793,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "1 to 1.5 hours."
             }
             """,
-            AverageCostPerDay = 26m, LuxuryRating = DeriveLuxury(26m, mapping["Razza"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 26m, LuxuryRating = DeriveLuxury(26m, mapping["Razza"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Razza"].tags), AdventurePaceScore = AdventureScore(mapping["Razza"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Razza"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Razza"].tags), Latitude = 40.7220, Longitude = -74.0445, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Razza"].tags), Latitude = 40.7220, Longitude = -74.0445, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dRoman, DestinationName = "Roman Gourmet", CleanNormalizedSearchName = "roman gourmet", MetaphoneCode = "RMN KRMT", DoubleMetaphonePrimary = "RMN KRMT", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -813,9 +813,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "30 to 45 minutes."
             }
             """,
-            AverageCostPerDay = 12m, LuxuryRating = DeriveLuxury(12m, mapping["Roman Gourmet"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 12m, LuxuryRating = DeriveLuxury(12m, mapping["Roman Gourmet"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Roman Gourmet"].tags), AdventurePaceScore = AdventureScore(mapping["Roman Gourmet"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Roman Gourmet"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Roman Gourmet"].tags), Latitude = 40.7230, Longitude = -74.0500, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Roman Gourmet"].tags), Latitude = 40.7230, Longitude = -74.0500, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dAmadeo, DestinationName = "Amadeo Pizzeria", CleanNormalizedSearchName = "amadeo pizzeria", MetaphoneCode = "AMT PSR", DoubleMetaphonePrimary = "AMT PSR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -833,9 +833,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "45 minutes to 1 hour."
             }
             """,
-            AverageCostPerDay = 18m, LuxuryRating = DeriveLuxury(18m, mapping["Amadeo Pizzeria"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 18m, LuxuryRating = DeriveLuxury(18m, mapping["Amadeo Pizzeria"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Amadeo Pizzeria"].tags), AdventurePaceScore = AdventureScore(mapping["Amadeo Pizzeria"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Amadeo Pizzeria"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Amadeo Pizzeria"].tags), Latitude = 40.7825, Longitude = -74.0587, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Amadeo Pizzeria"].tags), Latitude = 40.7825, Longitude = -74.0587, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dStar, DestinationName = "Star Tavern", CleanNormalizedSearchName = "star tavern", MetaphoneCode = "STR TFRN", DoubleMetaphonePrimary = "STR TFRN", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -855,7 +855,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["Star Tavern"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Star Tavern"].tags), AdventurePaceScore = AdventureScore(mapping["Star Tavern"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Star Tavern"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Star Tavern"].tags), Latitude = 40.7712, Longitude = -74.2323, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Star Tavern"].tags), Latitude = 40.7712, Longitude = -74.2323, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dRudys, DestinationName = "Rudy's Ristorante & Pizzeria", CleanNormalizedSearchName = "rudys ristorante pizzeria", MetaphoneCode = "RTS RSTRNT PSR", DoubleMetaphonePrimary = "RTS RSTRNT PSR", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -873,9 +873,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "1 to 1.5 hours."
             }
             """,
-            AverageCostPerDay = 22m, LuxuryRating = DeriveLuxury(22m, mapping["Rudy's Ristorante & Pizzeria"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 22m, LuxuryRating = DeriveLuxury(22m, mapping["Rudy's Ristorante & Pizzeria"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Rudy's Ristorante & Pizzeria"].tags), AdventurePaceScore = AdventureScore(mapping["Rudy's Ristorante & Pizzeria"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Rudy's Ristorante & Pizzeria"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Rudy's Ristorante & Pizzeria"].tags), Latitude = 40.7250, Longitude = -74.0480, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Rudy's Ristorante & Pizzeria"].tags), Latitude = 40.7250, Longitude = -74.0480, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dSals, DestinationName = "Sal's Pizza", CleanNormalizedSearchName = "sals pizza", MetaphoneCode = "SLS PS", DoubleMetaphonePrimary = "SLS PS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -895,7 +895,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 18m, LuxuryRating = DeriveLuxury(18m, mapping["Sal's Pizza"].tags), AccessibilityType = "Car",
             FamilyFriendlyScore = FamilyScore(mapping["Sal's Pizza"].tags), AdventurePaceScore = AdventureScore(mapping["Sal's Pizza"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Sal's Pizza"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Sal's Pizza"].tags), Latitude = 39.9537, Longitude = -74.1979, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Sal's Pizza"].tags), Latitude = 39.9537, Longitude = -74.1979, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
 
         new Destination { DestinationId = dWahizza, DestinationName = "Wahizza", CleanNormalizedSearchName = "wahizza", MetaphoneCode = "WHS", DoubleMetaphonePrimary = "WHS", DoubleMetaphoneSecondary = "", CommonAlternateSpellingsJson = "[]",
             DescriptionJson = """
@@ -913,9 +913,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
               "idealDuration": "45 minutes to 1 hour."
             }
             """,
-            AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["Wahizza"].tags), AccessibilityType = "Transit",
+            AverageCostPerDay = 20m, LuxuryRating = DeriveLuxury(20m, mapping["Wahizza"].tags), AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Wahizza"].tags), AdventurePaceScore = AdventureScore(mapping["Wahizza"].tags), AestheticTrendScore = AestheticTrendScore(mapping["Wahizza"].tags),
-            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Wahizza"].tags), Latitude = 40.7215, Longitude = -74.0430, SearchHitCount = 0, TimeZone = "Eastern Standard Time", SafetyLevel = 1, CountryId = usa.CountryId },
+            PsychographicVibeTagsJson = JsonSerializer.Serialize(mapping["Wahizza"].tags), Latitude = 40.7215, Longitude = -74.0430, SearchHitCount = 0, TimeZone = "America/New_York", SafetyLevel = 1, CountryId = usa.CountryId },
     };
 
             db.Destinations.AddRange(newDestinations);

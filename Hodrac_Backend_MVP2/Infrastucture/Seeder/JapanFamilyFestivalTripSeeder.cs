@@ -178,7 +178,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 40.8244,
             Longitude = 140.7400,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -221,7 +221,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 39.7186,
             Longitude = 140.1024,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -265,7 +265,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 38.2604,
             Longitude = 140.8823,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -308,7 +308,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 35.0956,
             Longitude = 139.0739,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -351,7 +351,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 35.6717,
             Longitude = 139.7967,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -395,7 +395,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 36.0422,
             Longitude = 138.1128,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -438,7 +438,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 36.0384,
             Longitude = 138.1200,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -482,7 +482,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.8261,
             Longitude = 135.7789,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -526,7 +526,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 35.0037,
             Longitude = 135.7752,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },
@@ -569,7 +569,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0658,
             Longitude = 134.5593,
             SearchHitCount = 0,
-            TimeZone = "Japan Standard Time",
+            TimeZone = "Asia/Tokyo",
             SafetyLevel = 1,
             CountryId = japan.CountryId
         },

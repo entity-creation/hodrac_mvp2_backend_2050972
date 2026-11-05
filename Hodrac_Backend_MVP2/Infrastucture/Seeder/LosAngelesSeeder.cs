@@ -228,7 +228,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9856,
             Longitude = -118.3765,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -272,7 +272,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9598,
             Longitude = -118.3530,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -316,7 +316,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9596,
             Longitude = -118.3534,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -360,7 +360,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9597,
             Longitude = -118.3521,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -404,7 +404,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9597,
             Longitude = -118.3518,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -440,7 +440,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 260m,
             LuxuryRating = DeriveLuxury(260m, mapping["SoFi Stadium"].tags),
-            AccessibilityType = "Transit",
+            AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["SoFi Stadium"].tags),
             AdventurePaceScore = AdventureScore(mapping["SoFi Stadium"].tags),
             AestheticTrendScore = AestheticTrendScore(mapping["SoFi Stadium"].tags),
@@ -448,7 +448,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9535,
             Longitude = -118.3392,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -492,7 +492,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 33.9553,
             Longitude = -118.3387,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -528,7 +528,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 55m,
             LuxuryRating = DeriveLuxury(55m, mapping["Koreatown"].tags),
-            AccessibilityType = "Transit",
+            AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Koreatown"].tags),
             AdventurePaceScore = AdventureScore(mapping["Koreatown"].tags),
             AestheticTrendScore = AestheticTrendScore(mapping["Koreatown"].tags),
@@ -536,7 +536,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0621,
             Longitude = -118.3006,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -572,7 +572,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             """,
             AverageCostPerDay = 20m,
             LuxuryRating = DeriveLuxury(20m, mapping["Grand Central Market"].tags),
-            AccessibilityType = "Transit",
+            AccessibilityType = "Public transit",
             FamilyFriendlyScore = FamilyScore(mapping["Grand Central Market"].tags),
             AdventurePaceScore = AdventureScore(mapping["Grand Central Market"].tags),
             AestheticTrendScore = AestheticTrendScore(mapping["Grand Central Market"].tags),
@@ -580,7 +580,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0505,
             Longitude = -118.2489,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -624,7 +624,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0517,
             Longitude = -118.2493,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -668,7 +668,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0567,
             Longitude = -118.2445,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -712,7 +712,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0554,
             Longitude = -118.2487,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -756,7 +756,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0541,
             Longitude = -118.2504,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -800,7 +800,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0489,
             Longitude = -118.2503,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },
@@ -844,7 +844,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
             Latitude = 34.0537,
             Longitude = -118.2427,
             SearchHitCount = 0,
-            TimeZone = "Pacific Standard Time",
+            TimeZone = "America/Los_Angeles",
             SafetyLevel = 1,
             CountryId = usa.CountryId
         },

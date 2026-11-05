@@ -109,10 +109,10 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
         {
             new(Mauritius, "mauritius", "Africa", "🇲🇺",
                 "Visa-free entry or visa on arrival for many nationalities; check official requirements before travel.",
-                "Type C/G", "Left", 0.15m, new[] { English, French, Creole }, "MUR", "Mauritius Standard Time"),
+                "Type C/G", "Left", 0.15m, new[] { English, French, Creole }, "MUR", "Indian/Mauritius"),
             new(Nigeria, "nigeria", "Africa", "🇳🇬",
                 "Visa required for most nationalities (e-visa / visa on arrival approval via the Nigeria Immigration Service); check official requirements before travel.",
-                "Type D/G", "Right", 0.075m, new[] { English, Yoruba, Hausa, Edo }, "NGN", "W. Central Africa Standard Time"),
+                "Type D/G", "Right", 0.075m, new[] { English, Yoruba, Hausa, Edo }, "NGN", "Africa/Lagos"),
         };
 
         private static readonly CitySpec[] Cities =
@@ -1073,7 +1073,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                         DescriptionJson = JsonSerializer.Serialize(spec.Desc, JsonOpts),
                         AverageCostPerDay = spec.AvgCost,
                         LuxuryRating = DeriveLuxury(spec.AvgCost, spec.Tags),
-                        AccessibilityType = spec.AccessibilityType,
+                        AccessibilityType = Hodrac_Backend_MVP2.Services.DestinationReferenceData.NormalizeAccessibility(spec.AccessibilityType) ?? spec.AccessibilityType,
                         FamilyFriendlyScore = FamilyScore(spec.Tags),
                         AdventurePaceScore = AdventureScore(spec.Tags),
                         AestheticTrendScore = AestheticTrendScore(spec.Tags),
