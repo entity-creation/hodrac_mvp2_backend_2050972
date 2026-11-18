@@ -131,7 +131,8 @@ public class HostingInsightsService
         var now = DateTime.UtcNow;
         var verifiedHosts = await _db.HostProfiles.CountAsync(h => h.VerificationStatus == HostVerificationStatus.Verified, ct);
         var foundingUsed = await _db.HostProfiles.CountAsync(h => h.IsFoundingHost, ct);
-        var freeDepartures = await _db.HostProfiles.CountAsync(h => h.IsFoundingHost && h.FoundingFreeDepartureTripId != null, ct);
+        // Every free departure ever used, including by hosts whose founding status was later removed.
+        var freeDepartures = await _db.HostProfiles.CountAsync(h => h.FoundingFreeDepartureTripId != null, ct);
         var operatorActive = await _db.HostProfiles.CountAsync(h =>
             h.Plan == HostPlan.Operator && h.OperatorPlanExpiresAt != null && h.OperatorPlanExpiresAt > now, ct);
 

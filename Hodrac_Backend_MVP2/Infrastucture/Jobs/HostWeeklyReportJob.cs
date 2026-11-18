@@ -56,7 +56,8 @@ public class HostWeeklyReportJob
 
         var weekStart = HostReportService.LastFullWeekStart(nowUtc);
         var hosts = await _db.HostProfiles.AsNoTracking()
-            .Where(h => _db.TripPosts.Any(t => t.IsHostedTrip && t.HostProfileId == h.Id && t.AuthorUserId == h.UserId)
+            .Where(h => h.ClosedAt == null // closed by Hodrac: no more reports
+                && _db.TripPosts.Any(t => t.IsHostedTrip && t.HostProfileId == h.Id && t.AuthorUserId == h.UserId)
                 && !_db.HostReportLogs.Any(l => l.HostProfileId == h.Id && l.WeekStart == weekStart))
             .Select(h => new { h.Id, h.UserId })
             .ToListAsync(ct);

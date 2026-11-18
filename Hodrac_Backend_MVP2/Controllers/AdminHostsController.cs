@@ -2,12 +2,14 @@
 using Hodrac_Backend_MVP2.DTOs.AdminDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.DTOs.TripPostDtos;
+using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Hodrac_Backend_MVP2.Services.Hosts;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -17,7 +19,7 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// <summary>
 /// Admin API for Hodrac Host: verification queue and host plan/founding status.
 ///
-///   GET  /api/admin/hosts?status=&amp;page=&amp;pageSize=&amp;search=   verification queue
+///   GET  /api/admin/hosts?status=&amp;closed=&amp;page=&amp;pageSize=&amp;search=   verification queue (closed hosts included unless closed=false)
 ///   GET  /api/admin/hosts/{id}
 ///   GET  /api/admin/hosts/{id}/documents                 documents + 5-minute signed links
 ///   GET  /api/admin/hosts/documents/{docId}?exp=&amp;sig=   download (admin AND valid signature)
@@ -25,8 +27,15 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///   POST /api/admin/hosts/{id}/reject                    { reason }  from Unverified/Pending
 ///   POST /api/admin/hosts/{id}/revoke                    { reason? } Verified → Unverified
 ///   POST /api/admin/hosts/{id}/founding                  limit Hodrac:FoundingHostLimit, until Hodrac:FoundingDeadline
+///   DELETE /api/admin/hosts/{id}/founding                removes founding status (a used free departure stays fee-free)
 ///   POST /api/admin/hosts/{id}/operator-plan             { reference, amountKobo, periodStart, periodEnd }
 ///   POST /api/admin/hosts/{id}/trips                     hosted trip on the host's behalf (body = hosted POST /api/trips)
+///   POST /api/admin/hosts/{id}/close                     { reason? } close the host account (see Close)
+///   POST /api/admin/hosts/{id}/reopen                    undo close (see Reopen)
+///   DELETE /api/admin/hosts/{id}                         delete a host that never had hosted trips or payments
+///
+/// A closed host (HostClosure) can't be verified, rejected, marked founding,
+/// given an operator plan or have hosted trips created for it: 409.
 /// </summary>
 [ApiController]
 [Authorize(Policy = "Admin")]
@@ -46,6 +55,7 @@ public class AdminHostsController : ControllerBase
     private readonly INotificationService _notifications;
     private readonly IOptions<HodracHostOptions> _options;
     private readonly TripCreationService _tripCreation;
+    private readonly IHubContext<TripPostHub> _tripPostHub;
     private readonly ILogger<AdminHostsController> _logger;
 
     public AdminHostsController(
@@ -56,6 +66,7 @@ public class AdminHostsController : ControllerBase
         INotificationService notifications,
         IOptions<HodracHostOptions> options,
         TripCreationService tripCreation,
+        IHubContext<TripPostHub> tripPostHub,
         ILogger<AdminHostsController> logger)
     {
         _db = db;
@@ -65,6 +76,7 @@ public class AdminHostsController : ControllerBase
         _notifications = notifications;
         _options = options;
         _tripCreation = tripCreation;
+        _tripPostHub = tripPostHub;
         _logger = logger;
     }
 
@@ -73,6 +85,7 @@ public class AdminHostsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<AdminPagedResult<AdminHostSummaryDto>>> GetHosts(
         [FromQuery] string? status = null,
+        [FromQuery] bool? closed = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null,
@@ -96,6 +109,10 @@ public class AdminHostsController : ControllerBase
             statusFilter = parsed;
             query = query.Where(h => h.VerificationStatus == parsed);
         }
+
+        // Closed hosts are listed by default; closed=true only them, closed=false only open ones.
+        if (closed is not null)
+            query = closed.Value ? query.Where(h => h.ClosedAt != null) : query.Where(h => h.ClosedAt == null);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -196,6 +213,7 @@ public class AdminHostsController : ControllerBase
     {
         var host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
         if (host is null) return NotFound();
+        if (host.IsClosed) return HostClosure.AdminConflict();
 
         if (host.VerificationStatus == HostVerificationStatus.Verified)
             return Conflict(new { error = "This host is already verified." });
@@ -233,6 +251,7 @@ public class AdminHostsController : ControllerBase
             return ValidationProblem(ModelState);
         }
 
+        if (host.IsClosed) return HostClosure.AdminConflict();
         if (host.VerificationStatus == HostVerificationStatus.Rejected)
             return Conflict(new { error = "This host is already rejected." });
         if (host.VerificationStatus == HostVerificationStatus.Verified)
@@ -282,12 +301,9 @@ public class AdminHostsController : ControllerBase
         var reason = string.IsNullOrWhiteSpace(request?.Reason) ? null : request!.Reason!.Trim();
 
         var adminId = _currentUser.UserId;
-        host.VerificationStatus = HostVerificationStatus.Unverified;
-        host.RejectionReason = reason is null ? "Verification removed by an admin." : $"Verification removed: {reason}";
         // Last decision: who revoked and when.
-        host.VerifiedAt = DateTime.UtcNow;
-        host.VerifiedByUserId = adminId;
-        host.UpdatedAt = DateTime.UtcNow;
+        HostService.RemoveVerification(host, adminId,
+            reason is null ? "Verification removed by an admin." : $"Verification removed: {reason}");
         await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Admin {AdminId} revoked verification of host {HostId}", adminId, id);
@@ -310,6 +326,7 @@ public class AdminHostsController : ControllerBase
 
         var host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
         if (host is null) return NotFound();
+        if (host.IsClosed) return HostClosure.AdminConflict();
 
         if (host.IsFoundingHost) return Ok(await LoadDetailAsync(id, ct));
 
@@ -332,11 +349,50 @@ public class AdminHostsController : ControllerBase
         return Ok(await LoadDetailAsync(id, ct));
     }
 
+    /// <summary>
+    /// Removes founding status (idempotent: 200 if the host isn't founding),
+    /// freeing a place in Hodrac:FoundingHostLimit. A free departure already
+    /// claimed stays exactly as it is (that trip keeps IsFoundingFreeDeparture
+    /// and the host keeps FoundingFreeDepartureTripId, so re-marking them later
+    /// never grants a second one); an unclaimed one is lost, because the claim
+    /// requires IsFoundingHost. The host is notified in-app and by email.
+    /// </summary>
+    [HttpDelete("{id:guid}/founding")]
+    public async Task<ActionResult<AdminHostDetailDto>> RemoveFounding(Guid id, CancellationToken ct = default)
+    {
+        HostProfile? host;
+        await using (var tx = await _db.Database.BeginTransactionAsync(ct))
+        {
+            // Same advisory lock as marking, then the host row (like trip creation's claim).
+            await _db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", new object[] { FoundingLockKey }, ct);
+            await LockHostAsync(id, ct);
+
+            host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
+            if (host is null) return NotFound();
+            if (!host.IsFoundingHost) return Ok(await LoadDetailAsync(id, ct));
+
+            host.IsFoundingHost = false;
+            host.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+
+        var adminId = _currentUser.UserId;
+        _logger.LogInformation("Admin {AdminId} removed founding status of host {HostId} (free departure trip {TripId} kept)",
+            adminId, id, host.FoundingFreeDepartureTripId);
+
+        var emailed = await _hosts.EmailFoundingRemovedAsync(host, ct);
+        await _notifications.NotifyHostFoundingRemoved(host.UserId, adminId, emailed);
+
+        return Ok(await LoadDetailAsync(id, ct));
+    }
+
     [HttpPost("{id:guid}/operator-plan")]
     public async Task<ActionResult<AdminHostDetailDto>> RecordOperatorPlan(Guid id, RecordOperatorPlanRequest request, CancellationToken ct = default)
     {
         var host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
         if (host is null) return NotFound();
+        if (host.IsClosed) return HostClosure.AdminConflict();
 
         var reference = request.Reference?.Trim() ?? string.Empty;
         if (reference.Length == 0)
@@ -381,6 +437,240 @@ public class AdminHostsController : ControllerBase
 
         return Ok(await LoadDetailAsync(id, ct));
     }
+
+    // ══ Close / delete ═══════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Closes a host account. In one transaction (the host's trips, then the
+    /// host row, locked): verification removed (Unverified, as revoke), founding
+    /// status removed (a used free departure stays fee-free), every hosted trip
+    /// with no seat payment that went through or is in flight and no manual
+    /// payment hidden ("Host account closed"), ClosedAt/ClosedReason/ClosedByUserId
+    /// set. Trips with paid travellers stay visible so those travellers keep the
+    /// trip and its chat; checkout is refused anyway (host not Verified).
+    /// After the commit: the Paystack subaccount is deactivated (best-effort;
+    /// on failure admins are emailed and subaccountDeactivated is false), and
+    /// the host is notified and emailed.
+    ///
+    /// Already closed: 200, nothing changes except that the subaccount
+    /// deactivation is retried (so a Paystack failure can be retried).
+    /// POST {id}/reopen undoes it (except verification and founding).
+    /// </summary>
+    [HttpPost("{id:guid}/close")]
+    public async Task<ActionResult<AdminHostCloseResultDto>> Close(
+        Guid id,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] CloseHostRequest? request,
+        CancellationToken ct = default)
+    {
+        var reason = string.IsNullOrWhiteSpace(request?.Reason) ? null : request!.Reason!.Trim();
+        var adminId = _currentUser.UserId;
+
+        HostProfile? host;
+        bool alreadyClosed;
+        var hiddenTripIds = new List<Guid>();
+        await using (var tx = await _db.Database.BeginTransactionAsync(ct))
+        {
+            // Trips first (the order every trip writer uses), then the host row.
+            await LockHostTripsAsync(id, ct);
+            await LockHostAsync(id, ct);
+            // A hosted trip created while we waited for the host lock.
+            await LockHostTripsAsync(id, ct);
+
+            host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
+            if (host is null) return NotFound();
+
+            alreadyClosed = host.IsClosed;
+            if (!alreadyClosed)
+            {
+                var now = DateTime.UtcNow;
+
+                HostService.RemoveVerification(host, adminId,
+                    reason is null ? "Host account closed by Hodrac." : $"Host account closed: {reason}");
+                // Founding status goes; FoundingFreeDepartureTripId (a used free departure) is kept.
+                host.IsFoundingHost = false;
+                host.ClosedAt = now;
+                host.ClosedReason = reason;
+                host.ClosedByUserId = adminId;
+                host.UpdatedAt = now;
+
+                // Same fields as admin trip moderation (AdminTripsController.HideTrip).
+                var toHide = await _db.TripPosts
+                    .Where(t => t.HostProfileId == id && !t.IsHidden)
+                    .Where(t => !_db.SeatPayments.Any(p => p.TripPostId == t.Id && KeepTripVisibleStatuses.Contains(p.Status)))
+                    .Where(t => !_db.ManualPayments.Any(m => m.TripInterest!.TripPostId == t.Id))
+                    .ToListAsync(ct);
+                foreach (var trip in toHide)
+                {
+                    trip.IsHidden = true;
+                    trip.HiddenAt = now;
+                    trip.HiddenByUserId = adminId;
+                    trip.HiddenReason = HostClosure.HiddenTripReason;
+                    trip.UpdatedAt = now;
+                    hiddenTripIds.Add(trip.Id);
+                }
+
+                await _db.SaveChangesAsync(ct);
+            }
+            await tx.CommitAsync(ct);
+        }
+
+        if (!alreadyClosed)
+        {
+            _logger.LogInformation("Admin {AdminId} closed host {HostId} ({HiddenCount} trip(s) hidden): {Reason}",
+                adminId, id, hiddenTripIds.Count, reason);
+
+            // Mirrors the moderation hide so open feeds drop the cards.
+            foreach (var tripId in hiddenTripIds)
+                await _tripPostHub.Clients.All.SendAsync("TripPostRemoved", new { tripId }, ct);
+        }
+        else
+        {
+            _logger.LogInformation("Admin {AdminId} closed already-closed host {HostId} (subaccount deactivation retried)", adminId, id);
+        }
+
+        var deactivated = await _hosts.DeactivateSubaccountAsync(host.Id, host.PaystackSubaccountCode, host.DisplayName, "closed", ct);
+
+        if (!alreadyClosed)
+        {
+            var emailed = await _hosts.EmailHostClosedAsync(host, reason, ct);
+            await _notifications.NotifyHostClosed(host.UserId, adminId, emailed);
+        }
+
+        return Ok(new AdminHostCloseResultDto((await LoadDetailAsync(id, ct))!, deactivated, hiddenTripIds));
+    }
+
+    /// <summary>
+    /// Reopens a closed host account. Not closed: 200, nothing changes (Paystack
+    /// isn't called). In one transaction (same lock order as close: the host's
+    /// trips, then the host row): ClosedAt/ClosedReason/ClosedByUserId cleared,
+    /// RejectionReason (the "Host account closed..." note) cleared, and only the
+    /// trips close hid (IsHidden with HiddenReason == HostClosure.HiddenTripReason)
+    /// un-hidden, clearing the same fields as admin unhide; trips hidden by
+    /// moderation stay hidden. Verification and founding are NOT restored: the
+    /// host stays Unverified (an admin verifies again with POST {id}/verify; the
+    /// documents/CAC/proof links are still there) and founding is re-granted
+    /// only via POST {id}/founding (a used free departure is never granted twice).
+    /// After the commit: the Paystack subaccount is reactivated (best-effort,
+    /// active = true only; checkout still needs Verified), and the host is
+    /// notified and emailed.
+    /// </summary>
+    [HttpPost("{id:guid}/reopen")]
+    public async Task<ActionResult<AdminHostReopenResultDto>> Reopen(Guid id, CancellationToken ct = default)
+    {
+        var adminId = _currentUser.UserId;
+
+        HostProfile? host;
+        var unhiddenTripIds = new List<Guid>();
+        await using (var tx = await _db.Database.BeginTransactionAsync(ct))
+        {
+            await LockHostTripsAsync(id, ct);
+            await LockHostAsync(id, ct);
+
+            host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
+            if (host is null) return NotFound();
+            if (!host.IsClosed)
+                return Ok(new AdminHostReopenResultDto((await LoadDetailAsync(id, ct))!, null, unhiddenTripIds));
+
+            var now = DateTime.UtcNow;
+            host.ClosedAt = null;
+            host.ClosedReason = null;
+            host.ClosedByUserId = null;
+            // Stays Unverified; drop the stale "Host account closed..." note.
+            host.RejectionReason = null;
+            host.UpdatedAt = now;
+
+            // Same fields as admin unhide (AdminTripsController.UnhideTrip).
+            var toUnhide = await _db.TripPosts
+                .Where(t => t.HostProfileId == id && t.IsHidden && t.HiddenReason == HostClosure.HiddenTripReason)
+                .ToListAsync(ct);
+            foreach (var trip in toUnhide)
+            {
+                trip.IsHidden = false;
+                trip.HiddenAt = null;
+                trip.HiddenReason = null;
+                trip.HiddenByUserId = null;
+                trip.UpdatedAt = now;
+                unhiddenTripIds.Add(trip.Id);
+            }
+
+            await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+
+        // Admin unhide sends no realtime event (feeds pick the trip up on the
+        // next load), so neither does reopen.
+        _logger.LogInformation("Admin {AdminId} reopened host {HostId} ({Count} trip(s) un-hidden)",
+            adminId, id, unhiddenTripIds.Count);
+
+        var reactivated = await _hosts.ReactivateSubaccountAsync(host.Id, host.PaystackSubaccountCode, host.DisplayName, ct);
+
+        var emailed = await _hosts.EmailHostReopenedAsync(host, ct);
+        await _notifications.NotifyHostReopened(host.UserId, adminId, emailed);
+
+        return Ok(new AdminHostReopenResultDto((await LoadDetailAsync(id, ct))!, reactivated, unhiddenTripIds));
+    }
+
+    /// <summary>
+    /// Deletes a host profile that was never used: no hosted trips (hidden or
+    /// not), no seat payments on them and no operator plan payments; otherwise
+    /// 409 (close the account instead) with the counts as extensions. Documents
+    /// and weekly-report logs cascade. The user account stays, so they can
+    /// create a fresh host profile later. The Paystack subaccount, if any, is
+    /// deactivated best-effort after the commit. 204.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteHost(Guid id, CancellationToken ct = default)
+    {
+        HostProfile? host;
+        await using (var tx = await _db.Database.BeginTransactionAsync(ct))
+        {
+            // Trip creation takes this lock too, so no hosted trip can appear meanwhile.
+            await LockHostAsync(id, ct);
+
+            host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == id, ct);
+            if (host is null) return NotFound();
+
+            var hostedTrips = await _db.TripPosts.CountAsync(t => t.HostProfileId == id, ct);
+            var seatPayments = await _db.SeatPayments.CountAsync(p => p.TripPost!.HostProfileId == id, ct);
+            var planPayments = await _db.OperatorPlanPayments.CountAsync(p => p.HostProfileId == id, ct);
+            if (hostedTrips > 0 || seatPayments > 0 || planPayments > 0)
+                return Conflict(new
+                {
+                    error = "This host has trips or payments, so it can't be deleted. Close the account instead.",
+                    hostedTrips,
+                    seatPayments,
+                    operatorPlanPayments = planPayments,
+                });
+
+            _db.HostProfiles.Remove(host);
+            await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+
+        _logger.LogInformation("Admin {AdminId} deleted host {HostId} ({Slug}) of user {UserId}",
+            _currentUser.UserId, id, host.Slug, host.UserId);
+
+        await _hosts.DeactivateSubaccountAsync(host.Id, host.PaystackSubaccountCode, host.DisplayName, "deleted", ct);
+        return NoContent();
+    }
+
+    // A trip with any of these seat payments (it went through, or may still)
+    // or with any manual payment keeps its travellers: closing never hides it.
+    private static readonly SeatPaymentStatus[] KeepTripVisibleStatuses =
+    {
+        SeatPaymentStatus.Initialized,
+        SeatPaymentStatus.Success,
+        SeatPaymentStatus.Refunded,
+        SeatPaymentStatus.PartiallyRefunded,
+        SeatPaymentStatus.Disputed,
+    };
+
+    private Task LockHostAsync(Guid id, CancellationToken ct) =>
+        _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"HostProfiles\" WHERE \"Id\" = {id} FOR UPDATE", ct);
+
+    private Task LockHostTripsAsync(Guid hostId, CancellationToken ct) =>
+        _db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM \"TripPosts\" WHERE \"HostProfileId\" = {hostId} ORDER BY \"Id\" FOR UPDATE", ct);
 
     // ══ Trips ═══════════════════════════════════════════════════════════════════
 
@@ -454,6 +744,8 @@ public class AdminHostsController : ControllerBase
             h.IsFoundingHost,
             h.Plan.ToString(),
             h.OperatorPlanExpiresAt,
+            h.ClosedAt,
+            h.ClosedReason,
             h.CreatedAt,
             h.UpdatedAt);
     }
@@ -495,6 +787,7 @@ public class AdminHostsController : ControllerBase
             h.PaystackSubaccountCode,
             h.SettlementAccountName,
             h.FoundingFreeDepartureTripId,
+            h.ClosedByUserId,
             payments);
     }
 

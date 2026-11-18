@@ -173,30 +173,169 @@ public class HostService
     }
 
     /// <summary>Emails every address in Admin:Emails. Best-effort: failures are logged.</summary>
-    public async Task NotifyAdminsOfSubmissionAsync(HostProfile host, CancellationToken ct = default)
+    public Task NotifyAdminsOfSubmissionAsync(HostProfile host, CancellationToken ct = default) =>
+        EmailAdminsAsync(host.Id, "Host verification to review", new List<string>
+        {
+            $"{host.DisplayName} ({host.Slug}) submitted their host verification.",
+            "Review the ID document and past-trip links in the admin host queue.",
+        });
+
+    /// <summary>
+    /// Any status -> Unverified with a note, recording the admin and time as the
+    /// last decision (VerifiedAt/VerifiedByUserId). Shared by revoke and close.
+    /// Caller saves.
+    /// </summary>
+    public static void RemoveVerification(HostProfile host, Guid adminUserId, string note)
+    {
+        host.VerificationStatus = HostVerificationStatus.Unverified;
+        host.RejectionReason = note.Length <= HostProfile.MaxRejectionReasonLength
+            ? note
+            : note[..HostProfile.MaxRejectionReasonLength];
+        host.VerifiedAt = DateTime.UtcNow;
+        host.VerifiedByUserId = adminUserId;
+        host.UpdatedAt = DateTime.UtcNow;
+    }
+
+    // -- Admin account actions (close / reopen / delete) ----------------------
+
+    /// <summary>
+    /// Deactivates the host's Paystack subaccount (sends only active = false;
+    /// bank details are untouched). Best-effort, called after the DB commit: on
+    /// failure it logs and emails the admins. Returns null when there is no
+    /// subaccount, true when deactivated, false when the Paystack call failed.
+    /// </summary>
+    public async Task<bool?> DeactivateSubaccountAsync(
+        Guid hostId, string? subaccountCode, string displayName, string action, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(subaccountCode)) return null;
+        try
+        {
+            await _paystack.UpdateSubaccountAsync(subaccountCode, new PaystackSubaccountUpdate(Active: false), ct);
+            _logger.LogInformation("Deactivated Paystack subaccount {Code} of host {HostId} ({Action})", subaccountCode, hostId, action);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Could not deactivate Paystack subaccount {Code} of host {HostId} ({Action})", subaccountCode, hostId, action);
+            await EmailAdminsAsync(hostId, "Paystack subaccount still active", new List<string>
+            {
+                $"The host account {displayName} was {action}, but Paystack didn't deactivate its subaccount {subaccountCode}.",
+                $"Error: {ex.Message}",
+                "Deactivate it in the Paystack dashboard (for a closed host, closing it again retries).",
+            });
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reactivates the host's Paystack subaccount (sends only active = true).
+    /// Same best-effort pattern as <see cref="DeactivateSubaccountAsync"/>:
+    /// null = no subaccount, true = reactivated, false = Paystack failed (logged,
+    /// admins emailed).
+    /// </summary>
+    public async Task<bool?> ReactivateSubaccountAsync(
+        Guid hostId, string? subaccountCode, string displayName, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(subaccountCode)) return null;
+        try
+        {
+            await _paystack.UpdateSubaccountAsync(subaccountCode, new PaystackSubaccountUpdate(Active: true), ct);
+            _logger.LogInformation("Reactivated Paystack subaccount {Code} of host {HostId} (reopened)", subaccountCode, hostId);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Could not reactivate Paystack subaccount {Code} of host {HostId} (reopened)", subaccountCode, hostId);
+            await EmailAdminsAsync(hostId, "Paystack subaccount still inactive", new List<string>
+            {
+                $"The host account {displayName} was reopened, but Paystack didn't reactivate its subaccount {subaccountCode}.",
+                $"Error: {ex.Message}",
+                "Reactivate it in the Paystack dashboard before the host is verified again, or payments to this host will fail.",
+            });
+            return false;
+        }
+    }
+
+    /// <summary>Emails the host that Hodrac reopened their host account. Returns true when sent. Best-effort.</summary>
+    public async Task<bool> EmailHostReopenedAsync(HostProfile host, CancellationToken ct = default)
+    {
+        var to = await GetUserEmailAsync(host.UserId, ct);
+        if (string.IsNullOrWhiteSpace(to)) return false;
+
+        var lines = new List<string>
+        {
+            $"Hodrac has reopened the host account {host.DisplayName}.",
+            "You can edit your host profile and create hosted trips again.",
+            "Your profile isn't verified yet: travellers can't pay until a Hodrac admin verifies it again.",
+        };
+
+        return await TrySendToHostAsync(host, to, "Your Hodrac host account was reopened", lines, "account reopening");
+    }
+
+    /// <summary>Emails the host that their founding status was removed. Returns true when sent. Best-effort.</summary>
+    public async Task<bool> EmailFoundingRemovedAsync(HostProfile host, CancellationToken ct = default)
+    {
+        var to = await GetUserEmailAsync(host.UserId, ct);
+        if (string.IsNullOrWhiteSpace(to)) return false;
+
+        var lines = new List<string>
+        {
+            $"{host.DisplayName} is no longer a founding Hodrac host.",
+            host.FoundingFreeDepartureTripId is not null
+                ? "The free departure you already used stays fee-free for the travellers on that trip."
+                : "The founding free departure is no longer available for your next hosted trip.",
+        };
+
+        return await TrySendToHostAsync(host, to, "Your Hodrac founding host status was removed", lines, "founding removal");
+    }
+
+    /// <summary>Emails the host that Hodrac closed their host account. Returns true when sent. Best-effort.</summary>
+    public async Task<bool> EmailHostClosedAsync(HostProfile host, string? reason, CancellationToken ct = default)
+    {
+        var to = await GetUserEmailAsync(host.UserId, ct);
+        if (string.IsNullOrWhiteSpace(to)) return false;
+
+        var lines = new List<string> { $"Hodrac has closed the host account {host.DisplayName}." };
+        if (!string.IsNullOrWhiteSpace(reason)) lines.Add($"Reason: {reason}");
+        lines.Add("Your trips can't take new payments, and trips nobody has paid for are no longer shown.");
+        lines.Add("Trips with paid travellers stay up: you can still open their manifests and record payments and refunds to settle with them.");
+        lines.Add("If you think this is a mistake, contact Hodrac support.");
+
+        return await TrySendToHostAsync(host, to, "Your Hodrac host account was closed", lines, "account closure");
+    }
+
+    private async Task<bool> TrySendToHostAsync(HostProfile host, string to, string subject, List<string> lines, string what)
+    {
+        try
+        {
+            await _email.SendAsync(to, subject, lines, $"{FrontendBaseUrl()}/host");
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not email host {HostId} about their {What}", host.Id, what);
+            return false;
+        }
+    }
+
+    /// <summary>Emails every address in Admin:Emails, linking the admin host page. Best-effort.</summary>
+    private async Task EmailAdminsAsync(Guid hostId, string subject, List<string> lines)
     {
         var admins = (_config["Admin:Emails"] ?? string.Empty)
             .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        if (admins.Count == 0) return;
-
-        var link = $"{FrontendBaseUrl()}/admin/hosts/{host.Id}";
-        var lines = new List<string>
-        {
-            $"{host.DisplayName} ({host.Slug}) submitted their host verification.",
-            "Review the ID document and past-trip links in the admin host queue.",
-        };
+        var link = $"{FrontendBaseUrl()}/admin/hosts/{hostId}";
 
         foreach (var admin in admins)
         {
             try
             {
-                await _email.SendAsync(admin, "Host verification to review", lines, link);
+                await _email.SendAsync(admin, subject, lines, link);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(ex, "Could not email admin about host {HostId} verification", host.Id);
+                _logger.LogWarning(ex, "Could not email admin ({Subject}) about host {HostId}", subject, hostId);
             }
         }
     }

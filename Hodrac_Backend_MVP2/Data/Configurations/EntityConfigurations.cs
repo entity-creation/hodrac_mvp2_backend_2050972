@@ -602,6 +602,7 @@ public class HostProfileConfiguration : IEntityTypeConfiguration<HostProfile>
         builder.Property(h => h.SettlementBankName).HasMaxLength(HostProfile.MaxBankNameLength);
         builder.Property(h => h.SettlementAccountName).HasMaxLength(HostProfile.MaxAccountNameLength);
         builder.Property(h => h.SettlementAccountLast4).HasMaxLength(HostProfile.AccountLast4Length);
+        builder.Property(h => h.ClosedReason).HasMaxLength(HostProfile.MaxClosedReasonLength);
 
         builder.Property(h => h.Plan)
             .HasConversion<string>()

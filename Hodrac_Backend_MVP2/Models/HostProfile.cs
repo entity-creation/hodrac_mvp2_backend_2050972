@@ -36,6 +36,7 @@ public class HostProfile
     public const int MaxBankNameLength = 100;
     public const int MaxAccountNameLength = 200;
     public const int AccountLast4Length = 4;
+    public const int MaxClosedReasonLength = 500;
 
     public Guid Id { get; set; } = Guid.NewGuid();
 
@@ -81,6 +82,17 @@ public class HostProfile
 
     /// <summary>The trip that used the free founding departure (no FK, avoids a TripPost↔HostProfile cycle).</summary>
     public Guid? FoundingFreeDepartureTripId { get; set; }
+
+    // ── Closed by Hodrac ──────────────────────────────────────────────────────
+    // Set by POST /api/admin/hosts/{id}/close. A closed host can't change its
+    // setup (profile, payout, verification, new hosted trips, money terms) but
+    // can still settle existing trips (manifest, manual payments/refunds).
+    public DateTime? ClosedAt { get; set; }
+    public string? ClosedReason { get; set; }
+    public Guid? ClosedByUserId { get; set; }
+
+    /// <summary>Not mapped (no setter). Use <c>ClosedAt != null</c> in queries.</summary>
+    public bool IsClosed => ClosedAt is not null;
 
     // ── Timestamps ────────────────────────────────────────────────────────────
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

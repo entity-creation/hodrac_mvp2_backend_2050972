@@ -19,6 +19,9 @@ namespace Hodrac_Backend_MVP2.Services
         Task NotifyHostVerified(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
         Task NotifyHostRejected(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
         Task NotifyHostVerificationRevoked(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
+        Task NotifyHostFoundingRemoved(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
+        Task NotifyHostClosed(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
+        Task NotifyHostReopened(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
 
         // An approved traveller withdrew from a hosted trip (seat released;
         // any payment records are kept).
@@ -120,6 +123,33 @@ namespace Hodrac_Backend_MVP2.Services
             {
                 RecipientUserId = hostUserId,
                 Type = NotificationType.HostVerificationRevoked,
+                ActorUserId = adminUserId,
+                EmailedAt = emailedDirectly ? DateTime.UtcNow : null
+            });
+
+        public Task NotifyHostFoundingRemoved(Guid hostUserId, Guid adminUserId, bool emailedDirectly) =>
+            SaveAndPushAsync(new Notification
+            {
+                RecipientUserId = hostUserId,
+                Type = NotificationType.HostFoundingRemoved,
+                ActorUserId = adminUserId,
+                EmailedAt = emailedDirectly ? DateTime.UtcNow : null
+            });
+
+        public Task NotifyHostClosed(Guid hostUserId, Guid adminUserId, bool emailedDirectly) =>
+            SaveAndPushAsync(new Notification
+            {
+                RecipientUserId = hostUserId,
+                Type = NotificationType.HostClosed,
+                ActorUserId = adminUserId,
+                EmailedAt = emailedDirectly ? DateTime.UtcNow : null
+            });
+
+        public Task NotifyHostReopened(Guid hostUserId, Guid adminUserId, bool emailedDirectly) =>
+            SaveAndPushAsync(new Notification
+            {
+                RecipientUserId = hostUserId,
+                Type = NotificationType.HostReopened,
                 ActorUserId = adminUserId,
                 EmailedAt = emailedDirectly ? DateTime.UtcNow : null
             });

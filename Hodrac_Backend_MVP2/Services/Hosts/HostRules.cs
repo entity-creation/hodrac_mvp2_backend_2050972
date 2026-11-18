@@ -132,3 +132,36 @@ public class HostDocumentLinkSigner
 
     private static string Payload(Guid documentId, Guid adminUserId, long exp) => $"{documentId:N}|{adminUserId:N}|{exp}";
 }
+
+// ─── Closed hosts ─────────────────────────────────────────────────────────────
+
+/// <summary>
+/// The one place the "closed by Hodrac" rule and its responses live
+/// (HostProfile.ClosedAt, set by POST /api/admin/hosts/{id}/close).
+///
+/// Refused for a closed host (403 <see cref="HostMessage"/>): creating a host
+/// profile, updating it, payout account, verification submit, creating a
+/// hosted trip, converting a trip to hosted, changing a hosted trip's money
+/// terms. Still allowed on existing trips: profile GET, manifest (+ CSV),
+/// manual payments/refunds, WhatsApp nudge, weekly report.
+///
+/// Refused for admins (409 <see cref="AdminMessage"/>): verify, reject,
+/// founding, operator plan, creating a hosted trip for the host.
+/// POST /api/admin/hosts/{id}/reopen clears ClosedAt and un-hides only the
+/// trips hidden with <see cref="HiddenTripReason"/>.
+/// </summary>
+public static class HostClosure
+{
+    public const string HostMessage = "This host account was closed by Hodrac. Contact support.";
+    public const string AdminMessage = "Host account is closed.";
+
+    /// <summary>Reason a hidden trip shows after its host was closed.</summary>
+    public const string HiddenTripReason = "Host account closed";
+
+    /// <summary>403 for the host's own setup endpoints.</summary>
+    public static Microsoft.AspNetCore.Mvc.ObjectResult HostForbidden() =>
+        new(new { error = HostMessage }) { StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden };
+
+    /// <summary>409 for admin actions that would set the host up again.</summary>
+    public static Microsoft.AspNetCore.Mvc.ConflictObjectResult AdminConflict() => new(new { error = AdminMessage });
+}

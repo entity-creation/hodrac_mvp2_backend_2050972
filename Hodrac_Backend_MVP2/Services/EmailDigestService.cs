@@ -167,6 +167,9 @@ namespace Hodrac_Backend_MVP2.Services
             NotificationType.SeatHoldExpired => $"{count} unpaid seat hold{(count == 1 ? "" : "s")} expired - the host can approve again, or the traveller can request again from the trip page",
             NotificationType.DisputeOpened => $"{count} payment dispute{(count == 1 ? " was" : "s were")} opened on your trip",
             NotificationType.HostVerificationRevoked => "Your Verified host badge was removed",
+            NotificationType.HostFoundingRemoved => "Your founding host status was removed",
+            NotificationType.HostClosed => "Your Hodrac host account was closed",
+            NotificationType.HostReopened => "Your Hodrac host account was reopened - an admin needs to verify it again before travellers can pay",
             _ => "New trip activity"
         };
     }

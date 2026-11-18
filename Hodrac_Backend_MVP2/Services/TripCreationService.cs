@@ -3,6 +3,7 @@ using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.TripPostDtos;
 using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.Services.Hosts;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -20,8 +21,10 @@ public enum TripCreateOutcome
     Invalid,
     /// <summary>The host profile (admin create-for-host) doesn't exist: 404.</summary>
     NotFound,
-    /// <summary>The host can't take a hosted trip yet (admin create-for-host: no payout subaccount): 409.</summary>
-    Conflict
+    /// <summary>The host can't take a hosted trip yet (admin create-for-host: no payout subaccount, or closed): 409.</summary>
+    Conflict,
+    /// <summary>The caller's own host account was closed by Hodrac: 403.</summary>
+    Forbidden
 }
 
 public record TripCreateResult(
@@ -131,16 +134,20 @@ public class TripCreationService
     // Row-locks (inside the caller's transaction) and loads the user's host
     // profile, or says what's missing before a hosted trip can exist.
     // Verification is NOT needed to create/preview; it's checked at checkout.
-    public async Task<(HostProfile? Host, string? Error)> LoadHostForUserAsync(Guid userId)
+    // Closed: the host account was closed by Hodrac (Error is then
+    // HostClosure.HostMessage and callers answer 403).
+    public async Task<(HostProfile? Host, string? Error, bool Closed)> LoadHostForUserAsync(Guid userId)
     {
         await _db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT 1 FROM \"HostProfiles\" WHERE \"UserId\" = {userId} FOR UPDATE");
         var host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.UserId == userId);
         if (host is null)
-            return (null, "Create a host profile before creating a hosted trip.");
+            return (null, "Create a host profile before creating a hosted trip.", false);
+        if (host.IsClosed)
+            return (null, HostClosure.HostMessage, true);
         if (string.IsNullOrWhiteSpace(host.PaystackSubaccountCode))
-            return (null, "Add a payout account to your host profile before creating a hosted trip.");
-        return (host, null);
+            return (null, "Add a payout account to your host profile before creating a hosted trip.", false);
+        return (host, null, false);
     }
 
     // The first hosted trip of a founding host (up to the founding
@@ -261,13 +268,16 @@ public class TripCreationService
                 host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == hostId);
                 if (host is null)
                     return new TripCreateResult(TripCreateOutcome.NotFound, "Host not found.");
+                if (host.IsClosed)
+                    return new TripCreateResult(TripCreateOutcome.Conflict, HostClosure.AdminMessage);
                 if (string.IsNullOrWhiteSpace(host.PaystackSubaccountCode))
                     return new TripCreateResult(TripCreateOutcome.Conflict,
                         "This host has no payout account yet, so a hosted trip can't be created for them.");
             }
             else
             {
-                var (loadedHost, hostError) = await LoadHostForUserAsync(authorUserId);
+                var (loadedHost, hostError, closed) = await LoadHostForUserAsync(authorUserId);
+                if (closed) return new TripCreateResult(TripCreateOutcome.Forbidden, hostError);
                 if (hostError is not null) return TripCreateResult.Bad(hostError);
                 host = loadedHost!;
             }

@@ -25,7 +25,10 @@ namespace Hodrac_Backend_MVP2.Models
         DisputeOpened,      // (host) a traveller disputed a payment
 
         // Hodrac Host verification (append only)
-        HostVerificationRevoked // an admin removed your Verified host badge
+        HostVerificationRevoked, // an admin removed your Verified host badge
+        HostFoundingRemoved,     // an admin removed your founding host status
+        HostClosed,              // Hodrac closed your host account
+        HostReopened             // Hodrac reopened your host account (verify again before payments)
     }
 
     public class Notification

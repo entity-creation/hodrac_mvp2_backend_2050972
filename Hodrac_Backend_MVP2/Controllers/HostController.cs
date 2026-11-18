@@ -15,7 +15,8 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// <summary>
 /// Hodrac Host onboarding for the signed-in user.
 ///
-///   POST  /api/host/profile              create my host profile (one per user; 409 if it exists)
+///   POST  /api/host/profile              create my host profile (one per user; 409 if it exists,
+///                                        403 if the existing one was closed by Hodrac)
 ///   GET   /api/host/profile/me           my host profile (404 if none)
 ///   PATCH /api/host/profile/me           partial update
 ///   GET   /api/host/banks                Paystack's Nigerian banks (cached 24h)
@@ -29,6 +30,9 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///
 /// Hosted trips (HostController.Trips.cs): trips list, manifest (+ CSV), manual
 /// payments/refunds, WhatsApp nudge link, weekly report.
+///
+/// A host closed by Hodrac (HostClosure) gets 403 on PATCH profile, payout-account
+/// and verification; reads and the trip settlement endpoints stay open.
 ///
 /// Responses never include the payout account number or document bytes/keys.
 /// </summary>
@@ -77,8 +81,11 @@ public partial class HostController : ControllerBase
         var userId = _currentUser.UserId;
         if (userId == Guid.Empty) return Unauthorized();
 
-        if (await _hosts.UserHasProfileAsync(userId, ct))
-            return Conflict(new { error = "You already have a host profile." });
+        var existing = await _hosts.GetByUserAsync(userId, ct);
+        if (existing is not null)
+            return existing.IsClosed
+                ? HostClosure.HostForbidden()
+                : Conflict(new { error = "You already have a host profile." });
 
         var displayName = request.DisplayName?.Trim() ?? string.Empty;
         if (displayName.Length == 0)
@@ -125,6 +132,7 @@ public partial class HostController : ControllerBase
     {
         var host = await _hosts.GetByUserAsync(_currentUser.UserId, ct);
         if (host is null) return NotFound();
+        if (host.IsClosed) return HostClosure.HostForbidden();
 
         var nameChanged = false;
         if (request.DisplayName is not null)
@@ -197,6 +205,7 @@ public partial class HostController : ControllerBase
     {
         var host = await _hosts.GetByUserAsync(_currentUser.UserId, ct);
         if (host is null) return NotFound();
+        if (host.IsClosed) return HostClosure.HostForbidden();
 
         var bankCode = request.BankCode?.Trim() ?? string.Empty;
         var accountNumber = Regex.Replace(request.AccountNumber ?? string.Empty, @"[\s-]", "");
@@ -242,6 +251,7 @@ public partial class HostController : ControllerBase
     {
         var host = await _hosts.GetByUserAsync(_currentUser.UserId, ct);
         if (host is null) return NotFound();
+        if (host.IsClosed) return HostClosure.HostForbidden();
 
         if (host.VerificationStatus == HostVerificationStatus.Verified)
             return Conflict(new { error = "Your host profile is already verified." });

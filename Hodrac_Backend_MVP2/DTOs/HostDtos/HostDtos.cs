@@ -35,6 +35,8 @@ namespace Hodrac_Backend_MVP2.DTOs.HostDtos
         DateTime? OperatorPlanExpiresAt,
         bool IsFoundingHost,
         bool FoundingFreeDepartureUsed,
+        DateTime? ClosedAt,             // set when Hodrac closed the host account (setup is then read-only)
+        string? ClosedReason,
         DateTime CreatedAt,
         DateTime UpdatedAt
     )
@@ -61,6 +63,8 @@ namespace Hodrac_Backend_MVP2.DTOs.HostDtos
             h.OperatorPlanExpiresAt,
             h.IsFoundingHost,
             h.FoundingFreeDepartureTripId is not null,
+            h.ClosedAt,
+            h.ClosedReason,
             h.CreatedAt,
             h.UpdatedAt);
     }

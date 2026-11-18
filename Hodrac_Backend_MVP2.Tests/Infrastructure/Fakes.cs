@@ -41,9 +41,14 @@ public class FakePaystackClient : IPaystackClient
         return Task.FromResult(new PaystackSubaccount(code, request.BusinessName, ResolvedAccountName, request.SettlementBankCode, 0m, true));
     }
 
+    /// <summary>Subaccount codes whose update call fails (Paystack 500). Every attempt is still recorded.</summary>
+    public ConcurrentDictionary<string, bool> FailUpdateForSubaccount { get; } = new(StringComparer.Ordinal);
+
     public Task<PaystackSubaccount> UpdateSubaccountAsync(string subaccountCode, PaystackSubaccountUpdate request, CancellationToken ct = default)
     {
         UpdatedSubaccounts.Enqueue((subaccountCode, request));
+        if (FailUpdateForSubaccount.ContainsKey(subaccountCode))
+            throw new PaystackException("Paystack is having a moment", HttpStatusCode.InternalServerError);
         return Task.FromResult(new PaystackSubaccount(subaccountCode, request.BusinessName ?? "", ResolvedAccountName, request.SettlementBankCode, 0m, true));
     }
 

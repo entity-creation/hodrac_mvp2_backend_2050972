@@ -4,6 +4,7 @@ using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Hosts;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -123,7 +124,7 @@ namespace Hodrac_Backend_MVP2.Controllers
 
         // Row-locks (inside the caller's transaction) and loads the caller's
         // host profile, or says what's missing before a hosted trip can exist.
-        private Task<(HostProfile? Host, string? Error)> LoadHostForHostedTripAsync() =>
+        private Task<(HostProfile? Host, string? Error, bool Closed)> LoadHostForHostedTripAsync() =>
             _tripCreation.LoadHostForUserAsync(CurrentUserId);
 
         // The first hosted trip of a founding host (up to the founding
@@ -158,6 +159,8 @@ namespace Hodrac_Backend_MVP2.Controllers
                 case TripCreateOutcome.Invalid:
                     foreach (var (key, message) in result.FieldErrors!) ModelState.AddModelError(key, message);
                     return ValidationProblem(ModelState);
+                case TripCreateOutcome.Forbidden:
+                    return HostClosure.HostForbidden();
                 default:
                     return BadRequest(result.Error);
             }
@@ -484,16 +487,21 @@ namespace Hodrac_Backend_MVP2.Controllers
             {
                 if (becomingHosted)
                 {
-                    var (loadedHost, hostError) = await LoadHostForHostedTripAsync();
+                    var (loadedHost, hostError, hostClosed) = await LoadHostForHostedTripAsync();
+                    if (hostClosed) return HostClosure.HostForbidden();
                     if (hostError is not null) return BadRequest(hostError);
                     if (await _db.TripInterests.AnyAsync(i => i.TripPostId == id && i.Status == TripInterestStatus.Approved))
                         return Conflict("Someone has already been approved to join this trip, so it can't become a hosted trip.");
                     newHost = loadedHost!;
                 }
-                else if (PaymentTermsChanged(trip, request.PricePerSeatKobo, request.DepositKobo, request.FeeMode, newInstalments)
-                         && await AnySuccessfulPaymentAsync(id))
+                else if (PaymentTermsChanged(trip, request.PricePerSeatKobo, request.DepositKobo, request.FeeMode, newInstalments))
                 {
-                    return Conflict(PaymentTermsLockedMessage);
+                    // A host closed by Hodrac can't change money terms (HostClosure).
+                    if (trip.HostProfileId is Guid termsHostId
+                        && await _db.HostProfiles.AnyAsync(h => h.Id == termsHostId && h.ClosedAt != null))
+                        return HostClosure.HostForbidden();
+                    if (await AnySuccessfulPaymentAsync(id))
+                        return Conflict(PaymentTermsLockedMessage);
                 }
 
                 if ((request.MaxGroupSize ?? trip.MaxGroupSize) is null)
