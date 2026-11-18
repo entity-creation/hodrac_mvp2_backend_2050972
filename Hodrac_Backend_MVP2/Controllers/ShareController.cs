@@ -1,3 +1,4 @@
+using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,8 +19,13 @@ namespace Hodrac_Backend_MVP2.Controllers;
 public class ShareController : ControllerBase
 {
     private readonly IShareService _share;
+    private readonly ITripPageViewCounter _pageViews;
 
-    public ShareController(IShareService share) => _share = share;
+    public ShareController(IShareService share, ITripPageViewCounter pageViews)
+    {
+        _share = share;
+        _pageViews = pageViews;
+    }
 
     [HttpGet("api/share/{type}/{id}")]
     public async Task<ActionResult<ShareDataDto>> GetShareData(string type, string id, CancellationToken ct = default)
@@ -64,6 +70,10 @@ public class ShareController : ControllerBase
         // don't follow it to the SPA (which has no server-rendered tags);
         // browsers get both the meta refresh and the JS redirect.
         var isCrawler = BotDetector.IsCrawler(Request.Headers.UserAgent.ToString());
+
+        // Trip page views for the host weekly report (people only, best effort).
+        if (info.Type == ShareTypes.Trip && Guid.TryParse(info.Id, out var tripId))
+            await _pageViews.RecordAsync(tripId, TripPageViewSources.Share, Request);
 
         // Revocable links must stop working promptly, so they aren't cached.
         Response.Headers.CacheControl = info.Type == ShareTypes.SharedWishlist ? "no-store" : "public, max-age=300";

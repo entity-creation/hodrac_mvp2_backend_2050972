@@ -196,6 +196,7 @@ public class ShareService : IShareService
 
     // Hidden (moderated) trips never resolve. Closed/Cancelled ones do, with
     // the status called out. No author information is ever included.
+    // Unlisted (link-only) hosted trips still resolve: sharing the link is the point.
     private async Task<ShareInfo?> ResolveTripAsync(Guid id, CancellationToken ct)
     {
         var trip = await _db.TripPosts
@@ -204,17 +205,33 @@ public class ShareService : IShareService
             .Include(t => t.Destination!).ThenInclude(d => d.Images)
             .Include(t => t.Wishlist!).ThenInclude(w => w.WishlistDestinations)
                 .ThenInclude(wd => wd.Destination).ThenInclude(d => d.Images)
+            .Include(t => t.HostProfile)
             .FirstOrDefaultAsync(t => t.Id == id && !t.IsHidden, ct);
         if (trip is null) return null;
 
-        var dto = PublicTripPostDto.FromEntity(trip);
+        var approvedCount = trip.IsHostedTrip
+            ? await _db.TripInterests.CountAsync(i =>
+                i.TripPostId == id
+                && i.Status == TripInterestStatus.Approved
+                && i.PaymentStatus != InterestPaymentStatus.Expired
+                && i.RequesterUserId != trip.AuthorUserId, ct)
+            : 0;
+
+        var dto = PublicTripPostDto.FromEntity(trip, approvedCount);
 
         var parts = new List<string>();
         if (dto.Status != TripPostStatus.Open) parts.Add(dto.Status.ToString());
         var dates = FormatDates(dto.StartDate, dto.EndDate, dto.IsDateFlexible);
         if (dates is not null) parts.Add(dates);
+        if (dto.IsHostedTrip)
+        {
+            // "{dates} · ₦{price}/seat · {seatsLeft} seats left · Verified host"
+            if (dto.PricePerSeatKobo is long price) parts.Add($"{FormatNaira(price)}/seat");
+            if (dto.SeatsLeft is int left) parts.Add(left == 1 ? "1 seat left" : $"{left} seats left");
+            if (dto.Host?.Verified == true) parts.Add("Verified host");
+        }
         // For caption-only trips the label already *is* the caption.
-        if (!string.IsNullOrWhiteSpace(dto.Caption) && dto.Caption != dto.DestinationLabel)
+        else if (!string.IsNullOrWhiteSpace(dto.Caption) && dto.Caption != dto.DestinationLabel)
             parts.Add(dto.Caption);
 
         var text = parts.Count > 0 ? string.Join(" · ", parts) : $"Join this trip on {SiteName}.";
@@ -327,6 +344,13 @@ public class ShareService : IShareService
         var lastSpace = cut.LastIndexOf(' ');
         if (lastSpace > max / 2) cut = cut[..lastSpace];
         return cut.TrimEnd(' ', ',', ';', ':', '.', '-', '·') + "…";
+    }
+
+    /// <summary>Kobo → "₦250,000" (or "₦1,234.50" when there are kobo).</summary>
+    internal static string FormatNaira(long kobo)
+    {
+        var naira = kobo / 100m;
+        return "₦" + naira.ToString(kobo % 100 == 0 ? "N0" : "N2", CultureInfo.InvariantCulture);
     }
 
     private static string? FormatDates(DateOnly? start, DateOnly? end, bool flexible)

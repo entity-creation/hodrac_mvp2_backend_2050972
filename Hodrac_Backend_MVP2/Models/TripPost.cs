@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace Hodrac_Backend_MVP2.Models
 {
@@ -8,6 +9,26 @@ namespace Hodrac_Backend_MVP2.Models
         Open,
         Closed,
         Cancelled
+    }
+
+    // Who pays Hodrac's fee on a hosted trip: added on top of the seat price
+    // as a booking fee, or taken out of the host's share. Accepted in JSON as
+    // "PassToTraveller" / "HostAbsorbs" (or 0 / 1).
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum FeeMode
+    {
+        PassToTraveller,
+        HostAbsorbs
+    }
+
+    // One line of a hosted trip's payment schedule after the deposit.
+    // EF owned type, stored in its own table TripInstalments keyed
+    // (TripPostId, Sequence).
+    public class TripInstalment
+    {
+        public int Sequence { get; set; }
+        public long AmountKobo { get; set; }
+        public DateOnly DueDate { get; set; }
     }
 
     // A trip post is anchored to exactly ONE of:
@@ -61,6 +82,46 @@ namespace Hodrac_Backend_MVP2.Models
         public DateTime? HiddenAt { get; set; }
         public string? HiddenReason { get; set; }
         public Guid? HiddenByUserId { get; set; }
+
+        // ── Hodrac Host (hosted, paid trips) ─────────────────────────────────
+        // A trip is either a community trip (IsHostedTrip = false, the default:
+        // free, always listed, every field below null/default) or a hosted
+        // trip (paid seats through Paystack). Money is always kobo (long).
+        public const int CurrencyLength = 3;
+        public const string DefaultCurrency = "NGN";
+        public const int DefaultSeatHoldHours = 48;
+
+        public bool IsHostedTrip { get; set; }
+
+        public Guid? HostProfileId { get; set; }
+        public HostProfile? HostProfile { get; set; }
+
+        // Shown in feed/browse/public lists. Community trips are always
+        // listed; hosted trips are private (link-only) unless the host opts in.
+        public bool IsListed { get; set; } = true;
+
+        public long? PricePerSeatKobo { get; set; }
+        public string Currency { get; set; } = DefaultCurrency;
+        public long? DepositKobo { get; set; }
+
+        // deposit + sum(instalments) == PricePerSeatKobo (see InstalmentValidator).
+        public List<TripInstalment> Instalments { get; set; } = new();
+
+        public FeeMode FeeMode { get; set; } = FeeMode.PassToTraveller;
+
+        // Approved-but-unpaid seats expire after this many hours.
+        public int SeatHoldHours { get; set; } = DefaultSeatHoldHours;
+
+        // The host's refund and dropout terms. Every edit bumps TermsVersion.
+        public string? TermsText { get; set; }
+        public int TermsVersion { get; set; } = 1;
+        public DateTime? TermsUpdatedAt { get; set; }
+
+        public string? Inclusions { get; set; }
+        public string? Exclusions { get; set; }
+
+        // Set by the server when this trip uses the host's free founding departure.
+        public bool IsFoundingFreeDeparture { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

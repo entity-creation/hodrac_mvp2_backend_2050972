@@ -35,6 +35,12 @@ public interface ITokenService
 
     /// <summary>Revokes a single refresh token (logout from one device).</summary>
     Task RevokeRefreshTokenAsync(string userId, string rawToken, CancellationToken ct = default);
+
+    /// <summary>
+    /// Revokes a single refresh token identified only by its raw value (anonymous logout).
+    /// The owner is found by the token's SHA-256 hash; unknown tokens are a silent no-op.
+    /// </summary>
+    Task RevokeRefreshTokenByValueAsync(string rawToken, CancellationToken ct = default);
 }
 
 public class TokenService : ITokenService
@@ -150,6 +156,17 @@ public class TokenService : ITokenService
         var hash = Hash(rawToken);
         await _db.Set<UserRefreshToken>()
             .Where(t => t.UserId == userId && t.TokenHash == hash && !t.IsRevoked)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.IsRevoked, true)
+                .SetProperty(t => t.RevokedAt, DateTimeOffset.UtcNow),
+            ct);
+    }
+
+    public async Task RevokeRefreshTokenByValueAsync(string rawToken, CancellationToken ct = default)
+    {
+        var hash = Hash(rawToken);
+        await _db.Set<UserRefreshToken>()
+            .Where(t => t.TokenHash == hash && !t.IsRevoked)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.IsRevoked, true)
                 .SetProperty(t => t.RevokedAt, DateTimeOffset.UtcNow),

@@ -1,8 +1,10 @@
 using Hodrac_Backend_MVP2.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Reflection.Emit;
+using System.Text.Json;
 
 namespace Hodrac_Backend_MVP2.Data.Configurations;
 
@@ -169,6 +171,41 @@ public class TripPostConfiguration : IEntityTypeConfiguration<TripPost>
             .WithOne(i => i.TripPost!)
             .HasForeignKey(i => i.TripPostId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // ── Hodrac Host ──
+        // A host profile can't be deleted while it has hosted trips.
+        builder.HasOne(t => t.HostProfile)
+            .WithMany(h => h.Trips)
+            .HasForeignKey(t => t.HostProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Sentinel true: EF omits the column (DB default true) only when the
+        // value is true, so an explicit false (private hosted trip) is written.
+        // The DB default also lists every pre-existing trip.
+        builder.Property(t => t.IsListed).HasDefaultValue(true).HasSentinel(true);
+
+        builder.Property(t => t.Currency)
+            .HasMaxLength(TripPost.CurrencyLength)
+            .HasDefaultValue(TripPost.DefaultCurrency);
+
+        builder.Property(t => t.FeeMode)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(FeeMode.PassToTraveller);
+
+        builder.Property(t => t.SeatHoldHours).HasDefaultValue(TripPost.DefaultSeatHoldHours);
+        builder.Property(t => t.TermsVersion).HasDefaultValue(1);
+
+        builder.OwnsMany(t => t.Instalments, i =>
+        {
+            i.ToTable("TripInstalments");
+            i.WithOwner().HasForeignKey("TripPostId");
+            i.HasKey("TripPostId", nameof(TripInstalment.Sequence));
+            i.Property(x => x.Sequence).ValueGeneratedNever();
+        });
+
+        builder.HasIndex(t => t.HostProfileId);
+        builder.HasIndex(t => new { t.IsHostedTrip, t.Status });
     }
 }
 
@@ -189,6 +226,21 @@ public class TripInterestConfiguration : IEntityTypeConfiguration<TripInterest>
             i.TripPostId,
             i.Status
         });
+
+        // ── Hodrac Host ──
+        // DB default NotRequired: every pre-existing interest is a community-trip interest.
+        builder.Property(i => i.PaymentStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(InterestPaymentStatus.NotRequired);
+
+        builder.Property(i => i.TermsTextSha256).HasMaxLength(TripInterest.TermsTextSha256Length);
+        builder.Property(i => i.TermsAcceptedIp).HasMaxLength(TripInterest.MaxTermsAcceptedIpLength);
+        builder.Property(i => i.TermsAcceptedUserAgent).HasMaxLength(TripInterest.MaxTermsAcceptedUserAgentLength);
+        builder.Property(i => i.ContactPhone).HasMaxLength(TripInterest.MaxContactPhoneLength);
+
+        // Seat-hold expiry job: AwaitingDeposit past SeatHoldExpiresAt.
+        builder.HasIndex(i => new { i.PaymentStatus, i.SeatHoldExpiresAt });
     }
 }
 
@@ -501,5 +553,223 @@ public class PartnerLeadConfiguration : IEntityTypeConfiguration<PartnerLead>
         builder.HasIndex(l => l.CreatedAt);
         builder.HasIndex(l => new { l.Status, l.CreatedAt });
         builder.Property(l => l.Status).HasDefaultValue(PartnerLeadStatuses.New);
+    }
+}
+
+// ─── Hodrac Host ──────────────────────────────────────────────────────────────
+// Money tables (SeatPayment, ManualPayment, OperatorPlanPayment) are never
+// cascade-deleted: their parents use Restrict so a trip/interest/host delete
+// fails instead of silently erasing payment history.
+
+public class HostProfileConfiguration : IEntityTypeConfiguration<HostProfile>
+{
+    public void Configure(EntityTypeBuilder<HostProfile> builder)
+    {
+        builder.HasKey(h => h.Id);
+
+        builder.HasIndex(h => h.UserId).IsUnique();
+        builder.HasIndex(h => h.Slug).IsUnique();
+        builder.HasIndex(h => h.VerificationStatus);
+
+        builder.Property(h => h.DisplayName).HasMaxLength(HostProfile.MaxDisplayNameLength).IsRequired();
+        builder.Property(h => h.Slug).HasMaxLength(HostProfile.MaxSlugLength).IsRequired();
+        builder.Property(h => h.Bio).HasMaxLength(HostProfile.MaxBioLength);
+        builder.Property(h => h.LogoUrl).HasMaxLength(HostProfile.MaxUrlLength);
+        builder.Property(h => h.InstagramHandle).HasMaxLength(HostProfile.MaxInstagramHandleLength);
+        builder.Property(h => h.WhatsAppNumber).HasMaxLength(HostProfile.MaxWhatsAppNumberLength);
+
+        builder.Property(h => h.VerificationStatus)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(HostVerificationStatus.Unverified);
+        builder.Property(h => h.RejectionReason).HasMaxLength(HostProfile.MaxRejectionReasonLength);
+        builder.Property(h => h.CacNumber).HasMaxLength(HostProfile.MaxCacNumberLength);
+        builder.Property(h => h.IdDocumentStorageKey).HasMaxLength(HostProfile.MaxStorageKeyLength);
+
+        // jsonb string array.
+        builder.Property(h => h.PastTripProofUrls)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>(),
+                new ValueComparer<List<string>>(
+                    (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                    v => v.Aggregate(0, (hash, s) => HashCode.Combine(hash, s.GetHashCode())),
+                    v => v.ToList()));
+
+        builder.Property(h => h.PaystackSubaccountCode).HasMaxLength(HostProfile.MaxSubaccountCodeLength);
+        builder.Property(h => h.SettlementBankCode).HasMaxLength(HostProfile.MaxBankCodeLength);
+        builder.Property(h => h.SettlementBankName).HasMaxLength(HostProfile.MaxBankNameLength);
+        builder.Property(h => h.SettlementAccountName).HasMaxLength(HostProfile.MaxAccountNameLength);
+        builder.Property(h => h.SettlementAccountLast4).HasMaxLength(HostProfile.AccountLast4Length);
+
+        builder.Property(h => h.Plan)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(HostPlan.Host);
+
+        builder.HasMany(h => h.Documents)
+            .WithOne(d => d.HostProfile)
+            .HasForeignKey(d => d.HostProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(h => h.OperatorPlanPayments)
+            .WithOne(p => p.HostProfile)
+            .HasForeignKey(p => p.HostProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class HostDocumentConfiguration : IEntityTypeConfiguration<HostDocument>
+{
+    public void Configure(EntityTypeBuilder<HostDocument> builder)
+    {
+        builder.HasKey(d => d.Id);
+
+        builder.Property(d => d.Kind).HasMaxLength(HostDocument.MaxKindLength).IsRequired();
+        builder.Property(d => d.FileName).HasMaxLength(HostDocument.MaxFileNameLength).IsRequired();
+        builder.Property(d => d.ContentType).HasMaxLength(HostDocument.MaxContentTypeLength).IsRequired();
+        builder.Property(d => d.Sha256).HasMaxLength(HostDocument.Sha256Length).IsRequired();
+        builder.Property(d => d.Content).HasColumnType("bytea").IsRequired();
+
+        builder.HasIndex(d => new { d.HostProfileId, d.Kind });
+        builder.HasIndex(d => d.UploadedAt);
+    }
+}
+
+public class HostReportLogConfiguration : IEntityTypeConfiguration<HostReportLog>
+{
+    public void Configure(EntityTypeBuilder<HostReportLog> builder)
+    {
+        builder.HasKey(r => r.Id);
+
+        builder.HasOne(r => r.HostProfile)
+            .WithMany()
+            .HasForeignKey(r => r.HostProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // A week's report is emailed at most once per host (the job inserts
+        // the row before sending; a unique violation means "already sent").
+        builder.HasIndex(r => new { r.HostProfileId, r.WeekStart }).IsUnique();
+    }
+}
+
+public class SeatPaymentConfiguration : IEntityTypeConfiguration<SeatPayment>
+{
+    public void Configure(EntityTypeBuilder<SeatPayment> builder)
+    {
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.Reference).HasMaxLength(SeatPayment.MaxReferenceLength).IsRequired();
+        builder.HasIndex(p => p.Reference).IsUnique();
+
+        builder.Property(p => p.Kind).HasConversion<string>().HasMaxLength(32);
+        builder.Property(p => p.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(p => p.Channel).HasMaxLength(SeatPayment.MaxChannelLength);
+        builder.Property(p => p.Currency).HasMaxLength(TripPost.CurrencyLength).IsRequired();
+        builder.Property(p => p.SubaccountCode).HasMaxLength(HostProfile.MaxSubaccountCodeLength);
+        builder.Property(p => p.AuthorizationUrl).HasMaxLength(SeatPayment.MaxAuthorizationUrlLength);
+        builder.Property(p => p.VerifyResponseJson).HasColumnType("jsonb");
+
+        // Never cascade-delete money records from a trip/interest delete.
+        builder.HasOne(p => p.TripPost)
+            .WithMany()
+            .HasForeignKey(p => p.TripPostId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(p => p.TripInterest)
+            .WithMany()
+            .HasForeignKey(p => p.TripInterestId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(p => new { p.TripInterestId, p.Status });
+        builder.HasIndex(p => new { p.TripPostId, p.Status });
+        builder.HasIndex(p => new { p.Status, p.CreatedAt });   // reconcile job
+        builder.HasIndex(p => p.PayerUserId);
+    }
+}
+
+public class ManualPaymentConfiguration : IEntityTypeConfiguration<ManualPayment>
+{
+    public void Configure(EntityTypeBuilder<ManualPayment> builder)
+    {
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.Method).HasConversion<string>().HasMaxLength(32);
+        builder.Property(p => p.Note).HasMaxLength(ManualPayment.MaxNoteLength);
+
+        builder.HasOne(p => p.TripInterest)
+            .WithMany()
+            .HasForeignKey(p => p.TripInterestId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(p => p.TripInterestId);
+    }
+}
+
+public class PaymentWebhookEventConfiguration : IEntityTypeConfiguration<PaymentWebhookEvent>
+{
+    public void Configure(EntityTypeBuilder<PaymentWebhookEvent> builder)
+    {
+        builder.HasKey(e => e.Id);
+
+        builder.Property(e => e.Provider).HasMaxLength(PaymentWebhookEvent.MaxProviderLength).IsRequired();
+        builder.Property(e => e.EventType).HasMaxLength(PaymentWebhookEvent.MaxEventTypeLength).IsRequired();
+        builder.Property(e => e.Reference).HasMaxLength(SeatPayment.MaxReferenceLength);
+        builder.Property(e => e.PayloadSha256).HasMaxLength(PaymentWebhookEvent.PayloadSha256Length).IsRequired();
+        builder.Property(e => e.Payload).HasColumnType("jsonb").IsRequired();
+
+        builder.HasIndex(e => e.PayloadSha256).IsUnique();
+        builder.HasIndex(e => e.Reference);
+        builder.HasIndex(e => new { e.ProcessedAt, e.ReceivedAt });
+    }
+}
+
+public class PaymentReminderLogConfiguration : IEntityTypeConfiguration<PaymentReminderLog>
+{
+    public void Configure(EntityTypeBuilder<PaymentReminderLog> builder)
+    {
+        builder.HasKey(r => r.Id);
+
+        builder.Property(r => r.Kind).HasConversion<string>().HasMaxLength(32);
+        builder.Property(r => r.Channel).HasMaxLength(PaymentReminderLog.MaxChannelLength).IsRequired();
+
+        builder.HasOne(r => r.TripInterest)
+            .WithMany()
+            .HasForeignKey(r => r.TripInterestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // NULLS NOT DISTINCT (PG15+): a deposit/seat-hold reminder (null
+        // sequence) of one kind is still logged only once per interest.
+        builder.HasIndex(r => new { r.TripInterestId, r.InstalmentSequence, r.Kind })
+            .IsUnique()
+            .AreNullsDistinct(false);
+    }
+}
+
+public class OperatorPlanPaymentConfiguration : IEntityTypeConfiguration<OperatorPlanPayment>
+{
+    public void Configure(EntityTypeBuilder<OperatorPlanPayment> builder)
+    {
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.Reference).HasMaxLength(OperatorPlanPayment.MaxReferenceLength).IsRequired();
+        builder.HasIndex(p => p.Reference).IsUnique();
+        builder.HasIndex(p => p.HostProfileId);
+    }
+}
+
+public class TripPageViewDailyConfiguration : IEntityTypeConfiguration<TripPageViewDaily>
+{
+    public void Configure(EntityTypeBuilder<TripPageViewDaily> builder)
+    {
+        builder.HasKey(v => new { v.TripPostId, v.Date, v.Source });
+
+        builder.Property(v => v.Source).HasMaxLength(TripPageViewDaily.MaxSourceLength);
+
+        builder.HasOne<TripPost>()
+            .WithMany()
+            .HasForeignKey(v => v.TripPostId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -1,4 +1,4 @@
-using Hodrac_Backend_MVP2.Data;
+﻿using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.Infrastructure.Jobs;
 using Hodrac_Backend_MVP2.Infrastucture.Jobs;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
@@ -10,6 +10,7 @@ using Hodrac_Backend_MVP2.NoSql.Models;
 using Hodrac_Backend_MVP2.NoSql.Repositories;
 using Hodrac_Backend_MVP2.Repositories;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -27,7 +28,7 @@ using System.Threading.RateLimiting;
 // One-off command flags (e.g. --seed-solohouse) are stripped before the args reach
 // configuration: the command-line provider would otherwise treat a bare flag as a
 // key and swallow the next argument (such as a --ConnectionStrings override) as its value.
-var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse" };
+var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse", "--seed-bali", "--seed-calabar" };
 var builder = WebApplication.CreateBuilder(args.Where(a => !commandFlags.Contains(a)).ToArray());
 
 // ─── PostgreSQL + EF Core + pgvector ─────────────────────────────────────────
@@ -190,8 +191,35 @@ builder.Services.AddScoped<FeaturedWishlistService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPartnerService, PartnerService>();
 builder.Services.AddScoped<IShareService, ShareService>();
+builder.Services.AddScoped<ITripPageViewCounter, TripPageViewCounter>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IHeroWishlistService, HeroWishlistService>();
+
+// ─── Hodrac Host (hosted trips + Paystack) ────────────────────────────────────
+// Values come from env vars / user-secrets (Hodrac__FeePercent, Paystack__SecretKey, ...);
+// the option classes carry the spec defaults. Never put the Paystack key in appsettings.
+builder.Services.Configure<HodracHostOptions>(builder.Configuration.GetSection(HodracHostOptions.SectionName));
+builder.Services.Configure<PaystackOptions>(builder.Configuration.GetSection(PaystackOptions.SectionName));
+builder.Services.AddSingleton(sp => new FeeCalculator(
+    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HodracHostOptions>>()));
+// Paystack typed client: Bearer secret key per request, base URL from options, 15s timeout.
+builder.Services.AddHttpClient<IPaystackClient, PaystackClient>((sp, client) =>
+{
+    var paystack = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PaystackOptions>>().Value;
+    client.BaseAddress = PaystackClient.NormalizeBaseUrl(paystack.BaseUrl);
+    client.Timeout = PaystackClient.DefaultTimeout;
+});
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostService>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostTripService>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostReportService>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostingInsightsService>();
+builder.Services.AddSingleton<Hodrac_Backend_MVP2.Services.Hosts.HostDocumentLinkSigner>();
+builder.Services.AddScoped<ITripThreadService, TripThreadService>();
+// Trip creation shared by POST /api/trips and the admin create-for-host endpoint.
+builder.Services.AddScoped<TripCreationService>();
+// The only place money state changes (idempotent on the Paystack reference), and the webhook handler.
+builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<PaystackWebhookProcessor>();
 
 // ─── Currency rates (daily refresh, cached in memory + Postgres) ──────────────
 builder.Services.AddHttpClient(CurrencyRateService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(15));
@@ -209,7 +237,15 @@ builder.Services.AddHostedService<BehaviorEventWorker>();
 builder.Services.AddScoped<ImpressionResetJob>();
 builder.Services.AddScoped<ExpiredTokenCleanupJob>();
 builder.Services.AddScoped<SemanticClusterMergeJob>();
+// Hodrac Host jobs (hosted trips only; idempotent; see each job's summary).
+builder.Services.AddScoped<InstalmentReminderJob>();
+builder.Services.AddScoped<SeatHoldExpiryJob>();
+builder.Services.AddScoped<PaymentReconcileJob>();
+builder.Services.AddScoped<HostWeeklyReportJob>();
+builder.Services.AddScoped<HostDocumentPurgeJob>();
 builder.Services.AddHostedService<ScheduledJobsService>();
+// Hourly seat-hold expiry and 30-minute payment reconcile.
+builder.Services.AddHostedService<IntervalJobsService>();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddHttpClient<IEmbeddingService, PythonEmbeddingService>(client =>
 {
@@ -251,6 +287,47 @@ builder.Services.AddRateLimiter(options =>
                 PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1)
             }));
+
+    // ── Payments (attached to endpoints in the payments phase) ──
+    // Paystack webhook: Paystack retries and bursts, so keep it generous; per source IP.
+    options.AddPolicy("paystack-webhook", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Checkout: 10 a minute per signed-in user (falls back to IP).
+    options.AddPolicy("payments-checkout", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            RateLimitUserKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Verify: 30 a minute per signed-in user (falls back to IP).
+    options.AddPolicy("payments-verify", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            RateLimitUserKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // UseRateLimiter runs after UseAuthentication, so the JWT user is available here.
+    static string RateLimitUserKey(HttpContext httpContext)
+    {
+        var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                  ?? httpContext.User.FindFirst("sub")?.Value;
+        return !string.IsNullOrEmpty(userId)
+            ? $"user:{userId}"
+            : $"ip:{httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
+    }
 });
 
 // ─── SignalR ──────────────────────────────────────────────────────────────────
@@ -258,7 +335,7 @@ builder.Services.AddSignalR();
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 // Extra origins (e.g. the admin dashboard) via Cors:AllowedOrigins, comma-separated.
-var corsOrigins = new[] { builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:5173", "http://localhost:5174" }
+var corsOrigins = new[] { builder.Configuration["Frontend:BaseUrl"] , "http://localhost:5173", "http://localhost:5174" }
     .Concat((builder.Configuration["Cors:AllowedOrigins"] ?? string.Empty)
         .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
     .Select(o => o.TrimEnd('/'))
@@ -274,7 +351,12 @@ builder.Services.AddCors(options =>
     )
 );
 
-builder.Services.AddControllers();
+// Every JSON error (bare-string / { error } bodies included) leaves as an RFC 7807
+// ProblemDetails with an "error" extension; see ErrorProblemDetailsFilter.
+builder.Services.AddControllers(o => o.Filters.Add<Hodrac_Backend_MVP2.Infrastucture.Http.ErrorProblemDetailsFilter>());
+// ProblemDetails for unhandled exceptions (no stack traces outside Development)
+// and for empty error responses written outside MVC (auth challenges, 429s, ...).
+builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -304,6 +386,41 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// ─── One-off seeding: `dotnet run -- --seed-bali` ─────────────────────────────
+// Applies pending migrations, seeds the "Bali Island Essentials" template wishlist
+// (idempotent — safe to re-run), then exits without serving.
+if (args.Contains("--seed-bali"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    // The InitialMigration uses the pgvector type before a later migration enables
+    // the extension, so a brand-new database needs it created up front.
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    await Hodrac_Backend_MVP2.Infrastucture.Seeder.BaliSeeder.SeedAsync(db);
+    app.Logger.LogInformation("Bali seed complete into {Host}", pgHost);
+    return;
+}
+
+// ─── One-off seeding: `dotnet run -- --seed-calabar` ──────────────────────────
+// Applies pending migrations, seeds the "Carnival Calabar 2026" template wishlist
+// (idempotent — safe to re-run), then exits without serving.
+if (args.Contains("--seed-calabar"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    // The InitialMigration uses the pgvector type before a later migration enables
+    // the extension, so a brand-new database needs it created up front.
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    await Hodrac_Backend_MVP2.Infrastucture.Seeder.CalabarSeeder.SeedAsync(db);
+    app.Logger.LogInformation("Calabar seed complete into {Host}. Images referenced: {Images}",
+        pgHost, string.Join(", ", Hodrac_Backend_MVP2.Infrastucture.Seeder.CalabarSeeder.ExpectedImageFiles));
+    return;
+}
 
 // ─── One-off seeding: `dotnet run -- --seed-poc` ──────────────────────────────
 // Applies pending migrations, seeds the Mauritius/Lagos/Abuja/Edo proof-of-
@@ -375,6 +492,12 @@ if (app.Environment.IsDevelopment())
     //await Hodrac_Backend_MVP2.Infrastucture.Seeder.HawaiiSeeder.SeedOahuUltimateIslandWishlist(db);
 }
 
+// Development keeps the developer exception page (added by WebApplication);
+// everywhere else an unhandled exception is a 500 ProblemDetails.
+if (!app.Environment.IsDevelopment())
+    app.UseExceptionHandler();
+app.UseStatusCodePages();
+
 app.UseForwardedHeaders();
 app.UseCors();
 app.UseAuthentication();   // Validates JWT → populates HttpContext.User
@@ -387,3 +510,6 @@ app.MapHub<TripThreadHub>("/tripThreadHub");
 app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
+
+// Exposed for WebApplicationFactory<Program> in Hodrac_Backend_MVP2.Tests.
+public partial class Program { }

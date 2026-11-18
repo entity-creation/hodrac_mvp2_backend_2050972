@@ -17,6 +17,11 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Jobs
             ("ImpressionReset",       TimeSpan.Zero,          (sp, ct) => sp.GetRequiredService<ImpressionResetJob>().RunAsync(ct)),
             ("ExpiredTokenCleanup",   TimeSpan.FromHours(1),  (sp, ct) => sp.GetRequiredService<ExpiredTokenCleanupJob>().RunAsync(ct)),
             ("SemanticClusterMerge",  TimeSpan.FromHours(2),  (sp, ct) => sp.GetRequiredService<SemanticClusterMergeJob>().RunAsync(ct)),
+            // Hodrac Host (WAT = UTC+1). The weekly report runs daily but only
+            // sends Monday (with Tue/Wed catch-up), once per host per week.
+            ("HostDocumentPurge",     TimeSpan.FromHours(3),  (sp, ct) => sp.GetRequiredService<HostDocumentPurgeJob>().RunAsync(ct)),
+            ("InstalmentReminder",    TimeSpan.FromHours(7),  (sp, ct) => sp.GetRequiredService<InstalmentReminderJob>().RunAsync(ct)),   // 08:00 WAT
+            ("HostWeeklyReport",      TimeSpan.FromHours(7),  (sp, ct) => sp.GetRequiredService<HostWeeklyReportJob>().RunAsync(ct)),     // Mon 08:00 WAT
         };
 
         private readonly IServiceScopeFactory _scopes;

@@ -29,5 +29,43 @@ namespace Hodrac_Backend_MVP2.Models
 
         public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
         public DateTime? RespondedAt { get; set; }
+
+        // ---- Hodrac Host (hosted trips only; community trips keep the defaults) ----
+
+        public const int TermsTextSha256Length = 64;
+        public const int MaxTermsAcceptedIpLength = 45;
+        public const int MaxTermsAcceptedUserAgentLength = 512;
+        public const int MaxContactPhoneLength = 20;
+
+        public InterestPaymentStatus PaymentStatus { get; set; } = InterestPaymentStatus.NotRequired;
+
+        // Set on approval of a hosted trip; cleared by the first payment.
+        public DateTime? SeatHoldExpiresAt { get; set; }
+
+        // Seat money only (no fees): through Hodrac plus host-recorded manual payments.
+        public long AmountPaidKobo { get; set; }
+        // Seat money through Hodrac (Paystack) only, for the "% through Hodrac" metric.
+        public long AmountPaidViaHodracKobo { get; set; }
+
+        // Evidence of the exact terms accepted before paying.
+        public DateTime? TermsAcceptedAt { get; set; }
+        public int? TermsVersionAccepted { get; set; }
+        public string? TermsTextSha256 { get; set; }
+        public string? TermsAcceptedIp { get; set; }
+        public string? TermsAcceptedUserAgent { get; set; }
+
+        // Optional at request time; the host needs it for WhatsApp.
+        public string? ContactPhone { get; set; }
+    }
+
+    public enum InterestPaymentStatus
+    {
+        NotRequired,
+        AwaitingDeposit,
+        DepositPaid,
+        PartPaid,
+        PaidInFull,
+        Expired,
+        Refunded
     }
 }

@@ -259,13 +259,28 @@ public class AuthController : ControllerBase
         [FromBody] LogoutRequest request,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(request.UserId))
-            return BadRequest(new { error = "UserId is required." });
+        // The user is never taken from the body: an authenticated caller acts on
+        // their own tokens; an anonymous caller (e.g. expired access token) can only
+        // revoke the refresh token they present, whoever it belongs to.
+        if (_currentUser.IsAuthenticated)
+        {
+            var userId = _currentUser.UserIdString;
+            if (request.LogoutAllDevices)
+                await _tokens.RevokeAllRefreshTokensAsync(userId, ct);
+            else if (!string.IsNullOrWhiteSpace(request.RefreshToken))
+                await _tokens.RevokeRefreshTokenAsync(userId, request.RefreshToken, ct);
+
+            return NoContent();
+        }
 
         if (request.LogoutAllDevices)
-            await _tokens.RevokeAllRefreshTokensAsync(request.UserId, ct);
-        else if (!string.IsNullOrWhiteSpace(request.RefreshToken))
-            await _tokens.RevokeRefreshTokenAsync(request.UserId, request.RefreshToken, ct);
+            return Unauthorized(new { error = "Logging out of all devices requires a signed-in user." });
+
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return BadRequest(new { error = "RefreshToken is required." });
+
+        // Unknown or already-revoked tokens still return 204 (no enumeration).
+        await _tokens.RevokeRefreshTokenByValueAsync(request.RefreshToken, ct);
 
         return NoContent();
     }
@@ -598,7 +613,6 @@ public record RefreshRequest(
 );
 
 public record LogoutRequest(
-    [Required] string UserId,
     string? RefreshToken,
     bool LogoutAllDevices = false
 );

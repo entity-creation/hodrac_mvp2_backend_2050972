@@ -157,6 +157,16 @@ namespace Hodrac_Backend_MVP2.Services
             NotificationType.InterestDeclined => "A trip request was declined",
             NotificationType.TripCancelled => $"{count} trip{(count == 1 ? " you were part of was" : "s you were part of were")} cancelled",
             NotificationType.NewThreadMessage => $"{count} new message{(count == 1 ? "" : "s")} in your trip chat",
+            NotificationType.HostVerified => "Your host profile was verified",
+            NotificationType.HostRejected => "Your host verification needs another look",
+            NotificationType.HostedSeatWithdrawn => $"{count} traveller{(count == 1 ? "" : "s")} gave up a seat on your trip",
+            NotificationType.PaymentReceived => $"{count} new seat payment{(count == 1 ? "" : "s")} on your trip",
+            NotificationType.PaymentConfirmed => $"{count} of your trip payment{(count == 1 ? " was" : "s were")} confirmed",
+            NotificationType.InstalmentDue => "A trip instalment is due soon",
+            NotificationType.SeatHoldExpiring => "Your seat hold is about to expire - pay the deposit to keep your place",
+            NotificationType.SeatHoldExpired => $"{count} unpaid seat hold{(count == 1 ? "" : "s")} expired - the host can approve again, or the traveller can request again from the trip page",
+            NotificationType.DisputeOpened => $"{count} payment dispute{(count == 1 ? " was" : "s were")} opened on your trip",
+            NotificationType.HostVerificationRevoked => "Your Verified host badge was removed",
             _ => "New trip activity"
         };
     }

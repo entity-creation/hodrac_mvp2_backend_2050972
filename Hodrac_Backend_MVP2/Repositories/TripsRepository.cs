@@ -43,6 +43,8 @@ namespace Hodrac_Backend_MVP2.Repositories
                     RequesterUserId = interest.RequesterUserId,
                     Message = interest.Message,
                     Status = interest.Status.ToString(),
+                    PaymentStatus = interest.PaymentStatus.ToString(),
+                    SeatHoldExpiresAt = interest.SeatHoldExpiresAt,
                     RequesterName = user?.DisplayName
                 });
             }

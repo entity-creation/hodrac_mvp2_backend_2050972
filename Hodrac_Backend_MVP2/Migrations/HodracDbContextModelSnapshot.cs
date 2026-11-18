@@ -726,6 +726,196 @@ namespace Hodrac_Backend_MVP2.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HostDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("HostProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedAt");
+
+                    b.HasIndex("HostProfileId", "Kind");
+
+                    b.ToTable("HostDocuments");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HostProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("CacNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("FoundingFreeDepartureTripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IdDocumentStorageKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("InstagramHandle")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsFoundingHost")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<DateTime?>("OperatorPlanExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PastTripProofUrls")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("PaystackSubaccountCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Plan")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Host");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SettlementAccountLast4")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)");
+
+                    b.Property<string>("SettlementAccountName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("SettlementBankCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("SettlementBankName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Unverified");
+
+                    b.Property<DateTime?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("VerifiedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("WhatsAppNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.HasIndex("VerificationStatus");
+
+                    b.ToTable("HostProfiles");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HostReportLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HostProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("WeekStart")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostProfileId", "WeekStart")
+                        .IsUnique();
+
+                    b.ToTable("HostReportLogs");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ItineraryDay", b =>
                 {
                     b.Property<Guid>("ItineraryDayId")
@@ -848,6 +1038,40 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.ToTable("Languages");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ManualPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TripInterestId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TripInterestId");
+
+                    b.ToTable("ManualPayments");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.NewsLetterEmail", b =>
                 {
                     b.Property<Guid>("EmailId")
@@ -898,6 +1122,45 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.HasIndex("RecipientUserId", "IsRead", "EmailedAt");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.OperatorPlanPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("AmountKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HostProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("RecordedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HostProfileId");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.ToTable("OperatorPlanPayments");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Partner", b =>
@@ -1103,6 +1366,91 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.ToTable("PartnerLinkClicks");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.PaymentReminderLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int?>("InstalmentSequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TripInterestId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TripInterestId", "InstalmentSequence", "Kind")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TripInterestId", "InstalmentSequence", "Kind"), false);
+
+                    b.ToTable("PaymentReminderLogs");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.PaymentWebhookEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("PayloadSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayloadSha256")
+                        .IsUnique();
+
+                    b.HasIndex("Reference");
+
+                    b.HasIndex("ProcessedAt", "ReceivedAt");
+
+                    b.ToTable("PaymentWebhookEvents");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.SavedDestination", b =>
                 {
                     b.Property<Guid>("SavedDestinationId")
@@ -1151,6 +1499,102 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .IsUnique();
 
                     b.ToTable("SavedWishlists");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.SeatPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorizationUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<long>("HodracFeeKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("InstalmentSequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PayerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("PaystackFeeKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("RefundedKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SeatAmountKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("SubaccountCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("TotalChargedKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TravellerFeeKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("TripInterestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TripPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VerifyResponseJson")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayerUserId");
+
+                    b.HasIndex("Reference")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.HasIndex("TripInterestId", "Status");
+
+                    b.HasIndex("TripPostId", "Status");
+
+                    b.ToTable("SeatPayments");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Tag", b =>
@@ -1259,8 +1703,25 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<long>("AmountPaidKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("AmountPaidViaHodracKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ContactPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Message")
                         .HasColumnType("text");
+
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("NotRequired");
 
                     b.Property<DateTime>("RequestedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1271,7 +1732,28 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<DateTime?>("RespondedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("SeatHoldExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("TermsAcceptedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TermsAcceptedIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.Property<string>("TermsAcceptedUserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<string>("TermsTextSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("TermsVersionAccepted")
                         .HasColumnType("integer");
 
                     b.Property<Guid>("TripPostId")
@@ -1279,12 +1761,34 @@ namespace Hodrac_Backend_MVP2.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PaymentStatus", "SeatHoldExpiresAt");
+
                     b.HasIndex("TripPostId", "RequesterUserId")
                         .IsUnique();
 
                     b.HasIndex("TripPostId", "Status");
 
                     b.ToTable("TripInterests");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripPageViewDaily", b =>
+                {
+                    b.Property<Guid>("TripPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TripPostId", "Date", "Source");
+
+                    b.ToTable("TripPageViewsDaily");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripPost", b =>
@@ -1306,11 +1810,31 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasDefaultValue("NGN");
+
+                    b.Property<long?>("DepositKobo")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid?>("DestinationId")
                         .HasColumnType("uuid");
 
                     b.Property<DateOnly?>("EndDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("Exclusions")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FeeMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("PassToTraveller");
 
                     b.Property<string>("FreeTextDestination")
                         .HasColumnType("text");
@@ -1325,20 +1849,56 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<Guid?>("HostProfileId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Inclusions")
+                        .HasColumnType("text");
+
                     b.Property<bool>("IsDateFlexible")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFoundingFreeDeparture")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsHidden")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsHostedTrip")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsListed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<int?>("MaxGroupSize")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("PricePerSeatKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SeatHoldHours")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(48);
 
                     b.Property<DateOnly?>("StartDate")
                         .HasColumnType("date");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<string>("TermsText")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("TermsUpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TermsVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1348,7 +1908,11 @@ namespace Hodrac_Backend_MVP2.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("HostProfileId");
+
                     b.HasIndex("DestinationId", "StartDate");
+
+                    b.HasIndex("IsHostedTrip", "Status");
 
                     b.HasIndex("WishlistId", "StartDate");
 
@@ -2033,6 +2597,28 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("HeroWishlist");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HostDocument", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.HostProfile", "HostProfile")
+                        .WithMany("Documents")
+                        .HasForeignKey("HostProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("HostProfile");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HostReportLog", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.HostProfile", "HostProfile")
+                        .WithMany()
+                        .HasForeignKey("HostProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("HostProfile");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ItineraryDay", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.City", "AfternoonCity")
@@ -2083,6 +2669,28 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("ItineraryDay");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ManualPayment", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.TripInterest", "TripInterest")
+                        .WithMany()
+                        .HasForeignKey("TripInterestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TripInterest");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.OperatorPlanPayment", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.HostProfile", "HostProfile")
+                        .WithMany("OperatorPlanPayments")
+                        .HasForeignKey("HostProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("HostProfile");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.PartnerLink", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.Destination", "Destination")
@@ -2119,6 +2727,17 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("Link");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.PaymentReminderLog", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.TripInterest", "TripInterest")
+                        .WithMany()
+                        .HasForeignKey("TripInterestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TripInterest");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.SavedDestination", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.Destination", "Destination")
@@ -2139,6 +2758,25 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .IsRequired();
 
                     b.Navigation("Wishlist");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.SeatPayment", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.TripInterest", "TripInterest")
+                        .WithMany()
+                        .HasForeignKey("TripInterestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.TripPost", "TripPost")
+                        .WithMany()
+                        .HasForeignKey("TripPostId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TripInterest");
+
+                    b.Navigation("TripPost");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ThreadMessage", b =>
@@ -2180,6 +2818,15 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("TripPost");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripPageViewDaily", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.TripPost", null)
+                        .WithMany()
+                        .HasForeignKey("TripPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripPost", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.Destination", "Destination")
@@ -2187,12 +2834,43 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .HasForeignKey("DestinationId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Hodrac_Backend_MVP2.Models.HostProfile", "HostProfile")
+                        .WithMany("Trips")
+                        .HasForeignKey("HostProfileId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Hodrac_Backend_MVP2.Models.Wishlist", "Wishlist")
                         .WithMany()
                         .HasForeignKey("WishlistId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.OwnsMany("Hodrac_Backend_MVP2.Models.TripInstalment", "Instalments", b1 =>
+                        {
+                            b1.Property<Guid>("TripPostId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Sequence")
+                                .HasColumnType("integer");
+
+                            b1.Property<long>("AmountKobo")
+                                .HasColumnType("bigint");
+
+                            b1.Property<DateOnly>("DueDate")
+                                .HasColumnType("date");
+
+                            b1.HasKey("TripPostId", "Sequence");
+
+                            b1.ToTable("TripInstalments", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("TripPostId");
+                        });
+
                     b.Navigation("Destination");
+
+                    b.Navigation("HostProfile");
+
+                    b.Navigation("Instalments");
 
                     b.Navigation("Wishlist");
                 });
@@ -2404,6 +3082,15 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("SavedByUsers");
 
                     b.Navigation("WishlistDestinations");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.HostProfile", b =>
+                {
+                    b.Navigation("Documents");
+
+                    b.Navigation("OperatorPlanPayments");
+
+                    b.Navigation("Trips");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ItineraryDay", b =>

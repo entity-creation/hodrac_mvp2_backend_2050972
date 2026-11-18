@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36930.0 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hodrac_Backend_MVP2", "Hodrac_Backend_MVP2\Hodrac_Backend_MVP2.csproj", "{EA877770-93A7-45C0-9F55-79374FEBFA6F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hodrac_Backend_MVP2.Tests", "Hodrac_Backend_MVP2.Tests\Hodrac_Backend_MVP2.Tests.csproj", "{95C20F14-DEBF-4DFF-84FF-A64A2C531608}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{EA877770-93A7-45C0-9F55-79374FEBFA6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EA877770-93A7-45C0-9F55-79374FEBFA6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EA877770-93A7-45C0-9F55-79374FEBFA6F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{95C20F14-DEBF-4DFF-84FF-A64A2C531608}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{95C20F14-DEBF-4DFF-84FF-A64A2C531608}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{95C20F14-DEBF-4DFF-84FF-A64A2C531608}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{95C20F14-DEBF-4DFF-84FF-A64A2C531608}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

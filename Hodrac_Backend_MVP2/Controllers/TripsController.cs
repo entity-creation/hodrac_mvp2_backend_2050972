@@ -1,16 +1,19 @@
-using Hodrac_Backend_MVP2.Data;
+﻿using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.TripPostDtos;
 using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using static Hodrac_Backend_MVP2.Services.TripCreationService;
 
 namespace Hodrac_Backend_MVP2.Controllers
 {
@@ -25,8 +28,15 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly IUserRepository _userRepo;
         private readonly ITripsRepository _tripsRepo;
         private readonly IHubContext<TripPostHub> _tripPostHub;
+        private readonly FeeCalculator _fees;
+        private readonly HodracHostOptions _hostOptions;
+        private readonly ITripPageViewCounter _pageViews;
+        private readonly ITripThreadService _threads;
+        private readonly TripCreationService _tripCreation;
 
-        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IUserRepository userRepo, ITripsRepository tripRepo, IHubContext<TripPostHub> tripPostHub)
+        public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IUserRepository userRepo, ITripsRepository tripRepo, IHubContext<TripPostHub> tripPostHub,
+            FeeCalculator fees, IOptions<HodracHostOptions> hostOptions, ITripPageViewCounter pageViews, ITripThreadService threads,
+            TripCreationService tripCreation)
         {
             _db = db;
             _notifications = notifications;
@@ -34,6 +44,11 @@ namespace Hodrac_Backend_MVP2.Controllers
             _userRepo = userRepo;
             _tripsRepo = tripRepo;
             _tripPostHub = tripPostHub;
+            _fees = fees;
+            _hostOptions = hostOptions.Value;
+            _pageViews = pageViews;
+            _threads = threads;
+            _tripCreation = tripCreation;
         }
 
         private Guid CurrentUserId => _currentUser.UserId;
@@ -52,33 +67,82 @@ namespace Hodrac_Backend_MVP2.Controllers
             bool IsDateFlexible,
             string Caption,
             string? CoverImageUrl,
-            int? MaxGroupSize);
+            int? MaxGroupSize,
+            // Hodrac Host. All optional: without IsHostedTrip = true this is a
+            // community trip, and sending any hosted field is a 400. Money in kobo.
+            bool? IsHostedTrip = null,
+            bool? IsListed = null,
+            long? PricePerSeatKobo = null,
+            long? DepositKobo = null,
+            List<TripInstalmentRequest>? Instalments = null,
+            FeeMode? FeeMode = null,
+            int? SeatHoldHours = null,
+            string? TermsText = null,
+            string? Inclusions = null,
+            string? Exclusions = null);
+
+        public record TripInstalmentRequest(int Sequence, long AmountKobo, DateOnly DueDate);
 
         public const int MaxCaptionLength = 2000;
         public const int MaxFreeTextDestinationLength = 200;
         public const int MaxCoverImageUrlLength = 2048;
 
-        // Shared by create + edit. Null fields are "not provided" and skipped.
-        private static string? ValidateTripFields(
-            string? caption, DateOnly? startDate, DateOnly? endDate, int? maxGroupSize, string? coverImageUrl)
+        // ---- Hodrac Host rules ----
+        public const int MaxTermsTextLength = 20000;
+        public const int MaxInclusionsLength = 4000;
+        public const int MinSeatHoldHours = 1;
+        public const int MaxSeatHoldHours = 336; // 14 days
+        public const string HostedFieldsOnCommunityMessage = "Price and payments are only for hosted trips";
+        public const string CommunityUnlistedMessage = "Community trips always appear in the public feed; only hosted trips can be private.";
+        public const string PaymentTermsLockedMessage = "Price, deposit, instalments and fee mode can't change once a traveller has paid.";
+
+        // The shared create/edit rules (HostedFieldsInput, field validation,
+        // the host lock and the founding claim) live in TripCreationService,
+        // which the admin create-for-host path uses too.
+
+        // A payment that went through at some point (later refunds/disputes
+        // included) locks the money terms and the trip type.
+        private static readonly SeatPaymentStatus[] SucceededPaymentStatuses =
         {
-            if (caption is not null && caption.Trim().Length > MaxCaptionLength)
-                return $"Caption can't be longer than {MaxCaptionLength} characters.";
+            SeatPaymentStatus.Success,
+            SeatPaymentStatus.Refunded,
+            SeatPaymentStatus.PartiallyRefunded,
+            SeatPaymentStatus.Disputed
+        };
 
-            if (startDate is not null && endDate is not null && startDate > endDate)
-                return "Start date must be on or before end date.";
-
-            if (maxGroupSize is not null && maxGroupSize <= 0)
-                return "Max group size must be greater than 0.";
-
-            if (!string.IsNullOrWhiteSpace(coverImageUrl)
-                && (coverImageUrl.Length > MaxCoverImageUrlLength
-                    || !Uri.TryCreate(coverImageUrl.Trim(), UriKind.Absolute, out var uri)
-                    || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)))
-                return "Cover image must be an absolute http(s) URL.";
-
-            return null;
+        // Price / deposit / instalments (InstalmentValidator) as a 400
+        // validation problem keyed by request field, or null when valid.
+        private ActionResult? ValidateSchedule(
+            long? price, long? deposit, IReadOnlyCollection<TripInstalment> instalments, DateOnly? startDate)
+        {
+            var errors = InstalmentValidator.Validate(price, deposit, instalments, startDate);
+            if (errors.Count == 0) return null;
+            foreach (var (key, message) in errors) ModelState.AddModelError(key, message);
+            return ValidationProblem(ModelState);
         }
+
+        // Row-locks (inside the caller's transaction) and loads the caller's
+        // host profile, or says what's missing before a hosted trip can exist.
+        private Task<(HostProfile? Host, string? Error)> LoadHostForHostedTripAsync() =>
+            _tripCreation.LoadHostForUserAsync(CurrentUserId);
+
+        // The first hosted trip of a founding host (up to the founding
+        // deadline) is their free departure. Caller holds the host row lock.
+        private void ClaimFoundingFreeDeparture(TripPost trip, HostProfile host) =>
+            _tripCreation.ClaimFoundingFreeDeparture(trip, host);
+
+        private Task<bool> AnySuccessfulPaymentAsync(Guid tripId) =>
+            _db.SeatPayments.AnyAsync(p => p.TripPostId == tripId && SucceededPaymentStatuses.Contains(p.Status));
+
+        // Seats taken: approved, non-expired members excluding the author.
+        // Expired seat holds (hosted trips) don't count; community trips are
+        // always NotRequired, so for them this is today's approved count.
+        private Task<int> CountSeatsTakenAsync(TripPost trip) =>
+            _db.TripInterests.CountAsync(i =>
+                i.TripPostId == trip.Id &&
+                i.Status == TripInterestStatus.Approved &&
+                i.PaymentStatus != InterestPaymentStatus.Expired &&
+                i.RequesterUserId != trip.AuthorUserId);
 
         [HttpPost]
         public async Task<ActionResult<TripPostDto>> CreateTrip(CreateTripRequest request)
@@ -86,99 +150,77 @@ namespace Hodrac_Backend_MVP2.Controllers
             if (CurrentUserId.Equals(Guid.Empty))
                 return BadRequest("User not logged in");
 
-            if (request.DestinationId is not null && request.WishlistId is not null)
-                return BadRequest("A trip can reference a destination or a wishlist, not both.");
-
-            var validationError = ValidateTripFields(
-                request.Caption, request.StartDate, request.EndDate, request.MaxGroupSize, request.CoverImageUrl);
-            if (validationError is not null) return BadRequest(validationError);
-
-            if (request.FreeTextDestination is not null
-                && request.FreeTextDestination.Trim().Length > MaxFreeTextDestinationLength)
-                return BadRequest($"Destination text can't be longer than {MaxFreeTextDestinationLength} characters.");
-
-            if (request.DestinationId is not null
-                && !await _db.Set<Destination>().AnyAsync(d => d.DestinationId == request.DestinationId))
-                return BadRequest("Destination not found.");
-
-            // A trip may run on a platform template, or on a wishlist the
-            // caller owns or has been shared on - never on someone else's
-            // private fork. Unauthorized looks the same as missing so we
-            // don't leak which private wishlist ids exist.
-            if (request.WishlistId is not null
-                && !await _db.Set<Wishlist>().AnyAsync(w =>
-                    w.WishlistId == request.WishlistId
-                    && (w.IsTemplate
-                        || w.OwnerUserId == CurrentUserId
-                        || _db.WishlistCollaborators.Any(c => c.WishlistId == w.WishlistId && c.UserId == CurrentUserId))))
-                return BadRequest("Wishlist not found.");
-            var trip = new TripPost
+            var result = await _tripCreation.CreateAsync(CurrentUserId, request);
+            switch (result.Outcome)
             {
-                AuthorUserId = CurrentUserId,
-                DestinationId = request.DestinationId,
-                WishlistId = request.WishlistId,
-                FreeTextDestination = request.FreeTextDestination?.Trim(),
-                StartDate = request.StartDate,
-                EndDate = request.EndDate,
-                IsDateFlexible = request.IsDateFlexible,
-                Caption = request.Caption?.Trim() ?? string.Empty,
-                CoverImageUrl = string.IsNullOrWhiteSpace(request.CoverImageUrl) ? null : request.CoverImageUrl.Trim(),
-                MaxGroupSize = request.MaxGroupSize
-            };
-
-            _db.TripPosts.Add(trip);
-            await _db.SaveChangesAsync();
-
-            var loaded = await LoadForDtoAsync(trip.Id);
-            // A brand-new trip has no approved members yet (just the author).
-            var createdDto = TripPostDto.FromEntity(loaded!, myInterestStatus: null, approvedCount: 0);
-            await _tripPostHub.Clients
-                .All
-                .SendAsync("TripPostCreated", createdDto);
-            return CreatedAtAction(nameof(GetTrip), new { id = trip.Id }, createdDto);
+                case TripCreateOutcome.Created:
+                    return CreatedAtAction(nameof(GetTrip), new { id = result.Trip!.Id }, result.Dto);
+                case TripCreateOutcome.Invalid:
+                    foreach (var (key, message) in result.FieldErrors!) ModelState.AddModelError(key, message);
+                    return ValidationProblem(ModelState);
+                default:
+                    return BadRequest(result.Error);
+            }
         }
 
         // ---- Feed / browse / detail ----
 
-        private IQueryable<TripPost> WithDtoIncludes() => _db.TripPosts
-            .Include(t => t.Destination!).ThenInclude(d => d.Country)
-            .Include(t => t.Destination!).ThenInclude(d => d.Images)
-            .Include(t => t.Wishlist!).ThenInclude(w => w.WishlistDestinations)
-                .ThenInclude(wd => wd.Destination).ThenInclude(d => d.Images);
+        private IQueryable<TripPost> WithDtoIncludes() => TripCreationService.WithDtoIncludes(_db.TripPosts);
 
-        private Task<TripPost?> LoadForDtoAsync(Guid id) =>
-            WithDtoIncludes().FirstOrDefaultAsync(t => t.Id == id);
+        // A trip plus, in the same query, the caller's own non-withdrawn
+        // interest (status + payment state for the my* DTO fields) and the
+        // approved, non-expired member count (author excluded).
+        private sealed class TripWithViewer
+        {
+            public TripPost Trip { get; init; } = null!;
+            public TripViewerInterest? Mine { get; init; }
+            public int ApprovedCount { get; init; }
+
+            public TripPostDto ToDto(FeeCalculator fees) =>
+                TripPostDto.FromEntity(Trip, Mine?.Status.ToString(), ApprovedCount, fees, Mine);
+        }
+
+        private IQueryable<TripWithViewer> ProjectForViewer(IQueryable<TripPost> trips)
+        {
+            var userId = CurrentUserId;
+            return trips.Select(t => new TripWithViewer
+            {
+                Trip = t,
+                Mine = _db.TripInterests
+                    .Where(i =>
+                        i.TripPostId == t.Id &&
+                        i.RequesterUserId == userId &&
+                        i.Status != TripInterestStatus.Withdrawn)
+                    .Select(i => new TripViewerInterest
+                    {
+                        Id = i.Id,
+                        Status = i.Status,
+                        PaymentStatus = i.PaymentStatus,
+                        SeatHoldExpiresAt = i.SeatHoldExpiresAt,
+                        AmountPaidKobo = i.AmountPaidKobo,
+                        TermsVersionAccepted = i.TermsVersionAccepted
+                    })
+                    .FirstOrDefault(),
+                ApprovedCount = _db.TripInterests
+                    .Count(i =>
+                        i.TripPostId == t.Id &&
+                        i.Status == TripInterestStatus.Approved &&
+                        i.PaymentStatus != InterestPaymentStatus.Expired &&
+                        i.RequesterUserId != t.AuthorUserId)
+            });
+        }
 
         [HttpGet("{id:guid}")]
         public async Task<ActionResult<TripPostDto>> GetTrip(Guid id)
         {
-            var trip = await LoadForDtoAsync(id);
+            // Trip, the viewer's own interest and the approved-member count in one query.
+            var row = await ProjectForViewer(WithDtoIncludes().Where(t => t.Id == id)).FirstOrDefaultAsync();
 
             // Moderator-hidden trips are invisible to everyone but the author.
-            if (trip is null || (trip.IsHidden && trip.AuthorUserId != CurrentUserId))
+            if (row is null || (row.Trip.IsHidden && row.Trip.AuthorUserId != CurrentUserId))
                 return NotFound();
 
-            // Viewer's own interest status + the approved-member count in one query.
-            var viewer = await _db.TripPosts
-                .Where(t => t.Id == trip.Id)
-                .Select(t => new
-                {
-                    MyInterestStatus = _db.TripInterests
-                        .Where(i =>
-                            i.TripPostId == t.Id &&
-                            i.RequesterUserId == CurrentUserId &&
-                            i.Status != TripInterestStatus.Withdrawn)
-                        .Select(i => i.Status.ToString())
-                        .FirstOrDefault(),
-                    ApprovedCount = _db.TripInterests
-                        .Count(i =>
-                            i.TripPostId == t.Id &&
-                            i.Status == TripInterestStatus.Approved &&
-                            i.RequesterUserId != t.AuthorUserId)
-                })
-                .FirstOrDefaultAsync();
-
-            return TripPostDto.FromEntity(trip, viewer?.MyInterestStatus, viewer?.ApprovedCount ?? 0);
+            return row.ToDto(_fees);
         }
 
         // Trips from people the current user follows. Assumes a Follows
@@ -190,35 +232,18 @@ namespace Hodrac_Backend_MVP2.Controllers
             // var followedIds = await _follows.GetFollowedUserIdsAsync(CurrentUserId);
             var followedIds = new List<Guid>(); // TODO: wire up real follow graph
 
-            var result = await WithDtoIncludes()
-    .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open && !t.IsHidden)
-    .OrderByDescending(t => t.CreatedAt)
-    .Take(50)
-    .Select(trip => new
-    {
-        Trip = trip,
-        MyInterestStatus = _db.TripInterests
-            .Where(i =>
-                i.TripPostId == trip.Id &&
-                i.RequesterUserId == CurrentUserId &&
-                i.Status != TripInterestStatus.Withdrawn)
-            .Select(i => i.Status.ToString())
-            .FirstOrDefault(),
-        ApprovedCount = _db.TripInterests
-            .Count(i =>
-                i.TripPostId == trip.Id &&
-                i.Status == TripInterestStatus.Approved &&
-                i.RequesterUserId != trip.AuthorUserId)
-    })
-    .ToListAsync();
+            var result = await ProjectForViewer(WithDtoIncludes()
+                    .Where(t => followedIds.Contains(t.AuthorUserId) && t.Status == TripPostStatus.Open && !t.IsHidden && t.IsListed)
+                    .OrderByDescending(t => t.CreatedAt)
+                    .Take(50))
+                .ToListAsync();
 
-            return result
-                .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus, x.ApprovedCount))
-                .ToList();
+            return result.Select(x => x.ToDto(_fees)).ToList();
         }
 
         // Shared by Browse (signed-in) and BrowsePublic (anonymous). Only
-        // Open, non-hidden (moderation) trips are ever listed.
+        // Open, non-hidden (moderation), listed trips are ever listed
+        // (private hosted trips are link-only).
         //
         // Matches on either a single Destination's name OR any stop inside
         // a Wishlist's itinerary, so a wishlist trip through Kyoto shows up
@@ -232,7 +257,7 @@ namespace Hodrac_Backend_MVP2.Controllers
             DateOnly? from,
             DateOnly? to)
         {
-            query = query.Where(t => t.Status == TripPostStatus.Open && !t.IsHidden);
+            query = query.Where(t => t.Status == TripPostStatus.Open && !t.IsHidden && t.IsListed);
 
             // A destination matches if it's the trip's own destination or any
             // stop on the trip's wishlist.
@@ -279,26 +304,12 @@ namespace Hodrac_Backend_MVP2.Controllers
         {
             var query = ApplyBrowseFilters(WithDtoIncludes(), destination, destinationId, wishlistId, from, to);
 
-            var result = await query
-                .OrderBy(t => t.StartDate ?? DateOnly.MaxValue)
-                .Take(100).Select(trip => new
-            {
-                Trip = trip,
-                MyInterestStatus = _db.TripInterests
-                .Where(i => i.TripPostId == trip.Id &&
-                i.RequesterUserId == CurrentUserId &&
-                i.Status != TripInterestStatus.Withdrawn)
-            .Select(i => i.Status.ToString())
-            .FirstOrDefault(),
-                ApprovedCount = _db.TripInterests
-                .Count(i => i.TripPostId == trip.Id &&
-                i.Status == TripInterestStatus.Approved &&
-                i.RequesterUserId != trip.AuthorUserId)
-            }).ToListAsync();
+            var result = await ProjectForViewer(query
+                    .OrderBy(t => t.StartDate ?? DateOnly.MaxValue)
+                    .Take(100))
+                .ToListAsync();
 
-            return result
-    .Select(x => TripPostDto.FromEntity(x.Trip, x.MyInterestStatus, x.ApprovedCount))
-    .ToList();
+            return result.Select(x => x.ToDto(_fees)).ToList();
         }
 
         // Logged-out browse for the landing page. Same filters as Browse,
@@ -331,18 +342,33 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
+            // Seats left is shown for hosted trips only.
+            var hostedIds = trips.Where(t => t.IsHostedTrip).Select(t => t.Id).ToList();
+            var seatsTaken = hostedIds.Count == 0
+                ? new Dictionary<Guid, int>()
+                : await _db.TripInterests
+                    .Where(i => hostedIds.Contains(i.TripPostId)
+                        && i.Status == TripInterestStatus.Approved
+                        && i.PaymentStatus != InterestPaymentStatus.Expired
+                        && i.RequesterUserId != i.TripPost!.AuthorUserId)
+                    .GroupBy(i => i.TripPostId)
+                    .Select(g => new { TripPostId = g.Key, Count = g.Count() })
+                    .ToDictionaryAsync(x => x.TripPostId, x => x.Count);
+
             return Ok(new PagedResult<PublicTripPostDto>(
                 Page: page,
                 PageSize: pageSize,
                 TotalCount: total,
                 TotalPages: (int)Math.Ceiling(total / (double)pageSize),
-                Items: trips.Select(PublicTripPostDto.FromEntity).ToList()));
+                Items: trips.Select(t => PublicTripPostDto.FromEntity(t, seatsTaken.GetValueOrDefault(t.Id), _fees)).ToList()));
         }
 
         // Logged-out single-trip view for shared links. Same projection as
-        // the public list (no author id, no participant counts). Hidden
-        // (moderated) trips 404; Closed/Cancelled trips still resolve so the
-        // link shows the trip's status instead of breaking.
+        // the public list (no author id, no participant counts; hosted trips
+        // show seats left). Hidden (moderated) trips 404; Closed/Cancelled
+        // trips still resolve so the link shows the trip's status instead of
+        // breaking. Unlisted (private hosted) trips resolve too: link-only.
+        // Each human view is counted for the host's weekly report.
         [HttpGet("public/{id:guid}")]
         [AllowAnonymous]
         [EnableRateLimiting("public-browse")]
@@ -353,12 +379,27 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .FirstOrDefaultAsync(t => t.Id == id && !t.IsHidden);
 
             if (trip is null) return NotFound();
-            return PublicTripPostDto.FromEntity(trip);
+
+            var seatsTaken = trip.IsHostedTrip ? await CountSeatsTakenAsync(trip) : 0;
+            await _pageViews.RecordAsync(trip.Id, TripPageViewSources.PublicApi, Request);
+            return PublicTripPostDto.FromEntity(trip, seatsTaken, _fees);
         }
 
         // Partial update - every field is optional; only provided ones change.
         // Status: Open <-> Closed, anything -> Cancelled; Cancelled is terminal
         // (no further edits at all).
+        //
+        // Hodrac Host:
+        //  - IsHostedTrip switches the type. Community -> hosted needs a host
+        //    profile with a payout account and no Approved interests yet (409);
+        //    the full payment setup must be sent with it. Hosted -> community
+        //    needs no succeeded (or in-flight) payment (409) and clears every
+        //    hosted field.
+        //  - Community trips: hosted fields -> 400, isListed false -> 400.
+        //  - Once a payment has succeeded, price/deposit/instalments/feeMode
+        //    are locked (409). Instalments, when sent, replace the schedule.
+        //  - Any change to TermsText bumps TermsVersion.
+        //  - Inclusions/Exclusions: "" clears.
         public record UpdateTripRequest(
             string? Caption,
             DateOnly? StartDate,
@@ -366,7 +407,17 @@ namespace Hodrac_Backend_MVP2.Controllers
             bool? IsDateFlexible,
             string? CoverImageUrl,
             int? MaxGroupSize,
-            TripPostStatus? Status);
+            TripPostStatus? Status,
+            bool? IsHostedTrip = null,
+            bool? IsListed = null,
+            long? PricePerSeatKobo = null,
+            long? DepositKobo = null,
+            List<TripInstalmentRequest>? Instalments = null,
+            FeeMode? FeeMode = null,
+            int? SeatHoldHours = null,
+            string? TermsText = null,
+            string? Inclusions = null,
+            string? Exclusions = null);
 
         [HttpPatch("{id:guid}")]
         public async Task<IActionResult> UpdateTrip(Guid id, [FromBody] UpdateTripRequest request)
@@ -391,11 +442,72 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             if (request.MaxGroupSize is not null)
             {
-                // Group size counts the author plus every approved member.
+                // Group size counts the author plus every approved member
+                // (expired hosted seat holds don't hold a place).
                 var approvedCount = await _db.TripInterests
-                    .CountAsync(i => i.TripPostId == id && i.Status == TripInterestStatus.Approved);
+                    .CountAsync(i => i.TripPostId == id
+                        && i.Status == TripInterestStatus.Approved
+                        && i.PaymentStatus != InterestPaymentStatus.Expired);
                 if (request.MaxGroupSize.Value < approvedCount + 1)
                     return BadRequest($"Max group size can't be below the current group size ({approvedCount + 1}, including you).");
+            }
+
+            // ---- Hodrac Host: type, visibility and payment setup (validate all first) ----
+            var hostedFields = new HostedFieldsInput(
+                request.PricePerSeatKobo, request.DepositKobo, request.Instalments, request.FeeMode,
+                request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions);
+            var becomingHosted = request.IsHostedTrip == true && !trip.IsHostedTrip;
+            var becomingCommunity = request.IsHostedTrip == false && trip.IsHostedTrip;
+            var willBeHosted = becomingHosted || (trip.IsHostedTrip && !becomingCommunity);
+            var newInstalments = request.Instalments is null ? null : ToInstalments(request.Instalments);
+            HostProfile? newHost = null;
+
+            if (!willBeHosted)
+            {
+                if (hostedFields.AnySent) return BadRequest(HostedFieldsOnCommunityMessage);
+                if (request.IsListed == false) return BadRequest(CommunityUnlistedMessage);
+            }
+
+            if (becomingCommunity)
+            {
+                var paymentStatuses = await _db.SeatPayments
+                    .Where(p => p.TripPostId == id)
+                    .Select(p => p.Status)
+                    .ToListAsync();
+                if (paymentStatuses.Any(s => SucceededPaymentStatuses.Contains(s)))
+                    return Conflict("A traveller has already paid for this trip, so it can't become a community trip.");
+                if (paymentStatuses.Contains(SeatPaymentStatus.Initialized))
+                    return Conflict("A payment for this trip is still in progress, so it can't become a community trip yet.");
+            }
+
+            if (willBeHosted)
+            {
+                if (becomingHosted)
+                {
+                    var (loadedHost, hostError) = await LoadHostForHostedTripAsync();
+                    if (hostError is not null) return BadRequest(hostError);
+                    if (await _db.TripInterests.AnyAsync(i => i.TripPostId == id && i.Status == TripInterestStatus.Approved))
+                        return Conflict("Someone has already been approved to join this trip, so it can't become a hosted trip.");
+                    newHost = loadedHost!;
+                }
+                else if (PaymentTermsChanged(trip, request.PricePerSeatKobo, request.DepositKobo, request.FeeMode, newInstalments)
+                         && await AnySuccessfulPaymentAsync(id))
+                {
+                    return Conflict(PaymentTermsLockedMessage);
+                }
+
+                if ((request.MaxGroupSize ?? trip.MaxGroupSize) is null)
+                    return BadRequest("Hosted trips need a max group size.");
+                if (string.IsNullOrWhiteSpace(request.TermsText ?? trip.TermsText))
+                    return BadRequest("Hosted trips need written terms (refunds and dropouts).");
+                var textError = ValidateHostedText(request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions);
+                if (textError is not null) return BadRequest(textError);
+                var scheduleError = ValidateSchedule(
+                    request.PricePerSeatKobo ?? trip.PricePerSeatKobo,
+                    request.DepositKobo ?? trip.DepositKobo,
+                    newInstalments ?? trip.Instalments,
+                    newStart);
+                if (scheduleError is not null) return scheduleError;
             }
 
             if (request.Status is not null && request.Status.Value != trip.Status)
@@ -419,11 +531,156 @@ namespace Hodrac_Backend_MVP2.Controllers
             if (request.CoverImageUrl is not null)
                 trip.CoverImageUrl = string.IsNullOrWhiteSpace(request.CoverImageUrl) ? null : request.CoverImageUrl.Trim();
             if (request.MaxGroupSize is not null) trip.MaxGroupSize = request.MaxGroupSize;
+
+            if (becomingCommunity)
+            {
+                await ConvertToCommunityAsync(trip);
+            }
+            else if (willBeHosted)
+            {
+                if (becomingHosted)
+                {
+                    // Hosted trips are private (link-only) unless the host lists them.
+                    trip.IsHostedTrip = true;
+                    trip.HostProfileId = newHost!.Id;
+                    trip.IsListed = request.IsListed ?? false;
+                    trip.FeeMode = request.FeeMode ?? FeeMode.PassToTraveller;
+                    trip.SeatHoldHours = request.SeatHoldHours ?? _hostOptions.DefaultSeatHoldHours;
+                    ClaimFoundingFreeDeparture(trip, newHost);
+                }
+                else
+                {
+                    if (request.IsListed is not null) trip.IsListed = request.IsListed.Value;
+                    if (request.FeeMode is not null) trip.FeeMode = request.FeeMode.Value;
+                    if (request.SeatHoldHours is not null) trip.SeatHoldHours = request.SeatHoldHours.Value;
+                }
+
+                if (request.PricePerSeatKobo is not null) trip.PricePerSeatKobo = request.PricePerSeatKobo;
+                if (request.DepositKobo is not null) trip.DepositKobo = request.DepositKobo;
+                if (newInstalments is not null) SyncInstalments(trip, newInstalments);
+
+                // Every terms change bumps the version (travellers who already
+                // accepted keep theirs; new acceptances must match the current one).
+                // The very first terms on a trip stay at version 1.
+                if (request.TermsText is not null)
+                {
+                    var terms = request.TermsText.Trim();
+                    if (terms != trip.TermsText)
+                    {
+                        if (trip.TermsUpdatedAt is not null) trip.TermsVersion++;
+                        trip.TermsText = terms;
+                        trip.TermsUpdatedAt = DateTime.UtcNow;
+                    }
+                }
+
+                if (request.Inclusions is not null) trip.Inclusions = NullIfBlank(request.Inclusions);
+                if (request.Exclusions is not null) trip.Exclusions = NullIfBlank(request.Exclusions);
+            }
+
             trip.UpdatedAt = DateTime.UtcNow;
 
-            await _db.SaveChangesAsync();
-            await tx.CommitAsync();
+            try
+            {
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // Converting to community adds approved travellers to the chat;
+                // a concurrent thread change can collide. Nothing was committed.
+                _db.ChangeTracker.Clear();
+                return Conflict("This trip was updated at the same time - please retry.");
+            }
             return NoContent();
+        }
+
+        private static bool PaymentTermsChanged(
+            TripPost trip, long? price, long? deposit, FeeMode? feeMode, List<TripInstalment>? instalments)
+        {
+            if (price is not null && price != trip.PricePerSeatKobo) return true;
+            if (deposit is not null && deposit != trip.DepositKobo) return true;
+            if (feeMode is not null && feeMode != trip.FeeMode) return true;
+            if (instalments is null) return false;
+
+            var current = trip.Instalments.OrderBy(i => i.Sequence).Select(i => (i.Sequence, i.AmountKobo, i.DueDate));
+            var next = instalments.OrderBy(i => i.Sequence).Select(i => (i.Sequence, i.AmountKobo, i.DueDate));
+            return !current.SequenceEqual(next);
+        }
+
+        // Replaces the owned schedule in place: lines with an existing
+        // Sequence are updated (not deleted and re-added under the same key).
+        private static void SyncInstalments(TripPost trip, List<TripInstalment> lines)
+        {
+            var sequences = lines.Select(l => l.Sequence).ToHashSet();
+            trip.Instalments.RemoveAll(i => !sequences.Contains(i.Sequence));
+            foreach (var line in lines)
+            {
+                var existing = trip.Instalments.FirstOrDefault(i => i.Sequence == line.Sequence);
+                if (existing is null)
+                {
+                    trip.Instalments.Add(line);
+                }
+                else
+                {
+                    existing.AmountKobo = line.AmountKobo;
+                    existing.DueDate = line.DueDate;
+                }
+            }
+        }
+
+        // Hosted -> community (no payment has gone through). Clears every
+        // hosted field, lists the trip, releases the host's founding free
+        // departure if this trip held it, and moves approved travellers onto
+        // the community flow: unpaid-but-held seats join the chat now (as an
+        // approval would on a community trip); expired holds go back to
+        // Requested so the author can decide again. Caller saves.
+        private async Task ConvertToCommunityAsync(TripPost trip)
+        {
+            if (trip.HostProfileId is Guid hostId)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT 1 FROM \"HostProfiles\" WHERE \"Id\" = {hostId} FOR UPDATE");
+                var host = await _db.HostProfiles.FirstOrDefaultAsync(h => h.Id == hostId);
+                if (host is not null && host.FoundingFreeDepartureTripId == trip.Id)
+                {
+                    host.FoundingFreeDepartureTripId = null;
+                    host.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            trip.IsHostedTrip = false;
+            trip.HostProfileId = null;
+            trip.IsListed = true;
+            trip.PricePerSeatKobo = null;
+            trip.DepositKobo = null;
+            trip.Instalments.Clear();
+            trip.FeeMode = FeeMode.PassToTraveller;
+            trip.SeatHoldHours = _hostOptions.DefaultSeatHoldHours;
+            trip.TermsText = null;
+            trip.Inclusions = null;
+            trip.Exclusions = null;
+            trip.IsFoundingFreeDeparture = false;
+            // TermsVersion / TermsUpdatedAt are kept so terms set later (if it
+            // becomes hosted again) get a new version, never a reused one.
+
+            var approved = await _db.TripInterests
+                .Where(i => i.TripPostId == trip.Id && i.Status == TripInterestStatus.Approved)
+                .ToListAsync();
+            foreach (var interest in approved)
+            {
+                if (interest.PaymentStatus == InterestPaymentStatus.Expired)
+                {
+                    interest.Status = TripInterestStatus.Requested;
+                    interest.RespondedAt = null;
+                }
+                else
+                {
+                    await StageAddToThreadAsync(trip, interest.RequesterUserId);
+                }
+
+                interest.PaymentStatus = InterestPaymentStatus.NotRequired;
+                interest.SeatHoldExpiresAt = null;
+            }
         }
 
         // All non-withdrawn interests the current user has sent, most
@@ -449,6 +706,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                         .Count(i =>
                             i.TripPostId == t.Id &&
                             i.Status == TripInterestStatus.Approved &&
+                            i.PaymentStatus != InterestPaymentStatus.Expired &&
                             i.RequesterUserId != t.AuthorUserId)
                 })
                 .ToListAsync();
@@ -465,7 +723,9 @@ namespace Hodrac_Backend_MVP2.Controllers
         TripPostDto.FromEntity(
             tripById[i.TripPostId].Trip,
             i.Status.ToString(),
-            tripById[i.TripPostId].ApprovedCount
+            tripById[i.TripPostId].ApprovedCount,
+            _fees,
+            TripViewerInterest.From(i)
         )))
     .ToList();
 
@@ -505,7 +765,9 @@ namespace Hodrac_Backend_MVP2.Controllers
                 {
                     TripPostId = g.Key,
                     Pending = g.Count(i => i.Status == TripInterestStatus.Requested),
-                    Approved = g.Count(i => i.Status == TripInterestStatus.Approved && i.RequesterUserId != CurrentUserId)
+                    Approved = g.Count(i => i.Status == TripInterestStatus.Approved
+                        && i.PaymentStatus != InterestPaymentStatus.Expired
+                        && i.RequesterUserId != CurrentUserId)
                 })
                 .ToDictionaryAsync(x => x.TripPostId);
 
@@ -517,7 +779,7 @@ namespace Hodrac_Backend_MVP2.Controllers
 
             return trips
                 .Select(t => new MyTripPostWithModerationDto(
-                    TripPostDto.FromEntity(t, null, interestCounts.GetValueOrDefault(t.Id)?.Approved ?? 0),
+                    TripPostDto.FromEntity(t, null, interestCounts.GetValueOrDefault(t.Id)?.Approved ?? 0, _fees),
                     interestCounts.GetValueOrDefault(t.Id)?.Pending ?? 0,
                     threadTripIds.Contains(t.Id),
                     t.IsHidden))
@@ -526,12 +788,23 @@ namespace Hodrac_Backend_MVP2.Controllers
 
         // ---- Interests (the "Interested" button + approve/decline) ----
 
-        public record RequestInterestBody(string? Message);
+        // ContactPhone: optional; the host of a hosted trip uses it for WhatsApp
+        // reminders (7–15 digits, optionally starting with +; spaces, dashes and
+        // brackets are ignored).
+        public record RequestInterestBody(string? Message, string? ContactPhone = null);
 
         [HttpPost("{id:guid}/interests")]
         public async Task<ActionResult<TripInterest>> RequestToJoin(Guid id, RequestInterestBody body)
         {
             if (CurrentUserId.Equals(Guid.Empty)) return BadRequest("User not logged in");
+
+            string? contactPhone = null;
+            if (!string.IsNullOrWhiteSpace(body.ContactPhone))
+            {
+                contactPhone = System.Text.RegularExpressions.Regex.Replace(body.ContactPhone.Trim(), @"[\s\-().]", "");
+                if (!System.Text.RegularExpressions.Regex.IsMatch(contactPhone, @"^\+?[0-9]{7,15}$"))
+                    return BadRequest("Phone number must be 7–15 digits, optionally starting with +.");
+            }
 
             TripPost? trip;
             TripInterest interest;
@@ -559,6 +832,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                     existing.Message = body.Message;
                     existing.RequestedAt = DateTime.UtcNow;
                     existing.RespondedAt = null;
+                    if (contactPhone is not null) existing.ContactPhone = contactPhone;
                     interest = existing;
                 }
                 else
@@ -567,7 +841,8 @@ namespace Hodrac_Backend_MVP2.Controllers
                     {
                         TripPostId = id,
                         RequesterUserId = CurrentUserId,
-                        Message = body.Message
+                        Message = body.Message,
+                        ContactPhone = contactPhone
                     };
                     _db.TripInterests.Add(interest);
                 }
@@ -605,8 +880,16 @@ namespace Hodrac_Backend_MVP2.Controllers
 
         // Approval rules:
         //  - the trip must be Open (Closed/Cancelled trips can still decline);
-        //  - if MaxGroupSize is set it counts the author + approved members,
-        //    so approval is refused once approvedCount + 1 >= MaxGroupSize.
+        //  - if MaxGroupSize is set it counts the author + approved members
+        //    (not expired hosted seat holds), so approval is refused once
+        //    approvedCount + 1 >= MaxGroupSize.
+        //  - community trips: approval adds the requester to the chat now.
+        //  - hosted trips: approval holds the seat (AwaitingDeposit until
+        //    now + SeatHoldHours); the chat comes with the first payment.
+        //  - hosted trips: an Approved interest whose hold expired unpaid
+        //    (PaymentStatus Expired) can be approved again (a new hold, same
+        //    capacity rule; a terms acceptance is kept unless the terms
+        //    changed since) or declined. Any other non-Requested interest: 409.
         // The interest status change and thread/participant creation are
         // saved in one SaveChanges inside a transaction that holds a row
         // lock on the trip, so concurrent approvals serialize and an interest
@@ -626,7 +909,13 @@ namespace Hodrac_Backend_MVP2.Controllers
 
                 interest = await _db.TripInterests.FirstOrDefaultAsync(i => i.Id == interestId);
                 if (interest is null || interest.TripPostId != id) return NotFound();
-                if (interest.Status != TripInterestStatus.Requested) return Conflict("Already responded to.");
+
+                // Besides a pending request, the host may decide again on an
+                // approved hosted seat whose hold expired unpaid: approve
+                // starts a fresh hold, decline closes it.
+                var expiredHold = IsExpiredHold(trip, interest);
+                if (interest.Status != TripInterestStatus.Requested && !expiredHold)
+                    return Conflict("Already responded to.");
 
                 if (body.Approve)
                 {
@@ -639,7 +928,9 @@ namespace Hodrac_Backend_MVP2.Controllers
                     if (trip.MaxGroupSize is not null)
                     {
                         var approvedCount = await _db.TripInterests
-                            .CountAsync(i => i.TripPostId == id && i.Status == TripInterestStatus.Approved);
+                            .CountAsync(i => i.TripPostId == id
+                                && i.Status == TripInterestStatus.Approved
+                                && i.PaymentStatus != InterestPaymentStatus.Expired);
                         if (approvedCount + 1 >= trip.MaxGroupSize.Value)
                             return Conflict("This trip's group is already full.");
                     }
@@ -649,7 +940,30 @@ namespace Hodrac_Backend_MVP2.Controllers
                 interest.RespondedAt = DateTime.UtcNow;
 
                 if (body.Approve)
-                    await StageAddToThreadAsync(trip, interest.RequesterUserId);
+                {
+                    if (trip.IsHostedTrip && interest.AmountPaidKobo == 0)
+                    {
+                        // Seat held until the deposit is paid; no chat access yet.
+                        interest.PaymentStatus = InterestPaymentStatus.AwaitingDeposit;
+                        interest.SeatHoldExpiresAt = DateTime.UtcNow.AddHours(trip.SeatHoldHours);
+
+                        // A terms acceptance from before the host changed the
+                        // terms no longer counts; a current one is kept.
+                        if (interest.TermsVersionAccepted is not null && interest.TermsVersionAccepted != trip.TermsVersion)
+                            ClearTermsAcceptance(interest);
+
+                        // A fresh hold gets a fresh "hold ends soon" warning.
+                        await _db.PaymentReminderLogs
+                            .Where(r => r.TripInterestId == interest.Id && r.Kind == PaymentReminderKind.SeatHoldExpiring)
+                            .ExecuteDeleteAsync();
+                    }
+                    else
+                    {
+                        // Community trips (and a hosted traveller who already
+                        // paid before withdrawing and re-requesting).
+                        await StageAddToThreadAsync(trip, interest.RequesterUserId);
+                    }
+                }
 
                 try
                 {
@@ -674,13 +988,73 @@ namespace Hodrac_Backend_MVP2.Controllers
             return NoContent();
         }
 
+        // Hosted trips: approved, but the seat hold ran out before the deposit.
+        private static bool IsExpiredHold(TripPost trip, TripInterest interest) =>
+            trip.IsHostedTrip
+            && interest.Status == TripInterestStatus.Approved
+            && interest.PaymentStatus == InterestPaymentStatus.Expired;
+
+        private static void ClearTermsAcceptance(TripInterest interest)
+        {
+            interest.TermsAcceptedAt = null;
+            interest.TermsVersionAccepted = null;
+            interest.TermsTextSha256 = null;
+            interest.TermsAcceptedIp = null;
+            interest.TermsAcceptedUserAgent = null;
+        }
+
+        // Requester only, hosted trips only: after an unpaid seat hold expired
+        // (Approved + Expired) the traveller asks the host again. The interest
+        // goes back to Requested (no hold, no payment state) and the host is
+        // notified as for a new request. 404 for anyone but the requester and
+        // on community trips; 409 from any other state.
+        [HttpPost("{id:guid}/interests/{interestId:guid}/request-again")]
+        public async Task<ActionResult<TripInterestDto>> RequestAgain(Guid id, Guid interestId)
+        {
+            TripPost? trip;
+            TripInterest? interest;
+            await using (var tx = await _db.Database.BeginTransactionAsync())
+            {
+                await LockTripAsync(id);
+
+                trip = await _db.TripPosts.FirstOrDefaultAsync(t => t.Id == id);
+                if (trip is null || !trip.IsHostedTrip || trip.IsHidden) return NotFound();
+
+                interest = await _db.TripInterests.FirstOrDefaultAsync(i => i.Id == interestId);
+                if (interest is null || interest.TripPostId != id || interest.RequesterUserId != CurrentUserId)
+                    return NotFound();
+
+                if (!IsExpiredHold(trip, interest))
+                    return Conflict("Only a request whose seat hold expired can be sent again.");
+                if (trip.Status != TripPostStatus.Open)
+                    return Conflict($"This trip is {trip.Status.ToString().ToLowerInvariant()} and isn't taking requests.");
+
+                interest.Status = TripInterestStatus.Requested;
+                interest.PaymentStatus = InterestPaymentStatus.NotRequired;
+                interest.SeatHoldExpiresAt = null;
+                interest.RequestedAt = DateTime.UtcNow;
+                interest.RespondedAt = null;
+
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+
+            await _notifications.NotifyInterestReceived(trip, CurrentUserId);
+
+            return Ok(await PushInterestChangedAsync(trip, interest));
+        }
+
         // Only a pending (Requested) or Approved interest can be withdrawn.
         // Withdrawing an approval also removes the requester from the trip
         // chat (never the author).
+        // Hosted trips: payment records (SeatPayments, amounts paid) are kept,
+        // refunds follow the host's own terms, the seat hold is released, and
+        // the host is notified when an approved traveller leaves.
         [HttpDelete("{id:guid}/interests/{interestId:guid}")]
         public async Task<IActionResult> WithdrawInterest(Guid id, Guid interestId)
         {
             TripInterest? interest;
+            var notifyHost = false;
             await using (var tx = await _db.Database.BeginTransactionAsync())
             {
                 await LockTripAsync(id);
@@ -691,6 +1065,18 @@ namespace Hodrac_Backend_MVP2.Controllers
 
                 if (interest.Status is not (TripInterestStatus.Requested or TripInterestStatus.Approved))
                     return Conflict($"A {interest.Status.ToString().ToLowerInvariant()} request can't be withdrawn.");
+
+                var isHostedTrip = await _db.TripPosts
+                    .Where(t => t.Id == id)
+                    .Select(t => t.IsHostedTrip)
+                    .FirstOrDefaultAsync();
+                if (isHostedTrip)
+                {
+                    notifyHost = interest.Status == TripInterestStatus.Approved;
+                    interest.SeatHoldExpiresAt = null;
+                    if (interest.PaymentStatus is InterestPaymentStatus.AwaitingDeposit or InterestPaymentStatus.Expired)
+                        interest.PaymentStatus = InterestPaymentStatus.NotRequired;
+                }
 
                 if (interest.Status == TripInterestStatus.Approved)
                 {
@@ -716,7 +1102,11 @@ namespace Hodrac_Backend_MVP2.Controllers
             }
 
             var trip = await _db.TripPosts.FindAsync(id);
-            if (trip is not null) await PushInterestChangedAsync(trip, interest);
+            if (trip is not null)
+            {
+                if (notifyHost) await _notifications.NotifyHostedSeatWithdrawn(trip, interest.RequesterUserId);
+                await PushInterestChangedAsync(trip, interest);
+            }
 
             return NoContent();
         }
@@ -731,7 +1121,9 @@ namespace Hodrac_Backend_MVP2.Controllers
                 TripPostId = interest.TripPostId,
                 RequesterUserId = interest.RequesterUserId,
                 Message = interest.Message,
-                Status = interest.Status.ToString()
+                Status = interest.Status.ToString(),
+                PaymentStatus = interest.PaymentStatus.ToString(),
+                SeatHoldExpiresAt = interest.SeatHoldExpiresAt
             };
 
             await _tripPostHub.Clients
@@ -744,41 +1136,22 @@ namespace Hodrac_Backend_MVP2.Controllers
                 .Group($"user:{trip.AuthorUserId}")
                 .SendAsync("TripInterestUpdated", interestList);
 
+            // Live manifest (hosted trips): request, approval, decline, withdrawal.
+            if (trip.IsHostedTrip)
+            {
+                await _tripPostHub.Clients
+                    .Group(TripPostHub.TripHostGroup(trip.Id))
+                    .SendAsync("ManifestUpdated", new { tripId = trip.Id, interestId = interest.Id });
+            }
+
             return dto;
         }
 
-        // Stages (does not save) the thread - created lazily on first
-        // approval with the author as a participant - and the user's
-        // participant row. Caller saves inside its transaction.
-        private async Task StageAddToThreadAsync(TripPost trip, Guid userId)
-        {
-            var thread = await _db.TripThreads.FirstOrDefaultAsync(t => t.TripPostId == trip.Id);
-            if (thread is null)
-            {
-                thread = new TripThread { TripPostId = trip.Id };
-                _db.TripThreads.Add(thread);
-
-                // Poster is always a participant of their own trip thread.
-                _db.TripThreadParticipants.Add(new TripThreadParticipant
-                {
-                    TripThreadId = thread.Id,
-                    UserId = trip.AuthorUserId
-                });
-
-                if (userId == trip.AuthorUserId) return;
-            }
-            else if (await _db.TripThreadParticipants
-                .AnyAsync(p => p.TripThreadId == thread.Id && p.UserId == userId))
-            {
-                return;
-            }
-
-            _db.TripThreadParticipants.Add(new TripThreadParticipant
-            {
-                TripThreadId = thread.Id,
-                UserId = userId
-            });
-        }
+        // Stages (does not save) the thread and the user's participant row;
+        // shared with PaymentService through ITripThreadService. Caller saves
+        // inside its transaction.
+        private Task StageAddToThreadAsync(TripPost trip, Guid userId) =>
+            _threads.StageAddToThreadAsync(trip, userId);
 
         // Row-locks the trip for the rest of the current transaction so
         // interest/approval/edit operations on the same trip serialize

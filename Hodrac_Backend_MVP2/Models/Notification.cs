@@ -9,7 +9,23 @@ namespace Hodrac_Backend_MVP2.Models
         InterestDeclined,   // your request to join was declined
         NewThreadMessage,   // new message in a trip thread you're in
         TripStartingSoon,   // reminder, optional future use
-        TripCancelled       // a trip you posted or asked to join was cancelled
+        TripCancelled,      // a trip you posted or asked to join was cancelled
+
+        // Hodrac Host (append only: stored as int)
+        HostVerified,       // an admin verified your host profile
+        HostRejected,       // an admin rejected your host verification
+        HostedSeatWithdrawn, // an approved traveller left your hosted trip
+
+        // Hodrac Host payments
+        PaymentReceived,    // (host) a traveller paid for a seat
+        PaymentConfirmed,   // (traveller) your payment went through
+        InstalmentDue,      // (traveller) an instalment is due soon
+        SeatHoldExpiring,   // (traveller) pay the deposit before your seat hold ends
+        SeatHoldExpired,    // (both) an unpaid seat hold expired
+        DisputeOpened,      // (host) a traveller disputed a payment
+
+        // Hodrac Host verification (append only)
+        HostVerificationRevoked // an admin removed your Verified host badge
     }
 
     public class Notification
