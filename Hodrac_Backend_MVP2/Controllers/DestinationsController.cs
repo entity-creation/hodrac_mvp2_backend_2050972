@@ -1,3 +1,4 @@
+using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
 using Hodrac_Backend_MVP2.DTOs.DestinationDtos;
 using Hodrac_Backend_MVP2.Events;
@@ -28,6 +29,13 @@ public class DestinationsController : ControllerBase
     private readonly IProfileRepository _profiles;
     private readonly IBehaviorEventQueue _events;
     private readonly ILogger<DestinationsController> _logger;
+    private readonly HodracDbContext _db;
+
+    /// <summary>Max upcoming events embedded in destination detail.</summary>
+    private const int MaxUpcomingEvents = 5;
+
+    /// <summary>Max related blog posts embedded in destination detail.</summary>
+    private const int MaxRelatedPosts = 3;
 
     public DestinationsController(
         IDestinationRepository destinations,
@@ -35,7 +43,8 @@ public class DestinationsController : ControllerBase
         ICurrentUserService currentUser,
         IProfileRepository profiles,
         IBehaviorEventQueue events,
-        ILogger<DestinationsController> logger)
+        ILogger<DestinationsController> logger,
+        HodracDbContext db)
     {
         _destinations = destinations;
         _partners = partners;
@@ -43,6 +52,7 @@ public class DestinationsController : ControllerBase
         _profiles = profiles;
         _events = events;
         _logger = logger;
+        _db = db;
     }
 
     // ── GET /api/destinations?page=1&pageSize=12 ──────────────────────────────
@@ -85,7 +95,10 @@ public class DestinationsController : ControllerBase
 
         await _destinations.IncrementSearchHitAsync(id, ct);
         PublishDestinationClicked(dest);
-        return Ok(await _partners.AttachAsync(MapToDetail(dest), ct));
+        var detail = await _partners.AttachAsync(MapToDetail(dest), ct);
+        var upcomingEvents = await EventQueries.UpcomingAtDestinationAsync(_db, id, MaxUpcomingEvents, ct);
+        var relatedPosts = await BlogQueries.RelatedToDestinationAsync(_db, id, MaxRelatedPosts, ct);
+        return Ok(detail with { UpcomingEvents = upcomingEvents, RelatedPosts = relatedPosts });
     }
 
     /// <summary>Best-effort personalisation signal for authenticated callers; never fails the request.</summary>

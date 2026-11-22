@@ -80,6 +80,15 @@ public class HodracDbContext : IdentityDbContext<ApplicationUser>, IDataProtecti
     public DbSet<HostReportLog> HostReportLogs => Set<HostReportLog>();
     public DbSet<OperatorPlanPayment> OperatorPlanPayments => Set<OperatorPlanPayment>();
     public DbSet<TripPageViewDaily> TripPageViewsDaily => Set<TripPageViewDaily>();
+    //Events (festivals, parties, concerts)
+    public DbSet<Event> Events => Set<Event>();
+    //Blog
+    public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
+    public DbSet<BlogPostDestination> BlogPostDestinations => Set<BlogPostDestination>();
+    public DbSet<BlogPostWishlist> BlogPostWishlists => Set<BlogPostWishlist>();
+    public DbSet<BlogPostEvent> BlogPostEvents => Set<BlogPostEvent>();
+    public DbSet<BlogPostTag> BlogPostTags => Set<BlogPostTag>();
+    public DbSet<BlogPostSlugHistory> BlogPostSlugHistory => Set<BlogPostSlugHistory>();
 
     /// <summary>ASP.NET Core Data Protection key ring (signs reset/confirmation tokens).</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;

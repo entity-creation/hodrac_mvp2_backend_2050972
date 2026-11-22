@@ -109,7 +109,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
         private const string DrillRanchName = "Calabar Drill Ranch";
         private const string TinapaName = "Tinapa";
         private const string ObuduResortName = "Obudu Mountain Resort";
-        private const string AfiName = "Afi Mountain Drill Ranch & Canopy Walkway";
+        private const string AfiName = "Afi Mountain Drill Ranch"; // formerly "Afi Mountain Drill Ranch & Canopy Walkway" (kept as an alternate)
         private const string BotanicGardenName = "Calabar Botanic Garden";
         private const string ArtsCraftsVillageName = "Arts and Crafts Village Calabar";
         private const string CulturalCentreName = "Calabar Cultural Centre";
@@ -394,13 +394,13 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                 60m, "Car", 2,
                 new[] { "nature_outdoor", "activity_experience" },
                 new[] { "nature", "adventurous", "hidden_gem", "educational" },
-                new[] { "Afi Mountain Drill Ranch", "Afi Drill Ranch", "Afi Canopy Walkway", "Kache Bano Canopy Walkway", "Afi Mountain Wildlife Sanctuary" }, "Landscape",
+                new[] { "Afi Mountain Drill Ranch & Canopy Walkway", "Afi Drill Ranch", "Afi Mountain", "Pandrillus Afi", "Afi Mountain Wildlife Sanctuary" }, "Landscape",
                 Desc(
-                    "Pandrillus' Afi Mountain Drill Ranch near Buanchor village is the field site where rescued drills and chimpanzees live in large forest enclosures at the foot of Afi Mountain, next to the Afi Mountain Wildlife Sanctuary. The forest canopy walkway here was once among the longest and highest in Africa, but much of it was destroyed by a landslide in 2012 — confirm with Pandrillus what is currently open. Simple guest accommodation has been available on site.\n\nWhat to Do: See the drills and chimpanzees with Pandrillus staff, walk forest trails and ask about the canopy walkway's current status.",
+                    "Pandrillus' Afi Mountain Drill Ranch near Buanchor village is the field site where rescued drills and chimpanzees live in large forest enclosures at the foot of Afi Mountain, next to the Afi Mountain Wildlife Sanctuary. It is remote and off-grid — there is no electricity and no mobile network at the ranch. Simple guest accommodation has been available on site.\n\nWhat to Do: See the drills and chimpanzees with Pandrillus staff and hike the forest trails — expect a lot of walking. The ranch's canopy walkway: most of it was destroyed in a 2012 landslide — ask whether any section is open.",
                     "Pandrillus has worked with local communities around Afi for many years. Locals and staff ask visitors to arrange their stay in advance rather than turning up unannounced.",
-                    "Best Access: A long drive north from Calabar — Pandrillus has quoted roughly 4-6 hours — via the road through Olum village to Buanchor.\n\nArrange First: Contact Pandrillus directly before travelling for current access, accommodation and security advice.",
-                    "Optional Extension: Best done as an overnight trip after the carnival week.\n\nCanopy Walkway: Largely destroyed in a 2012 landslide — confirm what is open now.\n\nBooking: Accommodation and visits are arranged through Pandrillus.",
-                    "Current Access: Check access and security conditions with Pandrillus before you go.\n\nForest Conditions: Paths can be steep and slippery; wear proper shoes.\n\nWildlife: Follow staff instructions near the enclosures.",
+                    "By Car Only: Getting there is by car, and it is a very long, challenging journey — Pandrillus has quoted roughly 4-6 hours north from Calabar, via the road through Olum village to Buanchor. Travel in daylight with a driver who knows the route.\n\nArrange First: Contact Pandrillus directly before travelling for current access, accommodation and security advice.",
+                    "Optional Extension: Best done as an overnight trip after the carnival week.\n\nNo Power or Network: There is no electricity and no mobile network at the ranch — tell people your plans before you go and expect to be offline.\n\nPacking: Comfortable hiking shoes (there's a lot of hiking), mosquito repellent, a power bank and offline maps.\n\nGo With Others: Come as a group or with a tour buddy rather than alone.\n\nCanopy Walkway: Most of it was destroyed in a 2012 landslide — ask whether any section is open.\n\nBooking: Accommodation and visits are arranged through Pandrillus.",
+                    "Current Access: Check access and security conditions with Pandrillus before you go.\n\nLong, Hard Journey: The drive is very long and challenging — leave early, carry water and snacks, and don't plan it as a day trip.\n\nOff the Grid: No electricity and no mobile network — charge everything before you leave and carry a power bank.\n\nDon't Go Alone: Travel as a group or with a tour buddy.\n\nMosquitoes: Bring and use repellent.\n\nForest Conditions: There's a lot of hiking on paths that can be steep and slippery — wear comfortable, sturdy shoes.\n\nWildlife: Follow staff instructions near the enclosures.",
                     "Driver for the Round Trip: $120-$250.\nAccommodation & Visit Fees: Confirm with Pandrillus.\nMeals: $10-$20 per day.",
                     new[]
                     {
@@ -597,7 +597,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                         new ItemSpec("Evening", "Stay On: New Year's Eve Fireworks", "Thu 31 Dec at midnight — Fireworks and Declaration of a New Year at the Festival Village.", 10m, "Optional Extension", FestivalVillageName, true),
                         new ItemSpec("Evening", "Stay On: 12:00 PM 1 Jan · Tinkoriko Procession", "Fri 1 Jan 2027 heritage procession via Egerton St, Ekeng Ita, Hawkins Rd, Chambly St, Target Rd, Zoo/Mary Slessor Roundabout, Marian Road and Barracks Road to the Cenotaph.", 0m, "Optional Extension", null, true),
                         new ItemSpec("Evening", "Extension: Obudu Mountain Resort", "Swap the heat for the cool Obudu Plateau — most of a day's drive north, so plan two or more nights.", 250m, "Optional Extension", ObuduResortName, true),
-                        new ItemSpec("Evening", "Extension: Afi Mountain Drill Ranch", "An overnight trip to Pandrillus' forest field site — confirm access and the canopy walkway's status with them first.", 150m, "Optional Extension", AfiName, true),
+                        new ItemSpec("Evening", "Extension: Afi Mountain Drill Ranch", "An overnight trip to Pandrillus' off-grid forest field site (no power or mobile network) — a long, challenging drive, so go as a group and confirm access with Pandrillus first.", 150m, "Optional Extension", AfiName, true),
                     }),
                 }),
         };
@@ -771,6 +771,9 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                 cityByKey[(spec.CountryName, spec.Name)] = city;
             }
             await db.SaveChangesAsync(ct);
+
+            // ─── Batch 2b: renamed destinations (already seeded under an old name) ─
+            await ApplyRenamesAsync(db, countryByName, ct);
 
             // ─── Batch 3: destinations ──────────────────────────────────────────
             var destByName = new Dictionary<string, Destination>();
@@ -985,8 +988,87 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
         //  Helpers
         // ═══════════════════════════════════════════════════════════════════════
 
+        // Destinations renamed after the Calabar seed already ran somewhere (production).
+        // Old name → current name. The seeder otherwise matches by name only, so without
+        // this a re-run would create a second destination and leave the old one behind.
+        private static readonly (string OldName, string NewName)[] Renames =
+        {
+            ("Afi Mountain Drill Ranch & Canopy Walkway", AfiName),
+        };
+
+        // Renames the old row in place and refreshes its text from the current spec and the
+        // template wishlist's itinerary item for it (users' own wishlist copies keep their
+        // text). The image URL only changes if the spec's image file differs from the old
+        // name's (Afi keeps its uploaded file via ImageFileOverrides). Idempotent:
+        // does nothing once the old name is gone, or if the new name already exists.
+        private static async Task ApplyRenamesAsync(
+            HodracDbContext db, IReadOnlyDictionary<string, Country> countryByName, CancellationToken ct)
+        {
+            var specByName = Destinations.ToDictionary(d => d.Name);
+            foreach (var (oldName, newName) in Renames)
+            {
+                var spec = specByName[newName];
+                var countryId = countryByName[spec.CountryName].CountryId;
+                var old = await db.Destinations
+                    .FirstOrDefaultAsync(d => d.DestinationName == oldName && d.CountryId == countryId, ct);
+                if (old == null) continue;
+                if (await db.Destinations.AnyAsync(d => d.DestinationName == newName && d.CountryId == countryId, ct))
+                {
+                    Console.WriteLine($"Calabar seed: both \"{oldName}\" and \"{newName}\" exist; left as is — merge by hand.");
+                    continue;
+                }
+
+                var search = DestinationSearchFields.Derive(newName);
+                old.DestinationName = newName;
+                old.CleanNormalizedSearchName = search.CleanNormalizedSearchName;
+                old.MetaphoneCode = search.MetaphoneCode;
+                old.DoubleMetaphonePrimary = search.DoubleMetaphonePrimary;
+                old.DoubleMetaphoneSecondary = search.DoubleMetaphoneSecondary;
+                old.CommonAlternateSpellingsJson = JsonSerializer.Serialize(spec.Alternates, JsonOpts);
+                old.DescriptionJson = JsonSerializer.Serialize(spec.Desc, JsonOpts);
+
+                var oldImageUrl = BlobBase + $"{spec.Region}_{DestinationSearchFields.Normalize(oldName).Replace(' ', '-')}.jpg";
+                var newImageUrl = DestinationImageUrl(spec);
+                foreach (var image in await db.DestinationImages
+                             .Where(i => i.DestinationId == old.DestinationId && i.ImageUrl == oldImageUrl).ToListAsync(ct))
+                {
+                    image.ImageUrl = newImageUrl;
+                    image.ThumbnailUrl = newImageUrl;
+                    image.Caption = $"Hero image of {newName}";
+                }
+
+                var itemSpec = Wishlists.SelectMany(w => w.Days).SelectMany(d => d.Items)
+                    .FirstOrDefault(i => i.DestinationName == newName);
+                var wishlistNames = Wishlists.Select(s => s.Name).ToList();
+                var templateIds = await db.Wishlists
+                    .Where(w => w.IsTemplate && wishlistNames.Contains(w.WishlistName))
+                    .Select(w => w.WishlistId).ToListAsync(ct);
+                foreach (var item in await db.ItineraryItems
+                             .Where(i => i.ImageUrl == oldImageUrl).Include(i => i.ItineraryDay).ToListAsync(ct))
+                {
+                    item.ImageUrl = newImageUrl;
+                    if (itemSpec != null && item.ItineraryDay != null && templateIds.Contains(item.ItineraryDay.WishlistId))
+                    {
+                        item.ItemTitle = itemSpec.Title;
+                        item.ItemDescription = itemSpec.Description;
+                    }
+                }
+
+                await db.SaveChangesAsync(ct);
+                Console.WriteLine($"Calabar seed: renamed \"{oldName}\" to \"{newName}\" and refreshed its text and image.");
+            }
+        }
+
+        // Destinations whose image was uploaded under an earlier name keep that file.
+        private static readonly Dictionary<string, string> ImageFileOverrides = new()
+        {
+            [AfiName] = "calabar_afi-mountain-drill-ranch-and-canopy-walkway.jpg", // already uploaded in production
+        };
+
         private static string DestinationImageFile(DestSpec spec) =>
-            $"{spec.Region}_{DestinationSearchFields.Normalize(spec.Name).Replace(' ', '-')}.jpg";
+            ImageFileOverrides.TryGetValue(spec.Name, out var file)
+                ? file
+                : $"{spec.Region}_{DestinationSearchFields.Normalize(spec.Name).Replace(' ', '-')}.jpg";
 
         private static string DestinationImageUrl(DestSpec spec) => BlobBase + DestinationImageFile(spec);
 

@@ -1,5 +1,6 @@
 ﻿using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac.DTOs;
+using Hodrac_Backend_MVP2.DTOs.BlogDtos;
 
 namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
 {
@@ -25,6 +26,8 @@ namespace Hodrac_Backend_MVP2.DTOs.WishlistDtos
     uint Xmin,
     string UserRole,              // "Owner" | "Editor" | "Viewer" | "None"
     PartnerDto? Partner = null,
-    string? ShareToken = null     // public share token — only ever set for the owner
+    string? ShareToken = null,    // public share token — only ever set for the owner
+    // Up to 3 visible blog posts linked to this template, newest first (GET /api/wishlists/{id} only).
+    List<BlogPostSummaryDto>? RelatedPosts = null
     );
 }

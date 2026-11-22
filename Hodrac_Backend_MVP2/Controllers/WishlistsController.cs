@@ -1,4 +1,5 @@
 using Hodrac.DTOs;
+using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.WishlistDtos;
 using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.Infrastructure.SignalR;
@@ -39,6 +40,10 @@ public class WishlistsController : ControllerBase
     private readonly IProfileRepository _profiles;
     private readonly ILogger<WishlistsController> _logger;
     private readonly IHeroWishlistService _hero;
+    private readonly HodracDbContext _db;
+
+    /// <summary>Max related blog posts embedded in template wishlist detail.</summary>
+    private const int MaxRelatedPosts = 3;
 
     public WishlistsController(
         IWishlistRepository wishlists,
@@ -51,9 +56,11 @@ public class WishlistsController : ControllerBase
         IBehaviorEventQueue events,
         IProfileRepository profiles,
         ILogger<WishlistsController> logger,
-        IHeroWishlistService hero)
+        IHeroWishlistService hero,
+        HodracDbContext db)
     {
         _hero = hero;
+        _db = db;
         _events = events;
         _profiles = profiles;
         _logger = logger;
@@ -107,7 +114,9 @@ public class WishlistsController : ControllerBase
         if (wishlist is null) return NotFound();
 
         var activeSnapshot = await _wishlists.GetActiveSnapshotAsync(id, ct);
-        return Ok(await _partners.AttachAsync(MapToDetail(wishlist, _currentUser.UserId, activeSnapshot), ct));
+        var detail = await _partners.AttachAsync(MapToDetail(wishlist, _currentUser.UserId, activeSnapshot), ct);
+        var relatedPosts = await BlogQueries.RelatedToWishlistAsync(_db, id, MaxRelatedPosts, ct);
+        return Ok(detail with { RelatedPosts = relatedPosts });
     }
 
     // ── GET /api/wishlists/popular?limit=20 ───────────────────────────────────

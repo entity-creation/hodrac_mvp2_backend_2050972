@@ -200,6 +200,191 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPost", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AuthorName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("BodyMarkdown")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CanonicalUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("CityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CountryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CoverImageAlt")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("CoverImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Excerpt")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("MetaDescription")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("MetaTitle")
+                        .HasMaxLength(70)
+                        .HasColumnType("character varying(70)");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ReadingTimeMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("character varying(220)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("CountryId");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "PublishedAt");
+
+                    b.ToTable("BlogPosts", (string)null);
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostDestination", b =>
+                {
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DestinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("BlogPostId", "DestinationId");
+
+                    b.HasIndex("DestinationId");
+
+                    b.ToTable("BlogPostDestinations", (string)null);
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostEvent", b =>
+                {
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("BlogPostId", "EventId");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("BlogPostEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostSlugHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OldSlug")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("character varying(220)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BlogPostId");
+
+                    b.HasIndex("OldSlug")
+                        .IsUnique();
+
+                    b.ToTable("BlogPostSlugHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostTag", b =>
+                {
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("BlogPostId", "TagId");
+
+                    b.HasIndex("TagId");
+
+                    b.ToTable("BlogPostTags", (string)null);
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostWishlist", b =>
+                {
+                    b.Property<Guid>("BlogPostId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WishlistId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("BlogPostId", "WishlistId");
+
+                    b.HasIndex("WishlistId");
+
+                    b.ToTable("BlogPostWishlists", (string)null);
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Category", b =>
                 {
                     b.Property<Guid>("CategoryId")
@@ -661,6 +846,115 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.HasIndex("TagId");
 
                     b.ToTable("DestinationTags");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Event", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasDefaultValue("NGN");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("DestinationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("InstagramHandle")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsPublished")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Organiser")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<long?>("PriceMaxKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("PriceMinKobo")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PriceNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(220)
+                        .HasColumnType("character varying(220)");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TicketUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("Africa/Lagos");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VenueAddress")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("VenueName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("WebsiteUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CityId");
+
+                    b.HasIndex("DestinationId");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("StartsAt");
+
+                    b.ToTable("Events", (string)null);
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.FeaturedWishlistPool", b =>
@@ -2439,6 +2733,110 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPost", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Country", "Country")
+                        .WithMany()
+                        .HasForeignKey("CountryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("City");
+
+                    b.Navigation("Country");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostDestination", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.BlogPost", "BlogPost")
+                        .WithMany("Destinations")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Destination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("Destination");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostEvent", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.BlogPost", "BlogPost")
+                        .WithMany("Events")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostSlugHistory", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.BlogPost", "BlogPost")
+                        .WithMany("SlugHistory")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlogPost");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostTag", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.BlogPost", "BlogPost")
+                        .WithMany("Tags")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Tag", "Tag")
+                        .WithMany()
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPostWishlist", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.BlogPost", "BlogPost")
+                        .WithMany("Wishlists")
+                        .HasForeignKey("BlogPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Wishlist", "Wishlist")
+                        .WithMany()
+                        .HasForeignKey("WishlistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BlogPost");
+
+                    b.Navigation("Wishlist");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.City", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.Country", "Country")
@@ -2584,6 +2982,24 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("Destination");
 
                     b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Event", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.City", "City")
+                        .WithMany()
+                        .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Hodrac_Backend_MVP2.Models.Destination", "Destination")
+                        .WithMany()
+                        .HasForeignKey("DestinationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("City");
+
+                    b.Navigation("Destination");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.FeaturedWishlistPool", b =>
@@ -3040,6 +3456,19 @@ namespace Hodrac_Backend_MVP2.Migrations
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.ApplicationUser", b =>
                 {
                     b.Navigation("RefreshTokens");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.BlogPost", b =>
+                {
+                    b.Navigation("Destinations");
+
+                    b.Navigation("Events");
+
+                    b.Navigation("SlugHistory");
+
+                    b.Navigation("Tags");
+
+                    b.Navigation("Wishlists");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Category", b =>

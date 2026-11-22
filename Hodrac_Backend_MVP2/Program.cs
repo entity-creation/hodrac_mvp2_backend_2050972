@@ -28,7 +28,8 @@ using System.Threading.RateLimiting;
 // One-off command flags (e.g. --seed-solohouse) are stripped before the args reach
 // configuration: the command-line provider would otherwise treat a bare flag as a
 // key and swallow the next argument (such as a --ConnectionStrings override) as its value.
-var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse", "--seed-bali", "--seed-calabar" };
+var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse", "--seed-bali", "--seed-calabar", "--seed-kenya-north", "--seed-destinations", "--seed-events",
+    "--seed-ghana", "--seed-benin-republic", "--seed-zanzibar", "--seed-rwanda-qatar", "--seed-blog" };
 var builder = WebApplication.CreateBuilder(args.Where(a => !commandFlags.Contains(a)).ToArray());
 
 // ─── PostgreSQL + EF Core + pgvector ─────────────────────────────────────────
@@ -419,6 +420,105 @@ if (args.Contains("--seed-calabar"))
     await Hodrac_Backend_MVP2.Infrastucture.Seeder.CalabarSeeder.SeedAsync(db);
     app.Logger.LogInformation("Calabar seed complete into {Host}. Images referenced: {Images}",
         pgHost, string.Join(", ", Hodrac_Backend_MVP2.Infrastucture.Seeder.CalabarSeeder.ExpectedImageFiles));
+    return;
+}
+
+// ─── One-off seeding: `dotnet run -- --seed-kenya-north` ──────────────────────
+// Applies pending migrations, seeds the "Northern Kenya: Mountains, Elephants and the Ndotos"
+// template wishlist (idempotent — safe to re-run), then exits without serving.
+if (args.Contains("--seed-kenya-north"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    // The InitialMigration uses the pgvector type before a later migration enables
+    // the extension, so a brand-new database needs it created up front.
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    await Hodrac_Backend_MVP2.Infrastucture.Seeder.KenyaNorthSeeder.SeedAsync(db);
+    app.Logger.LogInformation("Northern Kenya seed complete into {Host}. Images referenced: {Images}",
+        pgHost, string.Join(", ", Hodrac_Backend_MVP2.Infrastucture.Seeder.KenyaNorthSeeder.ExpectedImageFiles));
+    return;
+}
+
+// ─── One-off seeding: country trip wishlists ──────────────────────────────────
+// `dotnet run -- --seed-ghana | --seed-benin-republic | --seed-zanzibar | --seed-rwanda-qatar`
+// Same steps as the Kenya seed: vector extension, pending migrations, idempotent seed, exit.
+var tripSeeders = new (string Flag, string Label, Func<HodracDbContext, Task> Seed, IReadOnlyList<string> Images)[]
+{
+    ("--seed-ghana", "Ghana", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.GhanaSeeder.SeedAsync(db),
+        Hodrac_Backend_MVP2.Infrastucture.Seeder.GhanaSeeder.ExpectedImageFiles),
+    ("--seed-benin-republic", "Benin Republic", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.BeninRepublicSeeder.SeedAsync(db),
+        Hodrac_Backend_MVP2.Infrastucture.Seeder.BeninRepublicSeeder.ExpectedImageFiles),
+    ("--seed-zanzibar", "Zanzibar", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.ZanzibarSeeder.SeedAsync(db),
+        Hodrac_Backend_MVP2.Infrastucture.Seeder.ZanzibarSeeder.ExpectedImageFiles),
+    ("--seed-rwanda-qatar", "Rwanda & Qatar", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.RwandaQatarSeeder.SeedAsync(db),
+        Hodrac_Backend_MVP2.Infrastucture.Seeder.RwandaQatarSeeder.ExpectedImageFiles),
+};
+var tripSeeder = tripSeeders.FirstOrDefault(s => args.Contains(s.Flag));
+if (tripSeeder.Flag is not null)
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    await tripSeeder.Seed(db);
+    app.Logger.LogInformation("{Label} seed complete into {Host}. Images referenced: {Images}",
+        tripSeeder.Label, pgHost, string.Join(", ", tripSeeder.Images));
+    return;
+}
+
+// ─── One-off seeding: `dotnet run -- --seed-destinations` ─────────────────────
+// Applies pending migrations, seeds the standalone destinations in DestinationsSeeder
+// (no wishlist; idempotent — safe to re-run), then exits without serving.
+if (args.Contains("--seed-destinations"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    // The InitialMigration uses the pgvector type before a later migration enables
+    // the extension, so a brand-new database needs it created up front.
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    await Hodrac_Backend_MVP2.Infrastucture.Seeder.DestinationsSeeder.SeedAsync(db);
+    app.Logger.LogInformation("Standalone destinations seed complete into {Host}. Images referenced: {Images}",
+        pgHost, string.Join(", ", Hodrac_Backend_MVP2.Infrastucture.Seeder.DestinationsSeeder.ExpectedImageFiles));
+    return;
+}
+
+// ─── One-off seeding: `dotnet run -- --seed-events` ───────────────────────────
+// Applies pending migrations, seeds the Benin City events in EventsSeeder
+// (idempotent by slug — safe to re-run), then exits without serving.
+if (args.Contains("--seed-events"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    // The InitialMigration uses the pgvector type before a later migration enables
+    // the extension, so a brand-new database needs it created up front.
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    var createdEvents = await Hodrac_Backend_MVP2.Infrastucture.Seeder.EventsSeeder.SeedAsync(db, app.Logger);
+    app.Logger.LogInformation("Events seed complete into {Host}: {Created} created.", pgHost, createdEvents);
+    return;
+}
+
+// ─── One-off seeding: `dotnet run -- --seed-blog` ─────────────────────────────
+// Applies pending migrations, seeds the starter blog posts in BlogSeeder as Drafts
+// (idempotent by slug — never overwrites an existing post — safe to re-run), then exits.
+// Run after the destinations, trip wishlists and events it links to; missing links are logged and skipped.
+if (args.Contains("--seed-blog"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<HodracDbContext>();
+    // The InitialMigration uses the pgvector type before a later migration enables
+    // the extension, so a brand-new database needs it created up front.
+    await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
+    await db.Database.MigrateAsync();
+    var createdPosts = await Hodrac_Backend_MVP2.Infrastucture.Seeder.BlogSeeder.SeedAsync(db, app.Logger);
+    app.Logger.LogInformation("Blog seed complete into {Host}: {Created} draft posts created.", pgHost, createdPosts);
     return;
 }
 

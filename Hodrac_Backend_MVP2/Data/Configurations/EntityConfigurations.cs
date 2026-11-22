@@ -774,3 +774,143 @@ public class TripPageViewDailyConfiguration : IEntityTypeConfiguration<TripPageV
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+public class EventConfiguration : IEntityTypeConfiguration<Event>
+{
+    public void Configure(EntityTypeBuilder<Event> builder)
+    {
+        builder.ToTable("Events");
+        builder.HasKey(e => e.Id);
+
+        builder.HasIndex(e => e.Slug).IsUnique();
+        builder.HasIndex(e => e.StartsAt);
+        builder.HasIndex(e => e.CityId);
+        builder.HasIndex(e => e.DestinationId);
+
+        // Deleting the destination keeps the event (venue just becomes unknown).
+        builder.HasOne(e => e.Destination)
+            .WithMany()
+            .HasForeignKey(e => e.DestinationId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(e => e.City)
+            .WithMany()
+            .HasForeignKey(e => e.CityId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(e => e.TimeZone).HasDefaultValue(Event.DefaultTimeZone);
+        builder.Property(e => e.Currency).HasDefaultValue(Event.DefaultCurrency);
+
+        // Sentinel true: an explicit false (draft) is always written.
+        builder.Property(e => e.IsPublished).HasDefaultValue(true).HasSentinel(true);
+    }
+}
+
+// ─── Blog ─────────────────────────────────────────────────────────────────────
+// Deleting a post removes its links and slug history. Deleting a linked
+// destination / wishlist / event / tag removes just the link; deleting the
+// post's city or country clears the reference.
+
+public class BlogPostConfiguration : IEntityTypeConfiguration<BlogPost>
+{
+    public void Configure(EntityTypeBuilder<BlogPost> builder)
+    {
+        builder.ToTable("BlogPosts");
+        builder.HasKey(p => p.Id);
+
+        builder.HasIndex(p => p.Slug).IsUnique();
+        builder.HasIndex(p => new { p.Status, p.PublishedAt });
+        builder.HasIndex(p => p.CityId);
+        builder.HasIndex(p => p.CountryId);
+
+        builder.Property(p => p.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32);
+
+        builder.HasOne(p => p.City)
+            .WithMany()
+            .HasForeignKey(p => p.CityId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(p => p.Country)
+            .WithMany()
+            .HasForeignKey(p => p.CountryId)
+            .OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class BlogPostDestinationConfiguration : IEntityTypeConfiguration<BlogPostDestination>
+{
+    public void Configure(EntityTypeBuilder<BlogPostDestination> builder)
+    {
+        builder.ToTable("BlogPostDestinations");
+        builder.HasKey(x => new { x.BlogPostId, x.DestinationId });
+        builder.HasIndex(x => x.DestinationId);
+
+        builder.HasOne(x => x.BlogPost).WithMany(p => p.Destinations)
+            .HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Destination).WithMany()
+            .HasForeignKey(x => x.DestinationId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class BlogPostWishlistConfiguration : IEntityTypeConfiguration<BlogPostWishlist>
+{
+    public void Configure(EntityTypeBuilder<BlogPostWishlist> builder)
+    {
+        builder.ToTable("BlogPostWishlists");
+        builder.HasKey(x => new { x.BlogPostId, x.WishlistId });
+        builder.HasIndex(x => x.WishlistId);
+
+        builder.HasOne(x => x.BlogPost).WithMany(p => p.Wishlists)
+            .HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Wishlist).WithMany()
+            .HasForeignKey(x => x.WishlistId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class BlogPostEventConfiguration : IEntityTypeConfiguration<BlogPostEvent>
+{
+    public void Configure(EntityTypeBuilder<BlogPostEvent> builder)
+    {
+        builder.ToTable("BlogPostEvents");
+        builder.HasKey(x => new { x.BlogPostId, x.EventId });
+        builder.HasIndex(x => x.EventId);
+
+        builder.HasOne(x => x.BlogPost).WithMany(p => p.Events)
+            .HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Event).WithMany()
+            .HasForeignKey(x => x.EventId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class BlogPostTagConfiguration : IEntityTypeConfiguration<BlogPostTag>
+{
+    public void Configure(EntityTypeBuilder<BlogPostTag> builder)
+    {
+        builder.ToTable("BlogPostTags");
+        builder.HasKey(x => new { x.BlogPostId, x.TagId });
+        builder.HasIndex(x => x.TagId);
+
+        builder.HasOne(x => x.BlogPost).WithMany(p => p.Tags)
+            .HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Tag).WithMany()
+            .HasForeignKey(x => x.TagId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class BlogPostSlugHistoryConfiguration : IEntityTypeConfiguration<BlogPostSlugHistory>
+{
+    public void Configure(EntityTypeBuilder<BlogPostSlugHistory> builder)
+    {
+        builder.ToTable("BlogPostSlugHistory");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.OldSlug).IsUnique();
+        builder.HasIndex(x => x.BlogPostId);
+
+        builder.HasOne(x => x.BlogPost).WithMany(p => p.SlugHistory)
+            .HasForeignKey(x => x.BlogPostId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
