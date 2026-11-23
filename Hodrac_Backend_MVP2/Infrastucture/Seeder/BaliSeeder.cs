@@ -17,7 +17,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
     /// </summary>
     public static class BaliSeeder
     {
-        private const string BlobBase = "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/";
+        private static string BlobBase => SeedImages.BaseUrl;
 
         private static readonly JsonSerializerOptions JsonOpts = new()
         {

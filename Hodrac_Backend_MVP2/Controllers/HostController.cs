@@ -4,6 +4,7 @@ using Hodrac_Backend_MVP2.DTOs.HostDtos;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Hodrac_Backend_MVP2.Services.Hosts;
+using Hodrac_Backend_MVP2.Services.Images;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -52,6 +53,7 @@ public partial class HostController : ControllerBase
     private readonly IPaystackClient _paystack;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<HostController> _logger;
+    private readonly ImageUrlNormalizer _images;
 
     public HostController(
         HodracDbContext db,
@@ -61,8 +63,10 @@ public partial class HostController : ControllerBase
         PaymentService payments,
         IPaystackClient paystack,
         ICurrentUserService currentUser,
-        ILogger<HostController> logger)
+        ILogger<HostController> logger,
+        ImageUrlNormalizer images)
     {
+        _images = images;
         _db = db;
         _hosts = hosts;
         _hostTrips = hostTrips;
@@ -342,7 +346,7 @@ public partial class HostController : ControllerBase
 
         if (logoUrl is not null)
         {
-            var url = NullIfBlank(logoUrl);
+            var url = NullIfBlank(_images.Normalize(logoUrl));
             if (url is not null && !IsHttpUrl(url))
                 ModelState.AddModelError("LogoUrl", "Logo URL must be a full http(s) URL.");
             else

@@ -8,6 +8,7 @@ using Hodrac_Backend_MVP2.DTOs.DescriptionDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -58,11 +59,13 @@ public class AdminDestinationsController : ControllerBase
 
     private readonly HodracDbContext _db;
     private readonly ILogger<AdminDestinationsController> _logger;
+    private readonly ImageUrlNormalizer _images;
 
-    public AdminDestinationsController(HodracDbContext db, ILogger<AdminDestinationsController> logger)
+    public AdminDestinationsController(HodracDbContext db, ILogger<AdminDestinationsController> logger, ImageUrlNormalizer images)
     {
         _db = db;
         _logger = logger;
+        _images = images;
     }
 
     // ══ Destinations ══════════════════════════════════════════════════════════
@@ -452,11 +455,11 @@ public class AdminDestinationsController : ControllerBase
     {
         if (!await _db.Destinations.AnyAsync(d => d.DestinationId == id, ct)) return NotFound();
 
-        var imageUrl = request.ImageUrl?.Trim() ?? string.Empty;
+        var imageUrl = _images.Normalize(request.ImageUrl)?.Trim() ?? string.Empty;
         if (!IsHttpUrl(imageUrl))
             ModelState.AddModelError(nameof(request.ImageUrl), "ImageUrl must be an absolute http(s) URL.");
 
-        var thumbnailUrl = NullIfBlank(request.ThumbnailUrl);
+        var thumbnailUrl = NullIfBlank(_images.Normalize(request.ThumbnailUrl));
         if (thumbnailUrl is not null && !IsHttpUrl(thumbnailUrl))
             ModelState.AddModelError(nameof(request.ThumbnailUrl), "ThumbnailUrl must be an absolute http(s) URL.");
 
@@ -506,7 +509,7 @@ public class AdminDestinationsController : ControllerBase
         string? imageUrl = null;
         if (request.ImageUrl is not null)
         {
-            imageUrl = request.ImageUrl.Trim();
+            imageUrl = _images.Normalize(request.ImageUrl)!.Trim();
             if (!IsHttpUrl(imageUrl))
                 ModelState.AddModelError(nameof(request.ImageUrl), "ImageUrl must be an absolute http(s) URL.");
         }
@@ -514,7 +517,7 @@ public class AdminDestinationsController : ControllerBase
         string? thumbnailUrl = null;
         if (request.ThumbnailUrl is not null)
         {
-            thumbnailUrl = NullIfBlank(request.ThumbnailUrl);
+            thumbnailUrl = NullIfBlank(_images.Normalize(request.ThumbnailUrl));
             if (thumbnailUrl is not null && !IsHttpUrl(thumbnailUrl))
                 ModelState.AddModelError(nameof(request.ThumbnailUrl), "ThumbnailUrl must be an absolute http(s) URL.");
         }
@@ -863,7 +866,7 @@ public class AdminDestinationsController : ControllerBase
     public async Task<ActionResult<AdminCountryDto>> CreateCountry(CreateCountryRequest request, CancellationToken ct = default)
     {
         var name = RequireText(request.CountryName, nameof(request.CountryName));
-        var heroImage = ValidateOptionalUrl(request.GlobalHeroImage, nameof(request.GlobalHeroImage));
+        var heroImage = ValidateOptionalUrl(_images.Normalize(request.GlobalHeroImage), nameof(request.GlobalHeroImage));
         var drivingSide = ValidateDrivingSide(request.DrivingSide, nameof(request.DrivingSide));
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
@@ -899,7 +902,7 @@ public class AdminDestinationsController : ControllerBase
         if (country is null) return NotFound();
 
         var name = request.CountryName is null ? null : RequireText(request.CountryName, nameof(request.CountryName));
-        var heroImage = request.GlobalHeroImage is null ? null : ValidateOptionalUrl(request.GlobalHeroImage, nameof(request.GlobalHeroImage));
+        var heroImage = request.GlobalHeroImage is null ? null : ValidateOptionalUrl(_images.Normalize(request.GlobalHeroImage), nameof(request.GlobalHeroImage));
         var drivingSide = request.DrivingSide is null ? null : ValidateDrivingSide(request.DrivingSide, nameof(request.DrivingSide));
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 

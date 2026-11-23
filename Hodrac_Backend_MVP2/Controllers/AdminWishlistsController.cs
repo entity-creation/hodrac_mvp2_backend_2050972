@@ -4,6 +4,7 @@ using Hodrac_Backend_MVP2.DTOs.AdminDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.DTOs.WishlistDtos;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -47,11 +48,13 @@ public class AdminWishlistsController : ControllerBase
 
     private readonly HodracDbContext _db;
     private readonly ILogger<AdminWishlistsController> _logger;
+    private readonly ImageUrlNormalizer _images;
 
-    public AdminWishlistsController(HodracDbContext db, ILogger<AdminWishlistsController> logger)
+    public AdminWishlistsController(HodracDbContext db, ILogger<AdminWishlistsController> logger, ImageUrlNormalizer images)
     {
         _db = db;
         _logger = logger;
+        _images = images;
     }
 
     // ══ Templates ═════════════════════════════════════════════════════════════
@@ -132,6 +135,7 @@ public class AdminWishlistsController : ControllerBase
         var inclusions = CleanList(request.GlobalInclusions, nameof(request.GlobalInclusions));
         var vibeTags = CleanList(request.PsychologicalVibeTags, nameof(request.PsychologicalVibeTags));
         var destinationIds = await ValidateDestinationIds(request.DestinationIds, ct);
+        var heroImage = NormalizeImageUrl(request.WishlistHeroImage, nameof(request.WishlistHeroImage));
 
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
@@ -143,7 +147,7 @@ public class AdminWishlistsController : ControllerBase
             ShortStory = request.ShortStory ?? string.Empty,
             TotalDays = request.TotalDays,
             PeopleType = request.PeopleType?.Trim() ?? string.Empty,
-            WishlistHeroImage = request.WishlistHeroImage?.Trim() ?? string.Empty,
+            WishlistHeroImage = heroImage?.Trim() ?? string.Empty,
             GlobalInclusionsJson = JsonSerializer.Serialize(inclusions ?? new List<string>()),
             RawContentKeywords = request.RawContentKeywords ?? string.Empty,
             PsychologicalVibeTagsJson = JsonSerializer.Serialize(vibeTags ?? new List<string>()),
@@ -184,6 +188,7 @@ public class AdminWishlistsController : ControllerBase
 
         var inclusions = CleanList(request.GlobalInclusions, nameof(request.GlobalInclusions));
         var vibeTags = CleanList(request.PsychologicalVibeTags, nameof(request.PsychologicalVibeTags));
+        var heroImage = NormalizeImageUrl(request.WishlistHeroImage, nameof(request.WishlistHeroImage));
 
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
 
@@ -195,7 +200,7 @@ public class AdminWishlistsController : ControllerBase
         if (request.ShortStory is not null) wishlist.ShortStory = request.ShortStory;
         if (request.TotalDays is not null) wishlist.TotalDays = request.TotalDays.Value;
         if (request.PeopleType is not null) wishlist.PeopleType = request.PeopleType.Trim();
-        if (request.WishlistHeroImage is not null) wishlist.WishlistHeroImage = request.WishlistHeroImage.Trim();
+        if (request.WishlistHeroImage is not null) wishlist.WishlistHeroImage = heroImage!.Trim();
         if (inclusions is not null) wishlist.GlobalInclusionsJson = JsonSerializer.Serialize(inclusions);
         if (request.RawContentKeywords is not null) wishlist.RawContentKeywords = request.RawContentKeywords;
         if (vibeTags is not null) wishlist.PsychologicalVibeTagsJson = JsonSerializer.Serialize(vibeTags);
@@ -429,6 +434,7 @@ public class AdminWishlistsController : ControllerBase
             var day = wishlist.ItineraryDays.FirstOrDefault(d => d.ItineraryDayId == dayId);
             if (day is null) return Task.FromResult<IActionResult?>(NotFound("Day not found."));
 
+            var imageUrl = NormalizeImageUrl(request.ImageUrl, "ImageUrl");
             if (!ValidateItemFields(request.Title, request.TimeOfDay, titleRequired: true))
                 return Task.FromResult<IActionResult?>(ValidationProblem(ModelState));
 
@@ -442,7 +448,7 @@ public class AdminWishlistsController : ControllerBase
                 ItemTitle = request.Title.Trim(),
                 ItemDescription = request.Description ?? string.Empty,
                 TimeOfDay = request.TimeOfDay ?? string.Empty,
-                ImageUrl = request.ImageUrl ?? string.Empty,
+                ImageUrl = imageUrl ?? string.Empty,
                 SocialProofBadge = request.SocialProofBadge ?? string.Empty,
                 IndividualCostModifier = request.CostModifier ?? 0m,
                 IsOptionalActivity = request.IsOptional ?? false,
@@ -470,13 +476,14 @@ public class AdminWishlistsController : ControllerBase
                 .ItineraryItems.FirstOrDefault(i => i.ItineraryItemId == itemId);
             if (item is null) return Task.FromResult<IActionResult?>(NotFound("Item not found."));
 
+            var imageUrl = NormalizeImageUrl(request.ImageUrl, "ImageUrl");
             if (!ValidateItemFields(request.Title, request.TimeOfDay, titleRequired: false))
                 return Task.FromResult<IActionResult?>(ValidationProblem(ModelState));
 
             if (request.Title is not null)               item.ItemTitle = request.Title.Trim();
             if (request.Description is not null)         item.ItemDescription = request.Description;
             if (request.TimeOfDay is not null)           item.TimeOfDay = request.TimeOfDay;
-            if (request.ImageUrl is not null)            item.ImageUrl = request.ImageUrl;
+            if (request.ImageUrl is not null)            item.ImageUrl = imageUrl!;
             if (request.SocialProofBadge is not null)    item.SocialProofBadge = request.SocialProofBadge;
             if (request.CostModifier.HasValue)           item.IndividualCostModifier = request.CostModifier.Value;
             if (request.IsOptional.HasValue)             item.IsOptionalActivity = request.IsOptional.Value;
@@ -627,6 +634,18 @@ public class AdminWishlistsController : ControllerBase
         }
         if (transitRoute is { } r && r != Guid.Empty && !await _db.TransitRoutes.AnyAsync(x => x.TransitRouteId == r, ct))
             ModelState.AddModelError("TransitFromPreviousDayRouteId", $"Transit route {r} does not exist.");
+    }
+
+    /// <summary>
+    /// Swaps an old image host for the primary one; a non-blank value must then be an absolute
+    /// http(s) URL (model error on <paramref name="field"/>). Null/blank come back unchanged.
+    /// </summary>
+    private string? NormalizeImageUrl(string? value, string field)
+    {
+        var url = _images.Normalize(value);
+        if (!string.IsNullOrWhiteSpace(url) && !_images.IsValidImageUrl(url))
+            ModelState.AddModelError(field, $"{field} must be an absolute http(s) URL.");
+        return url;
     }
 
     private bool ValidateItemFields(string? title, string? timeOfDay, bool titleRequired)

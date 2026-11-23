@@ -4,6 +4,7 @@ using Hodrac_Backend_MVP2.DTOs.AdminDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -35,13 +36,15 @@ public class CreatorController : ControllerBase
     private readonly HodracDbContext       _db;
     private readonly ICurrentUserService   _currentUser;
     private readonly IAuthorizationService _authorization;
+    private readonly ImageUrlNormalizer    _images;
 
     public CreatorController(
-        HodracDbContext db, ICurrentUserService currentUser, IAuthorizationService authorization)
+        HodracDbContext db, ICurrentUserService currentUser, IAuthorizationService authorization, ImageUrlNormalizer images)
     {
         _db            = db;
         _currentUser   = currentUser;
         _authorization = authorization;
+        _images        = images;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -134,6 +137,12 @@ public class CreatorController : ControllerBase
     public async Task<IActionResult> CreateCreator(
         [FromBody] CreateCreatorRequest req, CancellationToken ct)
     {
+        var avatarUrl = _images.Normalize(req.AvatarUrl);
+        if (!IsValidOptionalImageUrl(avatarUrl))
+        {
+            ModelState.AddModelError(nameof(req.AvatarUrl), "AvatarUrl must be an absolute http(s) URL.");
+            return ValidationProblem(ModelState);
+        }
         // Prevent duplicate platform+handle combinations
         var exists = await _db.Creators.AnyAsync(
             c => c.PlatformName == req.PlatformName && c.Handle == req.Handle, ct);
@@ -148,7 +157,7 @@ public class CreatorController : ControllerBase
             Handle       = req.Handle,
             PlatformName = req.PlatformName,
             ProfileUrl   = req.ProfileUrl,
-            AvatarUrl    = req.AvatarUrl,
+            AvatarUrl    = avatarUrl,
             Bio          = req.Bio,
             ContactEmail = req.ContactEmail,
             IsVerified   = false,
@@ -167,6 +176,12 @@ public class CreatorController : ControllerBase
     public async Task<IActionResult> UpdateCreator(
         Guid id, [FromBody] UpdateCreatorRequest req, CancellationToken ct)
     {
+        var avatarUrl = _images.Normalize(req.AvatarUrl);
+        if (!IsValidOptionalImageUrl(avatarUrl))
+        {
+            ModelState.AddModelError(nameof(req.AvatarUrl), "AvatarUrl must be an absolute http(s) URL.");
+            return ValidationProblem(ModelState);
+        }
         var creator = await _db.Creators.FindAsync(new object[] { id }, ct);
         if (creator is null) return NotFound(new { error = "Creator not found." });
 
@@ -181,7 +196,7 @@ public class CreatorController : ControllerBase
         if (req.Handle       is not null) creator.Handle       = req.Handle;
         if (req.PlatformName is not null) creator.PlatformName = req.PlatformName;
         if (req.ProfileUrl   is not null) creator.ProfileUrl   = req.ProfileUrl;
-        if (req.AvatarUrl    is not null) creator.AvatarUrl    = req.AvatarUrl;
+        if (req.AvatarUrl    is not null) creator.AvatarUrl    = avatarUrl;
         if (req.Bio          is not null) creator.Bio          = req.Bio;
         if (req.ContactEmail is not null) creator.ContactEmail = req.ContactEmail;
         if (req.IsVerified   is not null) creator.IsVerified   = req.IsVerified.Value;
@@ -363,6 +378,10 @@ public class CreatorController : ControllerBase
 
     private static string EscapeLike(string value)
         => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
+    /// <summary>Null/blank (clear or unchanged) is fine; otherwise an absolute http(s) URL.</summary>
+    private bool IsValidOptionalImageUrl(string? url)
+        => string.IsNullOrWhiteSpace(url) || _images.IsValidImageUrl(url);
 
     private static CreatorDto ToDto(Creator c) => new(
         c.CreatorId,

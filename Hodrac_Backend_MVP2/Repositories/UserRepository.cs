@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Data;
 
@@ -22,14 +23,17 @@ public class UserRepository : IUserRepository
     private readonly IEmailSender _email;
     private readonly IConfiguration _config;
     private readonly ILogger<UserRepository> _logger;
+    private readonly ImageUrlNormalizer _images;
 
     public UserRepository(
         UserManager<ApplicationUser> userManager,
         HodracDbContext db,
         IEmailSender email,
         IConfiguration config,
-        ILogger<UserRepository> logger)
+        ILogger<UserRepository> logger,
+        ImageUrlNormalizer images)
     {
+        _images      = images;
         _userManager = userManager;
         _db          = db;
         _email       = email;
@@ -200,10 +204,14 @@ public class UserRepository : IUserRepository
 
     public async Task UpdateAvatarAsync(
         string userId, string avatarUrl, CancellationToken ct = default)
-        => await _db.Users
+    {
+        // Old image hosts are swapped for the primary one before storing.
+        avatarUrl = _images.Normalize(avatarUrl) ?? avatarUrl;
+        await _db.Users
             .Where(u => u.Id == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(
                 u => u.AvatarUrl, avatarUrl), ct);
+    }
 
     /// <summary>
     /// Used by CollaborationController to resolve an email address to a UserId Guid

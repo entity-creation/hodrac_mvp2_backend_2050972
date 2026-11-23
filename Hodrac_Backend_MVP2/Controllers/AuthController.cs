@@ -11,6 +11,7 @@ using Hodrac_Backend_MVP2.Events;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.NoSql.Interfaces;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.NoSql.Models;
 
@@ -47,6 +48,7 @@ public class AuthController : ControllerBase
     private readonly IConfiguration _config;
     private readonly ILogger<AuthController> _logger;
     private readonly IdentityOptions _identityOptions;
+    private readonly ImageUrlNormalizer _images;
 
     public AuthController(
         IUserRepository users,
@@ -57,8 +59,10 @@ public class AuthController : ControllerBase
         IBehaviorEventQueue events,
         IConfiguration config,
         ILogger<AuthController> logger,
-        IOptions<IdentityOptions> identityOptions)
+        IOptions<IdentityOptions> identityOptions,
+        ImageUrlNormalizer images)
     {
+        _images      = images;
         _users       = users;
         _tokens      = tokens;
         _currentUser = currentUser;
@@ -308,7 +312,18 @@ public class AuthController : ControllerBase
         if (user is null) return NotFound();
 
         if (request.DisplayName is not null) user.DisplayName = request.DisplayName;
-        if (request.AvatarUrl is not null)   user.AvatarUrl   = request.AvatarUrl;
+        // null = leave unchanged, blank = clear, otherwise an absolute http(s) URL (old image
+        // hosts are swapped for the primary one).
+        if (request.AvatarUrl is not null)
+        {
+            var avatarUrl = _images.Normalize(request.AvatarUrl)!;
+            if (!string.IsNullOrWhiteSpace(avatarUrl) && !_images.IsValidImageUrl(avatarUrl))
+            {
+                ModelState.AddModelError(nameof(request.AvatarUrl), "avatarUrl must be an absolute http(s) URL.");
+                return ValidationProblem(ModelState);
+            }
+            user.AvatarUrl = avatarUrl;
+        }
 
         // null = leave unchanged, "" = clear, otherwise must be ISO 3166-1 alpha-2.
         if (request.CountryCode is not null)

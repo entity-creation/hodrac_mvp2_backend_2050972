@@ -3,6 +3,7 @@ using Hodrac_Backend_MVP2.DTOs.BlogDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -30,12 +31,14 @@ public class AdminBlogController : ControllerBase
     private readonly HodracDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<AdminBlogController> _logger;
+    private readonly ImageUrlNormalizer _images;
 
-    public AdminBlogController(HodracDbContext db, ICurrentUserService currentUser, ILogger<AdminBlogController> logger)
+    public AdminBlogController(HodracDbContext db, ICurrentUserService currentUser, ILogger<AdminBlogController> logger, ImageUrlNormalizer images)
     {
         _db = db;
         _currentUser = currentUser;
         _logger = logger;
+        _images = images;
     }
 
     /// <summary>
@@ -431,7 +434,7 @@ public class AdminBlogController : ControllerBase
             ModelState.AddModelError("BodyMarkdown", "BodyMarkdown must not contain <script> tags.");
 
         var fields = new TextFields(
-            ValidateUrl("CoverImageUrl", coverImageUrl),
+            ValidateUrl("CoverImageUrl", _images.Normalize(coverImageUrl)),
             NullIfBlank(coverImageAlt),
             NullIfBlank(authorName),
             NullIfBlank(metaTitle),

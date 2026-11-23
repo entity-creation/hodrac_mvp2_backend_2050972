@@ -3,6 +3,7 @@ using Hodrac_Backend_MVP2.DTOs.EventDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,11 +27,13 @@ public class AdminEventsController : ControllerBase
 {
     private readonly HodracDbContext _db;
     private readonly ILogger<AdminEventsController> _logger;
+    private readonly ImageUrlNormalizer _images;
 
-    public AdminEventsController(HodracDbContext db, ILogger<AdminEventsController> logger)
+    public AdminEventsController(HodracDbContext db, ILogger<AdminEventsController> logger, ImageUrlNormalizer images)
     {
         _db = db;
         _logger = logger;
+        _images = images;
     }
 
     /// <summary>
@@ -108,7 +111,7 @@ public class AdminEventsController : ControllerBase
 
         var ticketUrl = ValidateUrl(nameof(request.TicketUrl), request.TicketUrl);
         var websiteUrl = ValidateUrl(nameof(request.WebsiteUrl), request.WebsiteUrl);
-        var imageUrl = ValidateUrl(nameof(request.ImageUrl), request.ImageUrl);
+        var imageUrl = ValidateUrl(nameof(request.ImageUrl), _images.Normalize(request.ImageUrl));
 
         var cityId = await ResolveCityAsync(request.DestinationId, request.CityId, ct);
 
@@ -171,7 +174,7 @@ public class AdminEventsController : ControllerBase
 
         var ticketUrl = request.TicketUrl is null ? ev.TicketUrl : ValidateUrl(nameof(request.TicketUrl), request.TicketUrl);
         var websiteUrl = request.WebsiteUrl is null ? ev.WebsiteUrl : ValidateUrl(nameof(request.WebsiteUrl), request.WebsiteUrl);
-        var imageUrl = request.ImageUrl is null ? ev.ImageUrl : ValidateUrl(nameof(request.ImageUrl), request.ImageUrl);
+        var imageUrl = request.ImageUrl is null ? ev.ImageUrl : ValidateUrl(nameof(request.ImageUrl), _images.Normalize(request.ImageUrl));
 
         var destinationId = request.ClearDestination == true ? null : request.DestinationId ?? ev.DestinationId;
         Guid? cityId = ev.CityId;

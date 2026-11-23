@@ -3,6 +3,7 @@ using System.Text;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -42,11 +43,13 @@ public class AdminPartnersController : ControllerBase
 
     private readonly HodracDbContext _db;
     private readonly ILogger<AdminPartnersController> _logger;
+    private readonly ImageUrlNormalizer _images;
 
-    public AdminPartnersController(HodracDbContext db, ILogger<AdminPartnersController> logger)
+    public AdminPartnersController(HodracDbContext db, ILogger<AdminPartnersController> logger, ImageUrlNormalizer images)
     {
         _db = db;
         _logger = logger;
+        _images = images;
     }
 
     // ══ Partners ══════════════════════════════════════════════════════════════
@@ -84,7 +87,7 @@ public class AdminPartnersController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             ModelState.AddModelError(nameof(request.Name), "Name is required.");
 
-        var logoUrl = NullIfBlank(request.LogoUrl);
+        var logoUrl = NullIfBlank(_images.Normalize(request.LogoUrl));
         if (logoUrl is not null && !IsHttpUrl(logoUrl))
             ModelState.AddModelError(nameof(request.LogoUrl), "LogoUrl must be an absolute http(s) URL.");
 
@@ -118,7 +121,7 @@ public class AdminPartnersController : ControllerBase
 
         if (request.LogoUrl is not null)
         {
-            var logoUrl = NullIfBlank(request.LogoUrl);
+            var logoUrl = NullIfBlank(_images.Normalize(request.LogoUrl));
             if (logoUrl is not null && !IsHttpUrl(logoUrl))
                 ModelState.AddModelError(nameof(request.LogoUrl), "LogoUrl must be an absolute http(s) URL.");
             else

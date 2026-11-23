@@ -11,6 +11,7 @@ using Hodrac_Backend_MVP2.NoSql.Repositories;
 using Hodrac_Backend_MVP2.Repositories;
 using Hodrac_Backend_MVP2.Services;
 using Hodrac_Backend_MVP2.Services.Payments;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -29,8 +30,23 @@ using System.Threading.RateLimiting;
 // configuration: the command-line provider would otherwise treat a bare flag as a
 // key and swallow the next argument (such as a --ConnectionStrings override) as its value.
 var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse", "--seed-bali", "--seed-calabar", "--seed-kenya-north", "--seed-destinations", "--seed-events",
-    "--seed-ghana", "--seed-benin-republic", "--seed-zanzibar", "--seed-rwanda-qatar", "--seed-blog" };
-var builder = WebApplication.CreateBuilder(args.Where(a => !commandFlags.Contains(a)).ToArray());
+    "--seed-ghana", "--seed-benin-republic", "--seed-zanzibar", "--seed-rwanda-qatar", "--seed-blog",
+    "--rewrite-image-host", "--apply" };
+// Command options that take a value (`--from <url>`): both the flag and its value are stripped.
+var commandValueFlags = new[] { "--from", "--to" };
+string? CommandValue(string flag)
+{
+    var i = Array.IndexOf(args, flag);
+    return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+var configArgs = new List<string>();
+for (var i = 0; i < args.Length; i++)
+{
+    if (commandFlags.Contains(args[i])) continue;
+    if (commandValueFlags.Contains(args[i])) { i++; continue; }
+    configArgs.Add(args[i]);
+}
+var builder = WebApplication.CreateBuilder(configArgs.ToArray());
 
 // ─── PostgreSQL + EF Core + pgvector ─────────────────────────────────────────
 builder.Services.AddDbContext<HodracDbContext>(options =>
@@ -201,6 +217,21 @@ builder.Services.AddScoped<IHeroWishlistService, HeroWishlistService>();
 // the option classes carry the spec defaults. Never put the Paystack key in appsettings.
 builder.Services.Configure<HodracHostOptions>(builder.Configuration.GetSection(HodracHostOptions.SectionName));
 builder.Services.Configure<PaystackOptions>(builder.Configuration.GetSection(PaystackOptions.SectionName));
+
+// ─── Image hosting (R2 primary, Vercel Blob fallback) ─────────────────────────
+// Images__PublicBaseUrl / Images__FallbackBaseUrls__0; defaults keep the Vercel host.
+builder.Services.AddOptions<ImagesOptions>()
+    .Bind(builder.Configuration.GetSection(ImagesOptions.SectionName))
+    .Validate(o => ImagesOptions.IsAbsoluteHttpUrl(o.PublicBaseUrl)
+                && (o.FallbackBaseUrls ?? Array.Empty<string>()).All(u => string.IsNullOrWhiteSpace(u) || ImagesOptions.IsAbsoluteHttpUrl(u)),
+        "Images:PublicBaseUrl and every Images:FallbackBaseUrls entry must be absolute http(s) URLs.")
+    .ValidateOnStart();
+builder.Services.AddScoped<ImageHostRewriter>();
+// Swaps an old-host prefix for the primary host on every endpoint that saves an image URL.
+builder.Services.AddSingleton<ImageUrlNormalizer>();
+// Seeders build image URLs from the configured host (and recognise the old ones).
+var imagesOptions = builder.Configuration.GetSection(ImagesOptions.SectionName).Get<ImagesOptions>() ?? new ImagesOptions();
+Hodrac_Backend_MVP2.Infrastucture.Seeder.SeedImages.Configure(imagesOptions);
 builder.Services.AddSingleton(sp => new FeeCalculator(
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HodracHostOptions>>()));
 // Paystack typed client: Bearer secret key per request, base URL from options, 15s timeout.
@@ -387,6 +418,53 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+// ─── One-off: `dotnet run -- --rewrite-image-host [--apply] [--from <url>] [--to <url>]` ──
+// Moves stored image URLs from each Images:FallbackBaseUrls entry (or --from) to
+// Images:PublicBaseUrl (or --to). Dry run (counts + samples) unless --apply, which
+// updates every image column in one transaction. Idempotent; swap the bases to undo.
+// Run it right after switching hosts and BEFORE any further --seed-* command.
+if (args.Contains("--rewrite-image-host"))
+{
+    var pgHost = new Npgsql.NpgsqlConnectionStringBuilder(builder.Configuration.GetConnectionString("Postgres")).Host ?? string.Empty;
+    var apply = args.Contains("--apply");
+    var fromArg = CommandValue("--from");
+    var froms = fromArg is not null ? new List<string> { fromArg } : imagesOptions.NormalizedFallbackBaseUrls.ToList();
+    var to = CommandValue("--to") ?? imagesOptions.NormalizedPublicBaseUrl;
+    if (froms.Count == 0)
+    {
+        app.Logger.LogError("Nothing to rewrite: set Images:FallbackBaseUrls:0 to the old host or pass --from <url>.");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    app.Logger.LogInformation("Image host rewrite ({Mode}) on {Host}: {From} -> {To}",
+        apply ? "APPLY" : "dry run", pgHost, string.Join(", ", froms), to);
+    using var scope = app.Services.CreateScope();
+    var rewriter = scope.ServiceProvider.GetRequiredService<ImageHostRewriter>();
+    foreach (var from in froms)
+    {
+        try
+        {
+            var report = await rewriter.RunAsync(from, to, apply);
+            foreach (var column in report.Columns.Where(c => c.Matched > 0))
+                foreach (var sample in column.Samples)
+                    app.Logger.LogInformation("  sample {Table}.{Column}: {Sample}", column.Table, column.Column, sample);
+            if (apply)
+                app.Logger.LogInformation("Rewrote {Updated} of {Matched} image URLs from {From} to {To}.",
+                    report.TotalUpdated, report.TotalMatched, report.FromBase, report.ToBase);
+            else
+                app.Logger.LogInformation("Dry run: {Matched} image URLs start with {From} and would move to {To}. Nothing changed; re-run with --apply to rewrite.",
+                    report.TotalMatched, report.FromBase, report.ToBase);
+        }
+        catch (ArgumentException ex)
+        {
+            app.Logger.LogError("Image host rewrite refused: {Reason}", ex.Message);
+            Environment.ExitCode = 1;
+        }
+    }
+    return;
+}
 
 // ─── One-off seeding: `dotnet run -- --seed-bali` ─────────────────────────────
 // Applies pending migrations, seeds the "Bali Island Essentials" template wishlist

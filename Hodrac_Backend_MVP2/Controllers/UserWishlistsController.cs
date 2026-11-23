@@ -3,6 +3,7 @@ using Hodrac_Backend_MVP2.Infrastructure.SignalR;
 using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -46,6 +47,7 @@ public class UserWishlistsController : ControllerBase
     private readonly IHubContext<WishlistHub> _wishlistHub;
     private readonly IPartnerService _partners;
     private readonly IShareService _share;
+    private readonly ImageUrlNormalizer _images;
 
     public UserWishlistsController(
         IWishlistRepository wishlists,
@@ -53,9 +55,11 @@ public class UserWishlistsController : ControllerBase
         ICurrentUserService currentUser,
         IHubContext<WishlistHub> wishlistHub,
         IPartnerService partners,
-        IShareService share)
+        IShareService share,
+        ImageUrlNormalizer images)
     {
         _share = share;
+        _images = images;
         _wishlists     = wishlists;
         _collaborators = collaborators;
         _currentUser   = currentUser;
@@ -321,7 +325,8 @@ public class UserWishlistsController : ControllerBase
             var day = wishlist.ItineraryDays.FirstOrDefault(d => d.ItineraryDayId == dayId);
             if (day is null) return Task.FromResult<IActionResult?>(NotFound("Day not found."));
 
-            var error = ValidateItemFields(request.Title, request.TimeOfDay, titleRequired: true);
+            var imageUrl = _images.Normalize(request.ImageUrl);
+            var error = ValidateItemFields(request.Title, request.TimeOfDay, titleRequired: true) ?? ValidateImageUrl(imageUrl);
             if (error is not null) return Task.FromResult<IActionResult?>(error);
 
             var items = OrderedItems(day);
@@ -334,7 +339,7 @@ public class UserWishlistsController : ControllerBase
                 ItemTitle = request.Title.Trim(),
                 ItemDescription = request.Description ?? string.Empty,
                 TimeOfDay = request.TimeOfDay ?? string.Empty,
-                ImageUrl = request.ImageUrl ?? string.Empty,
+                ImageUrl = imageUrl ?? string.Empty,
                 SocialProofBadge = request.SocialProofBadge ?? string.Empty,
                 IndividualCostModifier = request.CostModifier ?? 0m,
                 IsOptionalActivity = request.IsOptional ?? false,
@@ -364,13 +369,14 @@ public class UserWishlistsController : ControllerBase
                 .ItineraryItems.FirstOrDefault(i => i.ItineraryItemId == itemId);
             if (item is null) return Task.FromResult<IActionResult?>(NotFound("Item not found."));
 
-            var error = ValidateItemFields(request.Title, request.TimeOfDay, titleRequired: false);
+            var imageUrl = _images.Normalize(request.ImageUrl);
+            var error = ValidateItemFields(request.Title, request.TimeOfDay, titleRequired: false) ?? ValidateImageUrl(imageUrl);
             if (error is not null) return Task.FromResult<IActionResult?>(error);
 
             if (request.Title is not null)               item.ItemTitle = request.Title.Trim();
             if (request.Description is not null)         item.ItemDescription = request.Description;
             if (request.TimeOfDay is not null)           item.TimeOfDay = request.TimeOfDay;
-            if (request.ImageUrl is not null)            item.ImageUrl = request.ImageUrl;
+            if (request.ImageUrl is not null)            item.ImageUrl = imageUrl!;
             if (request.SocialProofBadge is not null)    item.SocialProofBadge = request.SocialProofBadge;
             if (request.CostModifier.HasValue)           item.IndividualCostModifier = request.CostModifier.Value;
             if (request.IsOptional.HasValue)             item.IsOptionalActivity = request.IsOptional.Value;
@@ -563,6 +569,12 @@ public class UserWishlistsController : ControllerBase
             return BadRequest("TimeOfDay must be 'Morning', 'Afternoon' or 'Evening'.");
         return null;
     }
+
+    /// <summary>A non-blank (already normalized) item image must be an absolute http(s) URL.</summary>
+    private IActionResult? ValidateImageUrl(string? imageUrl)
+        => !string.IsNullOrWhiteSpace(imageUrl) && !_images.IsValidImageUrl(imageUrl)
+            ? BadRequest("ImageUrl must be an absolute http(s) URL.")
+            : null;
 
     private static Guid? NullIfEmpty(Guid? id) => id is null || id == Guid.Empty ? null : id;
 

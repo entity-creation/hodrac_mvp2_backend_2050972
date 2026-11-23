@@ -24,7 +24,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
     /// </summary>
     public static class CalabarSeeder
     {
-        private const string BlobBase = "https://wangq4yhmf94epv8.public.blob.vercel-storage.com/";
+        private static string BlobBase => SeedImages.BaseUrl;
 
         private static readonly JsonSerializerOptions JsonOpts = new()
         {
@@ -1027,10 +1027,11 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                 old.CommonAlternateSpellingsJson = JsonSerializer.Serialize(spec.Alternates, JsonOpts);
                 old.DescriptionJson = JsonSerializer.Serialize(spec.Desc, JsonOpts);
 
-                var oldImageUrl = BlobBase + $"{spec.Region}_{DestinationSearchFields.Normalize(oldName).Replace(' ', '-')}.jpg";
+                // The old file under the current host and every legacy host (rows seeded before a host move).
+                var oldImageUrls = SeedImages.UrlsUnderAllBases($"{spec.Region}_{DestinationSearchFields.Normalize(oldName).Replace(' ', '-')}.jpg");
                 var newImageUrl = DestinationImageUrl(spec);
                 foreach (var image in await db.DestinationImages
-                             .Where(i => i.DestinationId == old.DestinationId && i.ImageUrl == oldImageUrl).ToListAsync(ct))
+                             .Where(i => i.DestinationId == old.DestinationId && oldImageUrls.Contains(i.ImageUrl)).ToListAsync(ct))
                 {
                     image.ImageUrl = newImageUrl;
                     image.ThumbnailUrl = newImageUrl;
@@ -1044,7 +1045,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                     .Where(w => w.IsTemplate && wishlistNames.Contains(w.WishlistName))
                     .Select(w => w.WishlistId).ToListAsync(ct);
                 foreach (var item in await db.ItineraryItems
-                             .Where(i => i.ImageUrl == oldImageUrl).Include(i => i.ItineraryDay).ToListAsync(ct))
+                             .Where(i => oldImageUrls.Contains(i.ImageUrl)).Include(i => i.ItineraryDay).ToListAsync(ct))
                 {
                     item.ImageUrl = newImageUrl;
                     if (itemSpec != null && item.ItineraryDay != null && templateIds.Contains(item.ItineraryDay.WishlistId))

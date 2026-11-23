@@ -5,6 +5,7 @@ using Hodrac_Backend_MVP2.Interfaces;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Hodrac_Backend_MVP2.Services.Hosts;
+using Hodrac_Backend_MVP2.Services.Images;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -34,11 +35,13 @@ namespace Hodrac_Backend_MVP2.Controllers
         private readonly ITripPageViewCounter _pageViews;
         private readonly ITripThreadService _threads;
         private readonly TripCreationService _tripCreation;
+        private readonly ImageUrlNormalizer _images;
 
         public TripsController(HodracDbContext db, INotificationService notifications, ICurrentUserService currentUser, IUserRepository userRepo, ITripsRepository tripRepo, IHubContext<TripPostHub> tripPostHub,
             FeeCalculator fees, IOptions<HodracHostOptions> hostOptions, ITripPageViewCounter pageViews, ITripThreadService threads,
-            TripCreationService tripCreation)
+            TripCreationService tripCreation, ImageUrlNormalizer images)
         {
+            _images = images;
             _db = db;
             _notifications = notifications;
             _currentUser = currentUser;
@@ -425,6 +428,8 @@ namespace Hodrac_Backend_MVP2.Controllers
         [HttpPatch("{id:guid}")]
         public async Task<IActionResult> UpdateTrip(Guid id, [FromBody] UpdateTripRequest request)
         {
+            // Old image hosts are swapped for the primary one before validating and storing.
+            request = request with { CoverImageUrl = _images.Normalize(request.CoverImageUrl) };
             await using var tx = await _db.Database.BeginTransactionAsync();
             await LockTripAsync(id);
 

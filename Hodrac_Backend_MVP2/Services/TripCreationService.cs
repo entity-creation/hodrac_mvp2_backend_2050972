@@ -4,6 +4,7 @@ using Hodrac_Backend_MVP2.DTOs.TripPostDtos;
 using Hodrac_Backend_MVP2.Infrastucture.SignalR;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services.Hosts;
+using Hodrac_Backend_MVP2.Services.Images;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -50,13 +51,16 @@ public class TripCreationService
     private readonly IHubContext<TripPostHub> _tripPostHub;
     private readonly FeeCalculator _fees;
     private readonly HodracHostOptions _hostOptions;
+    private readonly ImageUrlNormalizer _images;
 
     public TripCreationService(
         HodracDbContext db,
         IHubContext<TripPostHub> tripPostHub,
         FeeCalculator fees,
-        IOptions<HodracHostOptions> hostOptions)
+        IOptions<HodracHostOptions> hostOptions,
+        ImageUrlNormalizer images)
     {
+        _images = images;
         _db = db;
         _tripPostHub = tripPostHub;
         _fees = fees;
@@ -204,6 +208,9 @@ public class TripCreationService
     {
         if (request.DestinationId is not null && request.WishlistId is not null)
             return TripCreateResult.Bad("A trip can reference a destination or a wishlist, not both.");
+
+        // Old image hosts are swapped for the primary one before validating and storing.
+        request = request with { CoverImageUrl = _images.Normalize(request.CoverImageUrl) };
 
         var validationError = ValidateTripFields(
             request.Caption, request.StartDate, request.EndDate, request.MaxGroupSize, request.CoverImageUrl);
