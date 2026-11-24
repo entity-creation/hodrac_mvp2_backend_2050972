@@ -7,7 +7,10 @@ namespace Hodrac_Backend_MVP2.Models
         Requested,
         Approved,
         Declined,
-        Withdrawn
+        Withdrawn,
+        // Hosted trips: the host removed an approved traveller who missed an
+        // instalment deadline (append only: stored as int).
+        Removed
     }
 
     // Created the moment a user taps "Interested" on a trip post.
@@ -36,6 +39,7 @@ namespace Hodrac_Backend_MVP2.Models
         public const int MaxTermsAcceptedIpLength = 45;
         public const int MaxTermsAcceptedUserAgentLength = 512;
         public const int MaxContactPhoneLength = 20;
+        public const int MaxRemovedReasonLength = 450;
 
         public InterestPaymentStatus PaymentStatus { get; set; } = InterestPaymentStatus.NotRequired;
 
@@ -56,6 +60,15 @@ namespace Hodrac_Backend_MVP2.Models
 
         // Optional at request time; the host needs it for WhatsApp.
         public string? ContactPhone { get; set; }
+
+        // TravellerChooses trips: the dates the traveller agreed to at
+        // accept-terms, as JSON [{"sequence":1,"dueDate":"2027-01-15"}, ...]
+        // (evidence alongside the terms fields; later date changes don't touch it).
+        public string? TermsInstalmentDatesJson { get; set; }
+
+        // Set when the host removed the traveller (Status Removed) for a missed payment.
+        public string? RemovedReason { get; set; }
+        public DateTime? RemovedAt { get; set; }
     }
 
     public enum InterestPaymentStatus

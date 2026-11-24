@@ -529,9 +529,9 @@ public class PaymentService
             if (locked is null) return new ManualPaymentResult(ManualPaymentOutcome.NotFound);
             (trip, interest) = locked.Value;
 
-            if (interest.Status is not (TripInterestStatus.Approved or TripInterestStatus.Withdrawn))
+            if (interest.Status is not (TripInterestStatus.Approved or TripInterestStatus.Withdrawn or TripInterestStatus.Removed))
                 return new ManualPaymentResult(ManualPaymentOutcome.Conflict,
-                    "Payments can only be recorded for approved (or withdrawn) travellers.");
+                    "Payments can only be recorded for approved (or withdrawn or removed) travellers.");
 
             if (method == ManualPaymentMethod.Refund)
             {

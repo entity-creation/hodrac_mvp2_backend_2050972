@@ -7,7 +7,9 @@ using Hodrac_Backend_MVP2.Services.Hosts;
 using Hodrac_Backend_MVP2.Services.Images;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -21,16 +23,21 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///   GET   /api/host/profile/me           my host profile (404 if none)
 ///   PATCH /api/host/profile/me           partial update
 ///   GET   /api/host/banks                Paystack's Nigerian banks (cached 24h)
-///   POST  /api/host/payout-account       { bankCode, accountNumber, confirm? }: resolve the
-///                                        account name; with confirm=true create/update the
-///                                        Paystack subaccount (only the last 4 digits are kept)
+///   POST  /api/host/payout-account       { bankCode, accountNumber, confirm?, password? }: resolve
+///                                        the account name; with confirm=true create/update the
+///                                        Paystack subaccount (only the last 4 digits are kept).
+///                                        CHANGING an existing account needs the login password;
+///                                        the host is emailed and notified, and admins are emailed.
+///                                        Resubmitting the current account is a no-op (200).
+///                                        Rate limited per user ("host-payout-account").
 ///   POST  /api/host/verification         multipart, all optional: cacNumber?, idDocument? (PDF/JPG/PNG
 ///                                        ≤5 MB), pastTripProofUrls[]? (0–10 http(s) links) → Pending
 ///                                        (from Unverified/Pending/Rejected; 409 if Verified). Whatever
 ///                                        is provided is validated; nothing is required to be verified.
 ///
 /// Hosted trips (HostController.Trips.cs): trips list, manifest (+ CSV), manual
-/// payments/refunds, WhatsApp nudge link, weekly report.
+/// payments/refunds, WhatsApp nudge link, weekly report. All-trips dashboard
+/// (HostController.Dashboard.cs): summary, trips, travellers (+ CSV).
 ///
 /// A host closed by Hodrac (HostClosure) gets 403 on PATCH profile, payout-account
 /// and verification; reads and the trip settlement endpoints stay open.
@@ -54,6 +61,8 @@ public partial class HostController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly ILogger<HostController> _logger;
     private readonly ImageUrlNormalizer _images;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly INotificationService _notifications;
 
     public HostController(
         HodracDbContext db,
@@ -64,8 +73,12 @@ public partial class HostController : ControllerBase
         IPaystackClient paystack,
         ICurrentUserService currentUser,
         ILogger<HostController> logger,
-        ImageUrlNormalizer images)
+        ImageUrlNormalizer images,
+        UserManager<ApplicationUser> userManager,
+        INotificationService notifications)
     {
+        _userManager = userManager;
+        _notifications = notifications;
         _images = images;
         _db = db;
         _hosts = hosts;
@@ -205,6 +218,7 @@ public partial class HostController : ControllerBase
     }
 
     [HttpPost("payout-account")]
+    [EnableRateLimiting("host-payout-account")]
     public async Task<ActionResult<PayoutAccountResultDto>> SetPayoutAccount(PayoutAccountRequest request, CancellationToken ct = default)
     {
         var host = await _hosts.GetByUserAsync(_currentUser.UserId, ct);
@@ -236,7 +250,25 @@ public partial class HostController : ControllerBase
             if (!request.Confirm)
                 return Ok(new PayoutAccountResultDto(false, bank.Code, bank.Name, resolved.AccountName, last4, null));
 
-            await _hosts.SetPayoutAccountAsync(host, bank.Code, bank.Name, accountNumber, resolved.AccountName, ct);
+            var isChange = HostService.HasPayoutAccount(host);
+            if (isChange)
+            {
+                // Resubmitting the current account changes nothing: no Paystack call, no emails.
+                if (HostService.IsSamePayoutAccount(host, bank.Code, last4, resolved.AccountName))
+                    return Ok(new PayoutAccountResultDto(true, bank.Code, bank.Name, resolved.AccountName, last4, HostProfileDto.FromEntity(host)));
+
+                var passwordProblem = await CheckPayoutPasswordAsync(request.Password);
+                if (passwordProblem is not null) return passwordProblem;
+            }
+
+            var previous = await _hosts.SetPayoutAccountAsync(host, bank.Code, bank.Name, accountNumber, resolved.AccountName, ct);
+            if (previous is not null)
+            {
+                var changedAt = host.UpdatedAt;
+                var emailed = await _hosts.EmailPayoutAccountChangedAsync(host, changedAt, ct);
+                await _notifications.NotifyPayoutAccountChanged(host.UserId, emailed);
+                await _hosts.NotifyAdminsOfPayoutChangeAsync(host, previous, changedAt);
+            }
             return Ok(new PayoutAccountResultDto(true, bank.Code, bank.Name, resolved.AccountName, last4, HostProfileDto.FromEntity(host)));
         }
         catch (PaystackException ex)
@@ -373,6 +405,39 @@ public partial class HostController : ControllerBase
     }
 
     /// <summary>Paystack errors: not configured → 503; rejected input → 400; anything else → 502.</summary>
+    /// <summary>
+    /// Re-authentication for a payout account CHANGE: the signed-in user's login
+    /// password. Null when it checks out, otherwise a 400 on "Password".
+    /// </summary>
+    private async Task<ActionResult?> CheckPayoutPasswordAsync(string? password)
+    {
+        const string field = nameof(PayoutAccountRequest.Password);
+        if (string.IsNullOrEmpty(password))
+        {
+            ModelState.AddModelError(field, "Enter your password to change your payout account.");
+            return ValidationProblem(ModelState);
+        }
+
+        var user = await _userManager.FindByIdAsync(_currentUser.UserId.ToString());
+        if (user is null) return Unauthorized();
+
+        // Every account is created with a password today (no external logins), but
+        // don't fail obscurely if one ever exists without a password.
+        if (!await _userManager.HasPasswordAsync(user))
+        {
+            ModelState.AddModelError(field, "Your account has no password. Set one with Forgot password, then try again.");
+            return ValidationProblem(ModelState);
+        }
+
+        if (!await _userManager.CheckPasswordAsync(user, password))
+        {
+            _logger.LogWarning("Wrong password on payout account change for user {UserId}", _currentUser.UserId);
+            ModelState.AddModelError(field, "Password is incorrect.");
+            return ValidationProblem(ModelState);
+        }
+        return null;
+    }
+
     private ActionResult PaystackFailure(PaystackException ex, string? field)
     {
         if (ex is PaystackNotConfiguredException)

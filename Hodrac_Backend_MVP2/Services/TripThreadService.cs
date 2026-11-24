@@ -13,6 +13,12 @@ namespace Hodrac_Backend_MVP2.Services
         /// so concurrent callers serialize).
         /// </summary>
         Task StageAddToThreadAsync(TripPost trip, Guid userId);
+
+        /// <summary>
+        /// Stages (does not save) removing the user from the trip's thread
+        /// (withdrawal, host removal). Never call it for the trip's author.
+        /// </summary>
+        Task StageRemoveFromThreadAsync(Guid tripId, Guid userId);
     }
 
     // Shared by TripsController (community approval, hosted -> community) and
@@ -27,6 +33,15 @@ namespace Hodrac_Backend_MVP2.Services
 
         // Checks the change tracker too, so it can be called for several users
         // before one SaveChanges.
+        public async Task StageRemoveFromThreadAsync(Guid tripId, Guid userId)
+        {
+            var participants = await _db.TripThreadParticipants
+                .Where(p => p.UserId == userId
+                    && _db.TripThreads.Any(t => t.Id == p.TripThreadId && t.TripPostId == tripId))
+                .ToListAsync();
+            _db.TripThreadParticipants.RemoveRange(participants);
+        }
+
         public async Task StageAddToThreadAsync(TripPost trip, Guid userId)
         {
             var thread = _db.TripThreads.Local.FirstOrDefault(t => t.TripPostId == trip.Id)

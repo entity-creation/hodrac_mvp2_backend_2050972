@@ -227,15 +227,24 @@ public class UserRepository : IUserRepository
 
     public async Task<NewsLetterEmail?> CreateNewsLetterEmail(NewsLetterEmail newsLetterEmail)
     {
+        var email = (newsLetterEmail.UserEmail ?? string.Empty).Trim();
+        var normalized = email.ToLowerInvariant();
         var exitingUser = await _db.NewsLetterEmails.FirstOrDefaultAsync(u =>
-                u.UserEmail == newsLetterEmail.UserEmail
+                u.UserEmail.ToLower() == normalized
             );
         if (exitingUser == null)
         {
-            var newEmail = new NewsLetterEmail { UserEmail = newsLetterEmail.UserEmail };
+            var newEmail = new NewsLetterEmail { UserEmail = email };
             await _db.NewsLetterEmails.AddAsync(newEmail);
             await _db.SaveChangesAsync();
             return newEmail;
+        }
+        // Signing up again after unsubscribing from the newsletter re-subscribes.
+        if (exitingUser.UnsubscribedAt != null)
+        {
+            exitingUser.UnsubscribedAt = null;
+            await _db.SaveChangesAsync();
+            return exitingUser;
         }
         return null;
     }

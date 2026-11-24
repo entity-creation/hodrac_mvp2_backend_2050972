@@ -10,7 +10,8 @@ namespace Hodrac_Backend_MVP2.Infrastructure.Jobs;
 /// <summary>
 /// Daily at 08:00 WAT (07:00 UTC). Hosted trips only. For each approved
 /// traveller who still owes seat money, finds the next unpaid schedule line
-/// (deposit: due on the seat-hold expiry day; instalments: their DueDate, WAT
+/// (deposit: due on the seat-hold expiry day; instalments: their DueDate, or
+/// the traveller's chosen date on TravellerChooses trips, WAT
 /// dates) and, when it is due in 3 days, in 1 day, today, or was due exactly
 /// 2 days ago, emails a "Pay now" reminder and adds an in-app InstalmentDue
 /// notification.
@@ -83,6 +84,8 @@ public class InstalmentReminderJob
             .Where(t => tripIds.Contains(t.Id))
             .ToDictionaryAsync(t => t.Id, ct);
         var titles = await _trips.TripTitlesAsync(tripIds, ct);
+        // TravellerChooses trips: each traveller's own instalment dates.
+        var travellerDates = await TravellerInstalmentDates.LoadAsync(_db, interests.Select(i => i.Id).ToList(), ct);
 
         var sent = 0;
         foreach (var interest in interests)
@@ -90,7 +93,8 @@ public class InstalmentReminderJob
             ct.ThrowIfCancellationRequested();
             try
             {
-                if (await RemindAsync(trips[interest.TripPostId], interest, titles.GetValueOrDefault(interest.TripPostId) ?? "Trip", today, nowUtc, ct))
+                if (await RemindAsync(trips[interest.TripPostId], interest, travellerDates.GetValueOrDefault(interest.Id),
+                        titles.GetValueOrDefault(interest.TripPostId) ?? "Trip", today, nowUtc, ct))
                     sent++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -107,12 +111,14 @@ public class InstalmentReminderJob
         return sent;
     }
 
-    private async Task<bool> RemindAsync(TripPost trip, TripInterest interest, string title, DateOnly today, DateTime nowUtc, CancellationToken ct)
+    private async Task<bool> RemindAsync(
+        TripPost trip, TripInterest interest, IReadOnlyDictionary<int, DateOnly>? travellerDates,
+        string title, DateOnly today, DateTime nowUtc, CancellationToken ct)
     {
         var owes = HostTripService.Owes(trip, interest);
         if (owes <= 0) return false;
 
-        var line = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo).FirstOrDefault(l => !l.IsPaid);
+        var line = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo, travellerDates).FirstOrDefault(l => !l.IsPaid);
         if (line is null) return false;
 
         DateOnly? due = line.DueDate;

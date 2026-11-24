@@ -7,7 +7,7 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
 
     public record AdminTripAuthorDto(Guid UserId, string? DisplayName, string? Email);
 
-    public record AdminTripInterestCountsDto(int Requested, int Approved, int Declined, int Withdrawn);
+    public record AdminTripInterestCountsDto(int Requested, int Approved, int Declined, int Withdrawn, int Removed = 0);
 
     public record AdminTripSummaryDto(
         Guid Id,

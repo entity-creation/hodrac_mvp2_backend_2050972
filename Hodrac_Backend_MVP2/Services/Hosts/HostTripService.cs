@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq.Expressions;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.HostDtos;
 using Hodrac_Backend_MVP2.Models;
@@ -31,6 +32,13 @@ public class HostTripService
     }
 
     public static DateOnly TodayWat(DateTime utcNow) => DateOnly.FromDateTime(utcNow + Wat);
+
+    /// <summary>"My hosted trips": I'm the author and the trip is on my own host profile (trips list, dashboard).</summary>
+    public static Expression<Func<TripPost, bool>> OwnedHostedTrips(Guid userId) =>
+        t => t.IsHostedTrip
+            && t.AuthorUserId == userId
+            && t.HostProfile != null
+            && t.HostProfile.UserId == userId;
 
     /// <summary>The caller's hosted trip (with host profile), or null (→ 404).</summary>
     public Task<TripPost?> GetOwnedHostedTripAsync(Guid userId, Guid tripId, CancellationToken ct = default) =>
@@ -72,10 +80,7 @@ public class HostTripService
     public async Task<List<HostTripSummaryDto>> ListTripsAsync(Guid userId, CancellationToken ct = default)
     {
         var trips = await _db.TripPosts.AsNoTracking()
-            .Where(t => t.IsHostedTrip
-                && t.AuthorUserId == userId
-                && t.HostProfile != null
-                && t.HostProfile.UserId == userId)
+            .Where(OwnedHostedTrips(userId))
             .ToListAsync(ct);
         if (trips.Count == 0) return new List<HostTripSummaryDto>();
 
@@ -154,15 +159,20 @@ public class HostTripService
             .Select(g => new { g.Key, Last = g.Max(r => r.SentAt) })
             .ToDictionaryAsync(x => x.Key, x => x.Last, ct);
 
+        var travellerDates = trip.InstalmentDatesMode == InstalmentDatesMode.TravellerChooses
+            ? await TravellerInstalmentDates.LoadAsync(_db, interestIds, ct)
+            : new Dictionary<Guid, Dictionary<int, DateOnly>>();
+        var today = TodayWat(DateTime.UtcNow);
+
         var price = trip.PricePerSeatKobo ?? 0;
         var rows = interests
             .Select(i =>
             {
                 var user = users.GetValueOrDefault(i.RequesterUserId.ToString());
                 var owes = Owes(trip, i);
-                ScheduleLine? next = owes > 0
-                    ? PaymentSchedule.Allocate(trip, i.AmountPaidKobo).FirstOrDefault(l => !l.IsPaid)
-                    : null;
+                var dates = travellerDates.GetValueOrDefault(i.Id);
+                var lines = PaymentSchedule.Allocate(trip, i.AmountPaidKobo, dates);
+                ScheduleLine? next = owes > 0 ? lines.FirstOrDefault(l => !l.IsPaid) : null;
                 return new ManifestRowDto(
                     i.Id,
                     i.RequesterUserId,
@@ -181,7 +191,12 @@ public class HostTripService
                     next?.RemainingKobo,
                     i.SeatHoldExpiresAt,
                     lastReminders.TryGetValue(i.Id, out var last) ? last : null,
-                    i.RequestedAt);
+                    i.RequestedAt,
+                    DatesChosenByTraveller: dates is { Count: > 0 },
+                    CanRemove: RemovableOverdueLines(trip, i, lines, today).Count > 0,
+                    RemovedReason: i.RemovedReason,
+                    RemovedAt: i.RemovedAt,
+                    OverdueKobo: OverdueOwed(trip, owes, lines, today));
             })
             .OrderBy(r => SortRank(r))
             .ThenBy(r => r.TravellerName, StringComparer.OrdinalIgnoreCase)
@@ -198,7 +213,8 @@ public class HostTripService
             PaidKobo: rows.Sum(r => r.PaidKobo),
             ViaHodracKobo: rows.Sum(r => r.ViaHodracKobo),
             ManualKobo: rows.Sum(r => r.ManualKobo),
-            OwesKobo: rows.Sum(r => r.OwesKobo));
+            OwesKobo: rows.Sum(r => r.OwesKobo),
+            OverdueKobo: rows.Sum(r => r.OverdueKobo));
 
         return new ManifestDto(
             trip.Id,
@@ -219,6 +235,35 @@ public class HostTripService
             ? Math.Max(0, (trip.PricePerSeatKobo ?? 0) - interest.AmountPaidKobo)
             : 0;
 
+    /// <summary>
+    /// Σ remaining of the overdue instalment lines (<see cref="PaymentSchedule.OverdueKobo"/>),
+    /// counted only while the traveller owes (<paramref name="owesKobo"/> from
+    /// <see cref="Owes"/>: Approved, not expired) on a trip that isn't cancelled.
+    /// </summary>
+    public static long OverdueOwed(TripPost trip, long owesKobo, IReadOnlyList<ScheduleLine> lines, DateOnly today) =>
+        owesKobo > 0 && trip.Status != TripPostStatus.Cancelled ? PaymentSchedule.OverdueKobo(lines, today) : 0;
+
+    /// <summary>
+    /// The overdue instalments that let the host remove this traveller
+    /// (POST .../travellers/{interestId}/remove); empty when removal isn't
+    /// allowed. Allowed only on a hosted trip for an Approved traveller whose
+    /// seat hold hasn't expired and whose deposit is paid, with at least one
+    /// unpaid instalment due before <paramref name="today"/> (WAT), using the
+    /// traveller's own dates on TravellerChooses trips (<paramref name="lines"/>
+    /// = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo, travellerDates)).
+    /// An unpaid deposit alone never qualifies: the seat-hold expiry covers it.
+    /// </summary>
+    public static List<ScheduleLine> RemovableOverdueLines(
+        TripPost trip, TripInterest interest, IReadOnlyList<ScheduleLine> lines, DateOnly today)
+    {
+        if (!trip.IsHostedTrip
+            || interest.Status != TripInterestStatus.Approved
+            || interest.PaymentStatus == InterestPaymentStatus.Expired
+            || lines.Any(l => l.Kind == SeatPaymentKind.Deposit && !l.IsPaid))
+            return new List<ScheduleLine>();
+        return PaymentSchedule.OverdueLines(lines, today);
+    }
+
     private static int SortRank(ManifestRowDto row)
     {
         if (row.InterestStatus != nameof(TripInterestStatus.Approved)) return 3;
@@ -231,7 +276,8 @@ public class HostTripService
         };
     }
 
-    private static DateOnly? SeatHoldDay(DateTime? seatHoldExpiresAt) =>
+    /// <summary>The WAT day a seat hold expires (the deposit's "due date" on the manifest and dashboard).</summary>
+    public static DateOnly? SeatHoldDay(DateTime? seatHoldExpiresAt) =>
         seatHoldExpiresAt is { } at ? DateOnly.FromDateTime(at + Wat) : null;
 
     // ── WhatsApp nudge ───────────────────────────────────────────────────────

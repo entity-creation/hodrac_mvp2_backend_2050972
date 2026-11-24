@@ -2,6 +2,7 @@ using System.Text;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.AdminDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
+using Hodrac_Backend_MVP2.Infrastucture.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -57,7 +58,7 @@ public class AdminNewsletterController : ControllerBase
             .ThenBy(n => n.EmailId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(n => new AdminNewsletterSubscriberDto(n.EmailId, n.UserEmail))
+            .Select(n => new AdminNewsletterSubscriberDto(n.EmailId, n.UserEmail, n.UnsubscribedAt))
             .ToListAsync(ct);
 
         return Ok(new AdminPagedResult<AdminNewsletterSubscriberDto>(items, page, pageSize, total));
@@ -77,15 +78,14 @@ public class AdminNewsletterController : ControllerBase
                            .AsAsyncEnumerable()
                            .WithCancellation(ct))
         {
-            csv.Append(row.EmailId.ToString()).Append(',').Append(CsvField(row.UserEmail)).Append("\r\n");
+            csv.Append(row.EmailId.ToString()).Append(',').Append(CsvExport.Field(row.UserEmail)).Append("\r\n");
         }
 
-        // UTF-8 with BOM so Excel detects the encoding.
-        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+        var bytes = CsvExport.ToBytes(csv);
         var fileName = $"newsletter-subscribers-{DateTime.UtcNow:yyyy-MM-dd}.csv";
 
         _logger.LogInformation("Admin exported newsletter subscribers");
-        return File(bytes, "text/csv", fileName);
+        return File(bytes, CsvExport.ContentType, fileName);
     }
 
     [HttpDelete("{id:guid}")]
@@ -99,20 +99,6 @@ public class AdminNewsletterController : ControllerBase
 
         _logger.LogInformation("Admin deleted newsletter subscriber {EmailId}", id);
         return NoContent();
-    }
-
-    /// <summary>
-    /// RFC 4180 quoting, plus a leading apostrophe for values starting with
-    /// = + - @ (tab/CR) so spreadsheets don't evaluate them as formulas.
-    /// </summary>
-    private static string CsvField(string? value)
-    {
-        value ??= string.Empty;
-        if (value.Length > 0 && "=+-@\t\r".Contains(value[0]))
-            value = "'" + value;
-
-        var needsQuotes = value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0 || value != value.Trim();
-        return needsQuotes ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
     }
 
     private static string EscapeLike(string value)

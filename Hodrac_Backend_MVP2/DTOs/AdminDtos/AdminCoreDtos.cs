@@ -102,5 +102,5 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
 
     // ─── Newsletter ───────────────────────────────────────────────────────────
 
-    public record AdminNewsletterSubscriberDto(Guid EmailId, string UserEmail);
+    public record AdminNewsletterSubscriberDto(Guid EmailId, string UserEmail, DateTime? UnsubscribedAt = null);
 }

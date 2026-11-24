@@ -193,6 +193,11 @@ public class TripPostConfiguration : IEntityTypeConfiguration<TripPost>
             .HasMaxLength(32)
             .HasDefaultValue(FeeMode.PassToTraveller);
 
+        builder.Property(t => t.InstalmentDatesMode)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(InstalmentDatesMode.HostSet);
+
         builder.Property(t => t.SeatHoldHours).HasDefaultValue(TripPost.DefaultSeatHoldHours);
         builder.Property(t => t.TermsVersion).HasDefaultValue(1);
 
@@ -238,9 +243,26 @@ public class TripInterestConfiguration : IEntityTypeConfiguration<TripInterest>
         builder.Property(i => i.TermsAcceptedIp).HasMaxLength(TripInterest.MaxTermsAcceptedIpLength);
         builder.Property(i => i.TermsAcceptedUserAgent).HasMaxLength(TripInterest.MaxTermsAcceptedUserAgentLength);
         builder.Property(i => i.ContactPhone).HasMaxLength(TripInterest.MaxContactPhoneLength);
+        builder.Property(i => i.RemovedReason).HasMaxLength(TripInterest.MaxRemovedReasonLength);
 
         // Seat-hold expiry job: AwaitingDeposit past SeatHoldExpiresAt.
         builder.HasIndex(i => new { i.PaymentStatus, i.SeatHoldExpiresAt });
+    }
+}
+
+
+public class TripInterestInstalmentDateConfiguration : IEntityTypeConfiguration<TripInterestInstalmentDate>
+{
+    public void Configure(EntityTypeBuilder<TripInterestInstalmentDate> builder)
+    {
+        builder.ToTable("TripInterestInstalmentDates");
+        builder.HasKey(d => new { d.TripInterestId, d.Sequence });
+        builder.Property(d => d.Sequence).ValueGeneratedNever();
+
+        builder.HasOne(d => d.TripInterest)
+            .WithMany()
+            .HasForeignKey(d => d.TripInterestId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 
@@ -301,6 +323,52 @@ public class NewsLetterEmailConfiguration : IEntityTypeConfiguration<NewsLetterE
     public void Configure(EntityTypeBuilder<NewsLetterEmail> builder)
     {
         builder.HasKey(n => n.EmailId);
+    }
+}
+
+// ─── Weekly newsletter ────────────────────────────────────────────────────────
+
+public class NewsletterIssueConfiguration : IEntityTypeConfiguration<NewsletterIssue>
+{
+    public void Configure(EntityTypeBuilder<NewsletterIssue> builder)
+    {
+        builder.ToTable("NewsletterIssues");
+        builder.HasKey(i => i.Id);
+
+        builder.HasIndex(i => i.IssueDate).IsUnique();
+        builder.HasIndex(i => new { i.Status, i.ScheduledFor });
+
+        builder.Property(i => i.Subject).HasMaxLength(NewsletterIssue.MaxSubjectLength).IsRequired();
+        builder.Property(i => i.PreviewText).HasMaxLength(NewsletterIssue.MaxPreviewTextLength).IsRequired();
+        builder.Property(i => i.BodyMarkdown).HasColumnType("text").IsRequired();
+        builder.Property(i => i.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(NewsletterIssueStatus.Draft);
+    }
+}
+
+public class NewsletterDeliveryConfiguration : IEntityTypeConfiguration<NewsletterDelivery>
+{
+    public void Configure(EntityTypeBuilder<NewsletterDelivery> builder)
+    {
+        builder.ToTable("NewsletterDeliveries");
+        builder.HasKey(d => d.Id);
+
+        builder.HasIndex(d => new { d.IssueId, d.Email }).IsUnique();
+        builder.HasIndex(d => new { d.IssueId, d.Status });
+
+        builder.Property(d => d.Email).HasMaxLength(NewsletterDelivery.MaxEmailLength).IsRequired();
+        builder.Property(d => d.LastError).HasMaxLength(NewsletterDelivery.MaxLastErrorLength);
+        builder.Property(d => d.Status)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .HasDefaultValue(NewsletterDeliveryStatus.Pending);
+
+        builder.HasOne(d => d.Issue)
+            .WithMany(i => i.Deliveries)
+            .HasForeignKey(d => d.IssueId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

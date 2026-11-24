@@ -21,6 +21,19 @@ namespace Hodrac_Backend_MVP2.Models
         HostAbsorbs
     }
 
+    // Who picks the instalment due dates on a hosted trip. HostSet (default):
+    // every instalment carries the host's DueDate. TravellerChooses: the host
+    // sets the amounts and one PayInFullByDate; each traveller picks a date
+    // per instalment at accept-terms (TripInterestInstalmentDate) and can move
+    // unpaid ones later, up to the deadline. Accepted in JSON as
+    // "HostSet" / "TravellerChooses" (or 0 / 1).
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public enum InstalmentDatesMode
+    {
+        HostSet,
+        TravellerChooses
+    }
+
     // One line of a hosted trip's payment schedule after the deposit.
     // EF owned type, stored in its own table TripInstalments keyed
     // (TripPostId, Sequence).
@@ -28,7 +41,8 @@ namespace Hodrac_Backend_MVP2.Models
     {
         public int Sequence { get; set; }
         public long AmountKobo { get; set; }
-        public DateOnly DueDate { get; set; }
+        // Required when the trip is HostSet; null when TravellerChooses.
+        public DateOnly? DueDate { get; set; }
     }
 
     // A trip post is anchored to exactly ONE of:
@@ -108,6 +122,12 @@ namespace Hodrac_Backend_MVP2.Models
         public List<TripInstalment> Instalments { get; set; } = new();
 
         public FeeMode FeeMode { get; set; } = FeeMode.PassToTraveller;
+
+        // Who picks the instalment dates (see InstalmentDatesMode). PayInFullByDate
+        // is required (after today, before StartDate) in TravellerChooses and
+        // null in HostSet.
+        public InstalmentDatesMode InstalmentDatesMode { get; set; } = InstalmentDatesMode.HostSet;
+        public DateOnly? PayInFullByDate { get; set; }
 
         // Approved-but-unpaid seats expire after this many hours.
         public int SeatHoldHours { get; set; } = DefaultSeatHoldHours;

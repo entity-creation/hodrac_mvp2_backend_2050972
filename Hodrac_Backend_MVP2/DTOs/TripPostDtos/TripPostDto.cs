@@ -11,7 +11,26 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         public const string Hosted = "hosted";
     }
 
-    public record TripInstalmentDto(int Sequence, long AmountKobo, DateOnly DueDate);
+    // The trip's location label (TripPostDto.DestinationLabel, host dashboard):
+    // a destination trip shows "Name, Country"; a wishlist trip its stops
+    // (alphabetical, joined by " · ") or the wishlist name when it has none;
+    // otherwise the free text, then the caption, then "Trip".
+    public static class TripLocationLabel
+    {
+        public static string ForDestination(string destinationName, string? countryName) =>
+            $"{destinationName}, {countryName}".Trim(',', ' ');
+
+        // Callers pass the stops already in display order (alphabetical by name).
+        public static string ForWishlist(IReadOnlyCollection<string> orderedStopNames, string wishlistName) =>
+            orderedStopNames.Count > 0 ? string.Join(" · ", orderedStopNames) : wishlistName;
+
+        public static string ForFreeText(string? freeTextDestination, string? caption) =>
+            !string.IsNullOrWhiteSpace(freeTextDestination) ? freeTextDestination!
+            : !string.IsNullOrWhiteSpace(caption) ? caption! : "Trip";
+    }
+
+    // DueDate is null when the trip's instalment dates are chosen by each traveller.
+    public record TripInstalmentDto(int Sequence, long AmountKobo, DateOnly? DueDate);
 
     // Public badge for a hosted trip's host. Never payout details, verification
     // documents or the Paystack subaccount.
@@ -24,6 +43,8 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
 
     // The caller's own interest on a trip, projected alongside the trip in
     // one query (feeds the my* fields of TripPostDto). Never sent as is.
+    public record TripViewerInstalmentDate(int Sequence, DateOnly DueDate);
+
     public class TripViewerInterest
     {
         public Guid Id { get; init; }
@@ -32,15 +53,23 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         public DateTime? SeatHoldExpiresAt { get; init; }
         public long AmountPaidKobo { get; init; }
         public int? TermsVersionAccepted { get; init; }
+        // The viewer's chosen instalment dates (TravellerChooses trips).
+        public List<TripViewerInstalmentDate>? InstalmentDates { get; init; }
 
-        public static TripViewerInterest From(TripInterest i) => new()
+        public Dictionary<int, DateOnly> DateMap() =>
+            (InstalmentDates ?? new List<TripViewerInstalmentDate>())
+                .GroupBy(d => d.Sequence)
+                .ToDictionary(g => g.Key, g => g.First().DueDate);
+
+        public static TripViewerInterest From(TripInterest i, IReadOnlyDictionary<int, DateOnly>? dates = null) => new()
         {
             Id = i.Id,
             Status = i.Status,
             PaymentStatus = i.PaymentStatus,
             SeatHoldExpiresAt = i.SeatHoldExpiresAt,
             AmountPaidKobo = i.AmountPaidKobo,
-            TermsVersionAccepted = i.TermsVersionAccepted
+            TermsVersionAccepted = i.TermsVersionAccepted,
+            InstalmentDates = dates?.Select(d => new TripViewerInstalmentDate(d.Key, d.Value)).ToList()
         };
     }
 
@@ -100,7 +129,11 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         long? MyAmountPaidKobo = null,
         long? MyOwesKobo = null,
         int? MyTermsVersionAccepted = null,
-        MyNextPaymentDto? MyNextPayment = null)
+        MyNextPaymentDto? MyNextPayment = null,
+        // Hosted trips: "HostSet" | "TravellerChooses" (null on community trips),
+        // and the pay-in-full deadline (TravellerChooses only).
+        string? InstalmentDatesMode = null,
+        DateOnly? PayInFullByDate = null)
     {
         // approvedCount: approved, non-expired members excluding the author.
         // fees: needed for TravellerFeePreviewKobo (left null without it).
@@ -137,7 +170,9 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                 Inclusions = hosted.Inclusions,
                 Exclusions = hosted.Exclusions,
                 TermsVersion = hosted.TermsVersion,
-                Host = hosted.Host
+                Host = hosted.Host,
+                InstalmentDatesMode = hosted.InstalmentDatesMode,
+                PayInFullByDate = hosted.PayInFullByDate
             };
         }
 
@@ -152,7 +187,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
             MyNextPaymentDto? next = null;
             if (mine.Status == TripInterestStatus.Approved && mine.PaymentStatus != InterestPaymentStatus.Expired)
             {
-                var line = PaymentSchedule.Allocate(trip, mine.AmountPaidKobo).FirstOrDefault(l => !l.IsPaid);
+                var line = PaymentSchedule.Allocate(trip, mine.AmountPaidKobo, mine.DateMap()).FirstOrDefault(l => !l.IsPaid);
                 if (line is not null)
                 {
                     var total = fees?.Calculate(trip, trip.HostProfile ?? new HostProfile(), line.RemainingKobo, DateTime.UtcNow)
@@ -182,7 +217,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                 return new TripPostDto(
                     trip.Id,
                     trip.AuthorUserId,
-                    DestinationLabel: $"{trip.Destination.DestinationName}, {trip.Destination.Country?.CountryName}".Trim(',', ' '),
+                    DestinationLabel: TripLocationLabel.ForDestination(trip.Destination.DestinationName, trip.Destination.Country?.CountryName),
                     Stops: new List<TripStopDto> { new(trip.Destination.DestinationId, trip.Destination.DestinationName, img) },
                     WishlistId: null,
                     trip.StartDate, trip.EndDate, trip.IsDateFlexible,
@@ -203,9 +238,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                         wd.Destination.Images?.FirstOrDefault()?.ImageUrl))
                     .ToList();
 
-                var label = orderedStops.Count > 0
-                    ? string.Join(" · ", orderedStops.Select(s => s.Name))
-                    : trip.Wishlist.WishlistName;
+                var label = TripLocationLabel.ForWishlist(orderedStops.Select(s => s.Name).ToList(), trip.Wishlist.WishlistName);
 
                 var img = trip.CoverImageUrl ?? trip.Wishlist.WishlistHeroImage;
 
@@ -227,9 +260,7 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
             return new TripPostDto(
                 trip.Id,
                 trip.AuthorUserId,
-                DestinationLabel: !string.IsNullOrWhiteSpace(trip.FreeTextDestination)
-                    ? trip.FreeTextDestination!
-                    : (!string.IsNullOrWhiteSpace(trip.Caption) ? trip.Caption : "Trip"),
+                DestinationLabel: TripLocationLabel.ForFreeText(trip.FreeTextDestination, trip.Caption),
                 Stops: new List<TripStopDto>(),
                 WishlistId: null,
                 trip.StartDate, trip.EndDate, trip.IsDateFlexible,
@@ -267,7 +298,9 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         int? SeatsLeft = null,
         string? Inclusions = null,
         string? Exclusions = null,
-        TripHostDto? Host = null)
+        TripHostDto? Host = null,
+        string? InstalmentDatesMode = null,
+        DateOnly? PayInFullByDate = null)
     {
         // approvedCount only matters for hosted trips (SeatsLeft).
         public static PublicTripPostDto FromEntity(TripPost trip, int approvedCount = 0, FeeCalculator? fees = null)
@@ -279,7 +312,8 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                 dto.Caption, dto.CoverImageUrl, dto.MaxGroupSize, dto.Status, dto.CreatedAt,
                 dto.TripType, dto.IsHostedTrip, dto.PricePerSeatKobo, dto.Currency, dto.DepositKobo,
                 dto.Instalments, dto.FeeMode, dto.TravellerFeePreviewKobo, dto.SeatsLeft,
-                dto.Inclusions, dto.Exclusions, dto.Host);
+                dto.Inclusions, dto.Exclusions, dto.Host,
+                dto.InstalmentDatesMode, dto.PayInFullByDate);
         }
     }
 
@@ -296,7 +330,9 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
         string? Inclusions,
         string? Exclusions,
         int TermsVersion,
-        TripHostDto? Host)
+        TripHostDto? Host,
+        string InstalmentDatesMode,
+        DateOnly? PayInFullByDate)
     {
         public static HostedTripProjection? From(TripPost trip, int approvedCount, FeeCalculator? fees)
         {
@@ -337,7 +373,9 @@ namespace Hodrac_Backend_MVP2.DTOs.TripPostDtos
                 trip.Inclusions,
                 trip.Exclusions,
                 trip.TermsVersion,
-                host);
+                host,
+                trip.InstalmentDatesMode.ToString(),
+                trip.InstalmentDatesMode == Models.InstalmentDatesMode.TravellerChooses ? trip.PayInFullByDate : null);
         }
     }
 }

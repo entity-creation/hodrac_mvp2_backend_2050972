@@ -172,7 +172,7 @@ public class HostOnboardingTests
         }
 
         // Changing the account updates the existing subaccount instead of creating another.
-        var change = await client.PostAsJsonAsync("/api/host/payout-account", new { bankCode = "001", accountNumber = "1234567890", confirm = true });
+        var change = await client.PostAsJsonAsync("/api/host/payout-account", new { bankCode = "001", accountNumber = "1234567890", confirm = true, password = AuthHelper.DefaultPassword });
         change.StatusCode.Should().Be(HttpStatusCode.OK);
         _factory.Paystack.UpdatedSubaccounts.Should().Contain(u => u.Code == host.PaystackSubaccountCode && u.Update.AccountNumber == "1234567890");
         (await LoadHostAsync(hostId)).SettlementAccountLast4.Should().Be("7890");

@@ -60,12 +60,29 @@ public class HostService
 
     // ── Payout account ───────────────────────────────────────────────────────
 
+    /// <summary>The payout account a host had before a change (never the full number).</summary>
+    public record PayoutAccountSnapshot(string? BankName, string? AccountLast4, string? AccountName);
+
+    /// <summary>True when the host already has a Paystack subaccount (a confirm is a CHANGE).</summary>
+    public static bool HasPayoutAccount(HostProfile host) => host.PaystackSubaccountCode is not null;
+
+    /// <summary>Same bank code, last 4 digits and resolved account name as the stored account.</summary>
+    public static bool IsSamePayoutAccount(HostProfile host, string bankCode, string accountLast4, string accountName) =>
+        HasPayoutAccount(host)
+        && string.Equals(host.SettlementBankCode, bankCode, StringComparison.Ordinal)
+        && string.Equals(host.SettlementAccountLast4, accountLast4, StringComparison.Ordinal)
+        && string.Equals(
+            host.SettlementAccountName?.Trim(),
+            Truncate(accountName.Trim(), HostProfile.MaxAccountNameLength),
+            StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Creates the host's Paystack subaccount (or points the existing one at the
     /// new bank account) and stores only the code, bank, account name and last 4.
     /// The full account number goes to Paystack and is never persisted.
+    /// Returns the previous account for a CHANGE, or null for the first setup.
     /// </summary>
-    public async Task SetPayoutAccountAsync(
+    public async Task<PayoutAccountSnapshot?> SetPayoutAccountAsync(
         HostProfile host,
         string bankCode,
         string bankName,
@@ -74,6 +91,9 @@ public class HostService
         CancellationToken ct = default)
     {
         var contactEmail = await GetUserEmailAsync(host.UserId, ct);
+        var previous = HasPayoutAccount(host)
+            ? new PayoutAccountSnapshot(host.SettlementBankName, host.SettlementAccountLast4, host.SettlementAccountName)
+            : null;
 
         PaystackSubaccount subaccount;
         if (host.PaystackSubaccountCode is null)
@@ -104,7 +124,44 @@ public class HostService
 
         _logger.LogInformation("Host {HostId} payout account set (subaccount {Code}, bank {BankCode}, ****{Last4})",
             host.Id, subaccount.SubaccountCode, bankCode, host.SettlementAccountLast4);
+        return previous;
     }
+
+    /// <summary>
+    /// Emails the host that their payout account was changed (new bank, last 4 and
+    /// account name only). Returns true when sent. Best-effort.
+    /// </summary>
+    public async Task<bool> EmailPayoutAccountChangedAsync(HostProfile host, DateTime changedAtUtc, CancellationToken ct = default)
+    {
+        var to = await GetUserEmailAsync(host.UserId, ct);
+        if (string.IsNullOrWhiteSpace(to)) return false;
+
+        var lines = new List<string>
+        {
+            $"The payout account for {host.DisplayName} was changed on {FormatWat(changedAtUtc)}.",
+            $"New account: {host.SettlementBankName}, ending {host.SettlementAccountLast4} ({host.SettlementAccountName}).",
+            "Payouts for your hosted trips now go to this account.",
+            $"If this wasn't you, contact Hodrac support immediately at {HodracContact.SupportEmail} and change your password.",
+        };
+
+        return await TrySendToHostAsync(host, to, "Your Hodrac payout account was changed", lines, "payout account change");
+    }
+
+    /// <summary>Emails every address in Admin:Emails about a payout account change (last 4 digits only). Best-effort.</summary>
+    public Task NotifyAdminsOfPayoutChangeAsync(HostProfile host, PayoutAccountSnapshot previous, DateTime changedAtUtc) =>
+        EmailAdminsAsync(host.Id, "Host payout account changed", new List<string>
+        {
+            $"{host.DisplayName} (host {host.Id}) changed their payout account.",
+            $"From: {previous.BankName ?? "unknown bank"}, ending {previous.AccountLast4 ?? "????"}",
+            $"To: {host.SettlementBankName}, ending {host.SettlementAccountLast4} ({host.SettlementAccountName})",
+            $"Time: {FormatWat(changedAtUtc)}",
+            "If this looks wrong, contact the host and check the subaccount in the Paystack dashboard.",
+        });
+
+    /// <summary>"23 Nov 2026, 14:05 WAT".</summary>
+    private static string FormatWat(DateTime utc) =>
+        (DateTime.SpecifyKind(utc, DateTimeKind.Utc) + HostTripService.Wat)
+            .ToString("d MMM yyyy, HH:mm", System.Globalization.CultureInfo.InvariantCulture) + " WAT";
 
     /// <summary>Keeps the subaccount's business_name equal to the display name. Best-effort.</summary>
     public async Task SyncSubaccountNameAsync(HostProfile host, CancellationToken ct = default)
@@ -299,7 +356,7 @@ public class HostService
         if (!string.IsNullOrWhiteSpace(reason)) lines.Add($"Reason: {reason}");
         lines.Add("Your trips can't take new payments, and trips nobody has paid for are no longer shown.");
         lines.Add("Trips with paid travellers stay up: you can still open their manifests and record payments and refunds to settle with them.");
-        lines.Add("If you think this is a mistake, contact Hodrac support.");
+        lines.Add($"If you think this is a mistake, contact Hodrac support at {HodracContact.SupportEmail}.");
 
         return await TrySendToHostAsync(host, to, "Your Hodrac host account was closed", lines, "account closure");
     }

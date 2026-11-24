@@ -83,9 +83,15 @@ namespace Hodrac_Backend_MVP2.Controllers
             int? SeatHoldHours = null,
             string? TermsText = null,
             string? Inclusions = null,
-            string? Exclusions = null);
+            string? Exclusions = null,
+            // Who picks the instalment dates: "HostSet" (default; every
+            // instalment has a dueDate) or "TravellerChooses" (instalments
+            // have no dueDate; payInFullByDate is required).
+            InstalmentDatesMode? InstalmentDatesMode = null,
+            DateOnly? PayInFullByDate = null);
 
-        public record TripInstalmentRequest(int Sequence, long AmountKobo, DateOnly DueDate);
+        // DueDate: required when the trip is HostSet, omitted (null) when TravellerChooses.
+        public record TripInstalmentRequest(int Sequence, long AmountKobo, DateOnly? DueDate);
 
         public const int MaxCaptionLength = 2000;
         public const int MaxFreeTextDestinationLength = 200;
@@ -98,7 +104,7 @@ namespace Hodrac_Backend_MVP2.Controllers
         public const int MaxSeatHoldHours = 336; // 14 days
         public const string HostedFieldsOnCommunityMessage = "Price and payments are only for hosted trips";
         public const string CommunityUnlistedMessage = "Community trips always appear in the public feed; only hosted trips can be private.";
-        public const string PaymentTermsLockedMessage = "Price, deposit, instalments and fee mode can't change once a traveller has paid.";
+        public const string PaymentTermsLockedMessage = "Price, deposit, instalments, fee mode and who sets the instalment dates can't change once a traveller has paid.";
 
         // The shared create/edit rules (HostedFieldsInput, field validation,
         // the host lock and the founding claim) live in TripCreationService,
@@ -117,9 +123,10 @@ namespace Hodrac_Backend_MVP2.Controllers
         // Price / deposit / instalments (InstalmentValidator) as a 400
         // validation problem keyed by request field, or null when valid.
         private ActionResult? ValidateSchedule(
-            long? price, long? deposit, IReadOnlyCollection<TripInstalment> instalments, DateOnly? startDate)
+            long? price, long? deposit, IReadOnlyCollection<TripInstalment> instalments, DateOnly? startDate,
+            InstalmentDatesMode mode, DateOnly? payInFullByDate, DateOnly? today)
         {
-            var errors = InstalmentValidator.Validate(price, deposit, instalments, startDate);
+            var errors = InstalmentValidator.Validate(price, deposit, instalments, startDate, mode, payInFullByDate, today);
             if (errors.Count == 0) return null;
             foreach (var (key, message) in errors) ModelState.AddModelError(key, message);
             return ValidationProblem(ModelState);
@@ -204,7 +211,11 @@ namespace Hodrac_Backend_MVP2.Controllers
                         PaymentStatus = i.PaymentStatus,
                         SeatHoldExpiresAt = i.SeatHoldExpiresAt,
                         AmountPaidKobo = i.AmountPaidKobo,
-                        TermsVersionAccepted = i.TermsVersionAccepted
+                        TermsVersionAccepted = i.TermsVersionAccepted,
+                        InstalmentDates = _db.TripInterestInstalmentDates
+                            .Where(d => d.TripInterestId == i.Id)
+                            .Select(d => new TripViewerInstalmentDate(d.Sequence, d.DueDate))
+                            .ToList()
                     })
                     .FirstOrDefault(),
                 ApprovedCount = _db.TripInterests
@@ -423,7 +434,9 @@ namespace Hodrac_Backend_MVP2.Controllers
             int? SeatHoldHours = null,
             string? TermsText = null,
             string? Inclusions = null,
-            string? Exclusions = null);
+            string? Exclusions = null,
+            InstalmentDatesMode? InstalmentDatesMode = null,
+            DateOnly? PayInFullByDate = null);
 
         [HttpPatch("{id:guid}")]
         public async Task<IActionResult> UpdateTrip(Guid id, [FromBody] UpdateTripRequest request)
@@ -463,12 +476,32 @@ namespace Hodrac_Backend_MVP2.Controllers
             // ---- Hodrac Host: type, visibility and payment setup (validate all first) ----
             var hostedFields = new HostedFieldsInput(
                 request.PricePerSeatKobo, request.DepositKobo, request.Instalments, request.FeeMode,
-                request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions);
+                request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions,
+                request.InstalmentDatesMode, request.PayInFullByDate);
             var becomingHosted = request.IsHostedTrip == true && !trip.IsHostedTrip;
             var becomingCommunity = request.IsHostedTrip == false && trip.IsHostedTrip;
             var willBeHosted = becomingHosted || (trip.IsHostedTrip && !becomingCommunity);
             var newInstalments = request.Instalments is null ? null : ToInstalments(request.Instalments);
             HostProfile? newHost = null;
+
+            // Instalment dates mode. Switching to TravellerChooses without
+            // sending a schedule drops the host's dates from the stored one;
+            // HostSet never keeps a pay-in-full date.
+            var currentMode = becomingHosted ? InstalmentDatesMode.HostSet : trip.InstalmentDatesMode;
+            var newMode = request.InstalmentDatesMode ?? currentMode;
+            var modeChanging = willBeHosted && newMode != trip.InstalmentDatesMode;
+            if (willBeHosted && newInstalments is null && newMode == InstalmentDatesMode.TravellerChooses
+                && trip.Instalments.Any(i => i.DueDate is not null))
+                newInstalments = trip.Instalments
+                    .Select(i => new TripInstalment { Sequence = i.Sequence, AmountKobo = i.AmountKobo, DueDate = null })
+                    .ToList();
+            var newPayInFullBy = newMode == InstalmentDatesMode.HostSet
+                ? request.PayInFullByDate   // only non-null when sent: a 400 below
+                : request.PayInFullByDate ?? trip.PayInFullByDate;
+            // "After today" only when the deadline is being set or changed, so
+            // unrelated edits still work once it has passed.
+            var checkDeadlineFuture = (request.PayInFullByDate is not null && request.PayInFullByDate != trip.PayInFullByDate)
+                || modeChanging;
 
             if (!willBeHosted)
             {
@@ -499,7 +532,8 @@ namespace Hodrac_Backend_MVP2.Controllers
                         return Conflict("Someone has already been approved to join this trip, so it can't become a hosted trip.");
                     newHost = loadedHost!;
                 }
-                else if (PaymentTermsChanged(trip, request.PricePerSeatKobo, request.DepositKobo, request.FeeMode, newInstalments))
+                else if (PaymentTermsChanged(trip, request.PricePerSeatKobo, request.DepositKobo, request.FeeMode, newInstalments,
+                             request.InstalmentDatesMode, request.PayInFullByDate))
                 {
                     // A host closed by Hodrac can't change money terms (HostClosure).
                     if (trip.HostProfileId is Guid termsHostId
@@ -519,7 +553,10 @@ namespace Hodrac_Backend_MVP2.Controllers
                     request.PricePerSeatKobo ?? trip.PricePerSeatKobo,
                     request.DepositKobo ?? trip.DepositKobo,
                     newInstalments ?? trip.Instalments,
-                    newStart);
+                    newStart,
+                    newMode,
+                    newPayInFullBy,
+                    checkDeadlineFuture ? HostTripService.TodayWat(DateTime.UtcNow) : null);
                 if (scheduleError is not null) return scheduleError;
             }
 
@@ -568,9 +605,20 @@ namespace Hodrac_Backend_MVP2.Controllers
                     if (request.SeatHoldHours is not null) trip.SeatHoldHours = request.SeatHoldHours.Value;
                 }
 
+                // Any change to who sets the dates, the deadline or the schedule
+                // of a TravellerChooses trip (only possible before anyone has
+                // paid) drops the travellers' chosen dates: they pick again.
+                var datesSetupChanged = modeChanging
+                    || (newMode == InstalmentDatesMode.TravellerChooses
+                        && (newPayInFullBy != trip.PayInFullByDate
+                            || (newInstalments is not null && InstalmentsChanged(trip, newInstalments))));
+
                 if (request.PricePerSeatKobo is not null) trip.PricePerSeatKobo = request.PricePerSeatKobo;
                 if (request.DepositKobo is not null) trip.DepositKobo = request.DepositKobo;
                 if (newInstalments is not null) SyncInstalments(trip, newInstalments);
+                trip.InstalmentDatesMode = newMode;
+                trip.PayInFullByDate = newMode == InstalmentDatesMode.TravellerChooses ? newPayInFullBy : null;
+                if (datesSetupChanged) await DeleteTripTravellerDatesAsync(trip.Id);
 
                 // Every terms change bumps the version (travellers who already
                 // accepted keep theirs; new acceptances must match the current one).
@@ -608,13 +656,20 @@ namespace Hodrac_Backend_MVP2.Controllers
         }
 
         private static bool PaymentTermsChanged(
-            TripPost trip, long? price, long? deposit, FeeMode? feeMode, List<TripInstalment>? instalments)
+            TripPost trip, long? price, long? deposit, FeeMode? feeMode, List<TripInstalment>? instalments,
+            InstalmentDatesMode? datesMode, DateOnly? payInFullByDate)
         {
             if (price is not null && price != trip.PricePerSeatKobo) return true;
             if (deposit is not null && deposit != trip.DepositKobo) return true;
             if (feeMode is not null && feeMode != trip.FeeMode) return true;
+            if (datesMode is not null && datesMode != trip.InstalmentDatesMode) return true;
+            if (payInFullByDate is not null && payInFullByDate != trip.PayInFullByDate) return true;
             if (instalments is null) return false;
+            return InstalmentsChanged(trip, instalments);
+        }
 
+        private static bool InstalmentsChanged(TripPost trip, List<TripInstalment> instalments)
+        {
             var current = trip.Instalments.OrderBy(i => i.Sequence).Select(i => (i.Sequence, i.AmountKobo, i.DueDate));
             var next = instalments.OrderBy(i => i.Sequence).Select(i => (i.Sequence, i.AmountKobo, i.DueDate));
             return !current.SequenceEqual(next);
@@ -668,6 +723,9 @@ namespace Hodrac_Backend_MVP2.Controllers
             trip.DepositKobo = null;
             trip.Instalments.Clear();
             trip.FeeMode = FeeMode.PassToTraveller;
+            trip.InstalmentDatesMode = InstalmentDatesMode.HostSet;
+            trip.PayInFullByDate = null;
+            await DeleteTripTravellerDatesAsync(trip.Id);
             trip.SeatHoldHours = _hostOptions.DefaultSeatHoldHours;
             trip.TermsText = null;
             trip.Inclusions = null;
@@ -724,6 +782,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                 })
                 .ToListAsync();
             var tripById = trips.ToDictionary(t => t.Trip.Id);
+            var myDates = await TravellerInstalmentDates.LoadAsync(_db, interests.Select(i => i.Id).ToList());
 
             var result = interests
     .Where(i => tripById.ContainsKey(i.TripPostId))
@@ -738,7 +797,7 @@ namespace Hodrac_Backend_MVP2.Controllers
             i.Status.ToString(),
             tripById[i.TripPostId].ApprovedCount,
             _fees,
-            TripViewerInterest.From(i)
+            TripViewerInterest.From(i, myDates.GetValueOrDefault(i.Id))
         )))
     .ToList();
 
@@ -834,14 +893,18 @@ namespace Hodrac_Backend_MVP2.Controllers
 
                 if (existing is not null)
                 {
-                    // Only a withdrawn request may be re-sent. Declined stays
-                    // declined; Requested/Approved are already in flight.
+                    // Only a withdrawn request, or one the host removed after a
+                    // missed payment, may be re-sent (the host decides again).
+                    // Declined stays declined; Requested/Approved are in flight.
                     if (existing.Status == TripInterestStatus.Declined)
                         return Conflict("Your request to join this trip was declined.");
-                    if (existing.Status != TripInterestStatus.Withdrawn)
+                    if (existing.Status is not (TripInterestStatus.Withdrawn or TripInterestStatus.Removed))
                         return Conflict("You've already requested to join this trip.");
 
                     existing.Status = TripInterestStatus.Requested;
+                    existing.RemovedReason = null;
+                    existing.RemovedAt = null;
+                    await DeleteTravellerDatesAsync(existing.Id);
                     existing.Message = body.Message;
                     existing.RequestedAt = DateTime.UtcNow;
                     existing.RespondedAt = null;
@@ -963,7 +1026,10 @@ namespace Hodrac_Backend_MVP2.Controllers
                         // A terms acceptance from before the host changed the
                         // terms no longer counts; a current one is kept.
                         if (interest.TermsVersionAccepted is not null && interest.TermsVersionAccepted != trip.TermsVersion)
+                        {
                             ClearTermsAcceptance(interest);
+                            await DeleteTravellerDatesAsync(interest.Id);
+                        }
 
                         // A fresh hold gets a fresh "hold ends soon" warning.
                         await _db.PaymentReminderLogs
@@ -1014,7 +1080,16 @@ namespace Hodrac_Backend_MVP2.Controllers
             interest.TermsTextSha256 = null;
             interest.TermsAcceptedIp = null;
             interest.TermsAcceptedUserAgent = null;
+            interest.TermsInstalmentDatesJson = null;
         }
+
+        // A traveller's chosen instalment dates (TravellerChooses trips) go
+        // with their terms acceptance: they pick again when they next accept.
+        private Task DeleteTravellerDatesAsync(Guid interestId) =>
+            _db.TripInterestInstalmentDates.Where(d => d.TripInterestId == interestId).ExecuteDeleteAsync();
+
+        private Task DeleteTripTravellerDatesAsync(Guid tripId) =>
+            _db.TripInterestInstalmentDates.Where(d => d.TripInterest!.TripPostId == tripId).ExecuteDeleteAsync();
 
         // Requester only, hosted trips only: after an unpaid seat hold expired
         // (Approved + Expired) the traveller asks the host again. The interest
@@ -1037,6 +1112,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                 if (interest is null || interest.TripPostId != id || interest.RequesterUserId != CurrentUserId)
                     return NotFound();
 
+                // Never from Removed (or anything else): only an expired seat hold.
                 if (!IsExpiredHold(trip, interest))
                     return Conflict("Only a request whose seat hold expired can be sent again.");
                 if (trip.Status != TripPostStatus.Open)
@@ -1047,6 +1123,7 @@ namespace Hodrac_Backend_MVP2.Controllers
                 interest.SeatHoldExpiresAt = null;
                 interest.RequestedAt = DateTime.UtcNow;
                 interest.RespondedAt = null;
+                await DeleteTravellerDatesAsync(interest.Id);
 
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
@@ -1099,17 +1176,12 @@ namespace Hodrac_Backend_MVP2.Controllers
                         .FirstOrDefaultAsync();
 
                     if (interest.RequesterUserId != authorId)
-                    {
-                        var participants = await _db.TripThreadParticipants
-                            .Where(p => p.UserId == interest.RequesterUserId
-                                && _db.TripThreads.Any(t => t.Id == p.TripThreadId && t.TripPostId == id))
-                            .ToListAsync();
-                        _db.TripThreadParticipants.RemoveRange(participants);
-                    }
+                        await _threads.StageRemoveFromThreadAsync(id, interest.RequesterUserId);
                 }
 
                 interest.Status = TripInterestStatus.Withdrawn;
                 interest.RespondedAt = DateTime.UtcNow;
+                await DeleteTravellerDatesAsync(interest.Id);
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
             }

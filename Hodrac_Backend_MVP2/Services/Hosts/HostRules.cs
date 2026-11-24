@@ -142,8 +142,11 @@ public class HostDocumentLinkSigner
 /// Refused for a closed host (403 <see cref="HostMessage"/>): creating a host
 /// profile, updating it, payout account, verification submit, creating a
 /// hosted trip, converting a trip to hosted, changing a hosted trip's money
-/// terms. Still allowed on existing trips: profile GET, manifest (+ CSV),
-/// manual payments/refunds, WhatsApp nudge, weekly report.
+/// terms. Still allowed on existing trips: profile GET, trips list, manifest
+/// (+ CSV), manual payments/refunds, WhatsApp nudge, removing a traveller who
+/// missed a payment, weekly report, and the all-trips dashboard
+/// (GET /api/host/dashboard/summary, /trips, /travellers, /trips.csv,
+/// /travellers.csv; read-only).
 ///
 /// Refused for admins (409 <see cref="AdminMessage"/>): verify, reject,
 /// founding, operator plan, creating a hosted trip for the host.
@@ -152,7 +155,7 @@ public class HostDocumentLinkSigner
 /// </summary>
 public static class HostClosure
 {
-    public const string HostMessage = "This host account was closed by Hodrac. Contact support.";
+    public const string HostMessage = "This host account was closed by Hodrac. Contact support at " + Hodrac_Backend_MVP2.Services.HodracContact.SupportEmail + ".";
     public const string AdminMessage = "Host account is closed.";
 
     /// <summary>Reason a hidden trip shows after its host was closed.</summary>

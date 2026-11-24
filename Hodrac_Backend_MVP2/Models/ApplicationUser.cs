@@ -59,6 +59,12 @@ public class ApplicationUser : IdentityUser
     /// <summary>Whether the user receives the unread-notification email digest.</summary>
     public bool NotificationEmailOptIn { get; set; } = true;
 
+    /// <summary>
+    /// True when the user turned off the weekly newsletter (notification
+    /// preferences, or the unsubscribe link in a newsletter).
+    /// </summary>
+    public bool NewsletterOptOut { get; set; } = false;
+
     // ── Navigation ────────────────────────────────────────────────────────────
 
     public ICollection<UserRefreshToken> RefreshTokens { get; set; } = new List<UserRefreshToken>();

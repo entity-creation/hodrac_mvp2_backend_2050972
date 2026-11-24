@@ -334,10 +334,11 @@ public class HostManifestTests
         bytes.Take(3).Should().Equal(Encoding.UTF8.GetPreamble());
         var lines = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
         lines[0].Should().Be("name,email,phone,requestStatus,paymentStatus,termsVersionAccepted,termsAcceptedAt,"
-            + "paidNgn,viaHodracNgn,manualNgn,owesNgn,nextDueDate,nextDueNgn,seatHoldExpiresAt,lastReminderAt,requestedAt");
+            + "paidNgn,viaHodracNgn,manualNgn,owesNgn,nextDueDate,nextDueNgn,seatHoldExpiresAt,lastReminderAt,requestedAt,overdueNgn");
         lines.Should().HaveCount(2);
         lines[1].Should().StartWith($"\"'=SUM(1,2)\",{seat.TravellerUser.Email},,Approved,DepositPaid,1,");
         lines[1].Should().Contain(",50000.00,0.00,50000.00,200000.00,");
+        lines[1].Should().EndWith(",0.00");
     }
 
     // ── Manual payments ──────────────────────────────────────────────────────

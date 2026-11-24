@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text;
-using System.Text.RegularExpressions;
 using Hodrac_Backend_MVP2.DTOs.HostDtos;
+using Hodrac_Backend_MVP2.Infrastucture.Http;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services.Hosts;
 using Hodrac_Backend_MVP2.Services.Payments;
@@ -22,6 +22,8 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///   GET    /api/host/trips/{id}/manual-payments?interestId=  recorded payments, newest first
 ///   DELETE /api/host/trips/{id}/manual-payments/{paymentId}  undo a mistake (recomputes, logged)
 ///   GET    /api/host/trips/{id}/whatsapp-nudge/{interestId}  { url, phone, message }
+///   POST   /api/host/trips/{id}/travellers/{interestId}/remove  { reason? }: remove an approved
+///                                                    traveller with an overdue instalment (409 otherwise)
 ///   GET    /api/host/reports/weekly?weekStart=yyyy-MM-dd     Mon–Sun WAT (default: last full week)
 ///
 /// Every money change pushes "ManifestUpdated" to the trip-host:{id} SignalR group.
@@ -58,35 +60,35 @@ public partial class HostController
 
         var csv = new StringBuilder();
         csv.Append("name,email,phone,requestStatus,paymentStatus,termsVersionAccepted,termsAcceptedAt,")
-           .Append("paidNgn,viaHodracNgn,manualNgn,owesNgn,nextDueDate,nextDueNgn,seatHoldExpiresAt,lastReminderAt,requestedAt\r\n");
+           .Append("paidNgn,viaHodracNgn,manualNgn,owesNgn,nextDueDate,nextDueNgn,seatHoldExpiresAt,lastReminderAt,requestedAt,")
+           .Append("overdueNgn").Append(CsvExport.LineEnd);
         foreach (var r in manifest.Rows)
         {
-            csv.Append(CsvField(r.TravellerName)).Append(',')
-               .Append(CsvField(r.Email)).Append(',')
-               .Append(CsvField(r.Phone)).Append(',')
-               .Append(CsvField(r.InterestStatus)).Append(',')
-               .Append(CsvField(r.PaymentStatus)).Append(',')
+            csv.Append(CsvExport.Field(r.TravellerName)).Append(',')
+               .Append(CsvExport.Field(r.Email)).Append(',')
+               .Append(CsvExport.Field(r.Phone)).Append(',')
+               .Append(CsvExport.Field(r.InterestStatus)).Append(',')
+               .Append(CsvExport.Field(r.PaymentStatus)).Append(',')
                .Append(r.TermsVersionAccepted?.ToString(CultureInfo.InvariantCulture)).Append(',')
-               .Append(CsvTime(r.TermsAcceptedAt)).Append(',')
-               .Append(CsvNaira(r.PaidKobo)).Append(',')
-               .Append(CsvNaira(r.ViaHodracKobo)).Append(',')
-               .Append(CsvNaira(r.ManualKobo)).Append(',')
-               .Append(CsvNaira(r.OwesKobo)).Append(',')
-               .Append(r.NextDueDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append(',')
-               .Append(r.NextDueAmountKobo is { } next ? CsvNaira(next) : "").Append(',')
-               .Append(CsvTime(r.SeatHoldExpiresAt)).Append(',')
-               .Append(CsvTime(r.LastReminderAt)).Append(',')
-               .Append(CsvTime(r.RequestedAt)).Append("\r\n");
+               .Append(CsvExport.Time(r.TermsAcceptedAt)).Append(',')
+               .Append(CsvExport.Naira(r.PaidKobo)).Append(',')
+               .Append(CsvExport.Naira(r.ViaHodracKobo)).Append(',')
+               .Append(CsvExport.Naira(r.ManualKobo)).Append(',')
+               .Append(CsvExport.Naira(r.OwesKobo)).Append(',')
+               .Append(CsvExport.Date(r.NextDueDate)).Append(',')
+               .Append(CsvExport.Naira(r.NextDueAmountKobo)).Append(',')
+               .Append(CsvExport.Time(r.SeatHoldExpiresAt)).Append(',')
+               .Append(CsvExport.Time(r.LastReminderAt)).Append(',')
+               .Append(CsvExport.Time(r.RequestedAt)).Append(',')
+               .Append(CsvExport.Naira(r.OverdueKobo)).Append(CsvExport.LineEnd);
         }
 
-        // UTF-8 with BOM so Excel detects the encoding.
-        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
-        var slug = Regex.Replace(manifest.Title.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
-        if (slug.Length > 60) slug = slug[..60].Trim('-');
+        var bytes = CsvExport.ToBytes(csv);
+        var slug = CsvExport.Slug(manifest.Title, maxLength: 60);
         var fileName = $"manifest-{(slug.Length == 0 ? trip.Id.ToString() : slug)}-{HostTripService.TodayWat(DateTime.UtcNow):yyyy-MM-dd}.csv";
 
         _logger.LogInformation("User {UserId} exported the manifest of trip {TripId}", _currentUser.UserId, id);
-        return File(bytes, "text/csv", fileName);
+        return File(bytes, CsvExport.ContentType, fileName);
     }
 
     // ══ Manual payments and refunds ═══════════════════════════════════════════
@@ -182,6 +184,38 @@ public partial class HostController
         return Ok(nudge);
     }
 
+    // ══ Remove a traveller who missed a payment deadline ══════════════════════
+
+    /// <summary>
+    /// Only when the traveller is Approved and an instalment (never just the
+    /// deposit) is unpaid past its due date (WAT; the traveller's own dates
+    /// on TravellerChooses trips), else 409. Payments are kept; nothing is
+    /// refunded automatically. Allowed for hosts closed by Hodrac (settling
+    /// an existing booking). 404 unless it's the caller's own hosted trip.
+    /// </summary>
+    [HttpPost("trips/{id:guid}/travellers/{interestId:guid}/remove")]
+    public async Task<ActionResult<RemoveTravellerResultDto>> RemoveTraveller(
+        Guid id, Guid interestId, RemoveTravellerRequest? request,
+        [FromServices] TravellerRemovalService removals, CancellationToken ct = default)
+    {
+        var trip = await _hostTrips.GetOwnedHostedTripAsync(_currentUser.UserId, id, ct);
+        if (trip is null) return NotFound();
+
+        var result = await removals.RemoveAsync(id, interestId, request?.Reason, _currentUser.UserId, ct);
+        switch (result.Outcome)
+        {
+            case RemoveTravellerOutcome.NotFound:
+                return NotFound();
+            case RemoveTravellerOutcome.Invalid:
+                ModelState.AddModelError("reason", result.Error ?? "Invalid reason.");
+                return ValidationProblem(ModelState);
+            case RemoveTravellerOutcome.Conflict:
+                return Conflict(new { error = result.Error });
+            default:
+                return Ok(result.Removed);
+        }
+    }
+
     // ══ Weekly report ═════════════════════════════════════════════════════════
 
     /// <summary>weekStart (yyyy-MM-dd) is moved back to its Monday; default: the last full Mon–Sun week in WAT.</summary>
@@ -194,26 +228,4 @@ public partial class HostController
         var report = await _reports.BuildWeeklyAsync(host.Id, weekStart, ct);
         return report is null ? NotFound() : Ok(report);
     }
-
-    // ══ CSV helpers (same rules as AdminPartnersController) ═══════════════════
-
-    /// <summary>
-    /// RFC 4180 quoting, plus a leading apostrophe for values starting with
-    /// = + - @ (tab/CR) so spreadsheets don't evaluate them as formulas.
-    /// </summary>
-    private static string CsvField(string? value)
-    {
-        value ??= string.Empty;
-        if (value.Length > 0 && "=+-@\t\r".Contains(value[0]))
-            value = "'" + value;
-
-        var needsQuotes = value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0 || value != value.Trim();
-        return needsQuotes ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
-    }
-
-    // Numbers are written raw (a negative amount is a number, not a formula).
-    private static string CsvNaira(long kobo) => (kobo / 100m).ToString("0.00", CultureInfo.InvariantCulture);
-
-    private static string CsvTime(DateTime? value) =>
-        value is { } v ? DateTime.SpecifyKind(v, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture) : "";
 }

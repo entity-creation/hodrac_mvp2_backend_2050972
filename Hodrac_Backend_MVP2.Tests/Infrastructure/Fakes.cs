@@ -132,4 +132,24 @@ public class RecordingEmailSender : IEmailSender
         Sent.Enqueue(new SentEmail(to, subject, bodyLines, deepLink));
         return Task.CompletedTask;
     }
+
+    /// <summary>Rendered emails (newsletter), with their HTML, text and headers.</summary>
+    public ConcurrentQueue<HtmlEmail> SentHtml { get; } = new();
+
+    /// <summary>Recipients (case-insensitive) whose SendHtmlAsync fails; the attempt is not recorded in <see cref="SentHtml"/>.</summary>
+    public ConcurrentDictionary<string, bool> FailHtmlFor { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    private int _failedHtmlAttempts;
+    public int FailedHtmlAttempts => Volatile.Read(ref _failedHtmlAttempts);
+
+    public Task SendHtmlAsync(HtmlEmail email, CancellationToken ct = default)
+    {
+        if (FailHtmlFor.ContainsKey(email.To))
+        {
+            Interlocked.Increment(ref _failedHtmlAttempts);
+            throw new InvalidOperationException($"SMTP rejected {email.To}");
+        }
+        SentHtml.Enqueue(email);
+        return Task.CompletedTask;
+    }
 }

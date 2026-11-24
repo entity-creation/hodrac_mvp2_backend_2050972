@@ -19,6 +19,11 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Jobs
         {
             ("SeatHoldExpiry",    TimeSpan.FromHours(1),     (sp, ct) => sp.GetRequiredService<SeatHoldExpiryJob>().RunAsync(ct)),
             ("PaymentReconcile",  TimeSpan.FromMinutes(30),  (sp, ct) => sp.GetRequiredService<PaymentReconcileJob>().RunAsync(ct)),
+            // Weekly newsletter: the draft job acts once the draft time (Wed 09:00 WAT) has
+            // passed and no issue exists for the coming Friday; the sender sends approved
+            // issues in batches (Newsletter:BatchSize per run).
+            ("NewsletterDraft",   TimeSpan.FromMinutes(15),  (sp, ct) => sp.GetRequiredService<NewsletterDraftJob>().RunAsync(ct)),
+            ("NewsletterSend",    TimeSpan.FromMinutes(5),   (sp, ct) => sp.GetRequiredService<NewsletterSendJob>().RunAsync(ct)),
         };
 
         private readonly IServiceScopeFactory _scopes;

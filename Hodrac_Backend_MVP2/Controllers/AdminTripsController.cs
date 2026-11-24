@@ -413,7 +413,8 @@ public class AdminTripsController : ControllerBase
             interests.Count(i => i.Status == TripInterestStatus.Requested),
             interests.Count(i => i.Status == TripInterestStatus.Approved),
             interests.Count(i => i.Status == TripInterestStatus.Declined),
-            interests.Count(i => i.Status == TripInterestStatus.Withdrawn));
+            interests.Count(i => i.Status == TripInterestStatus.Withdrawn),
+            interests.Count(i => i.Status == TripInterestStatus.Removed));
 
         return new AdminTripDetailDto(
             trip.Id,
@@ -465,7 +466,8 @@ public class AdminTripsController : ControllerBase
                     g.Where(r => r.Status == TripInterestStatus.Requested).Sum(r => r.Count),
                     g.Where(r => r.Status == TripInterestStatus.Approved).Sum(r => r.Count),
                     g.Where(r => r.Status == TripInterestStatus.Declined).Sum(r => r.Count),
-                    g.Where(r => r.Status == TripInterestStatus.Withdrawn).Sum(r => r.Count)));
+                    g.Where(r => r.Status == TripInterestStatus.Withdrawn).Sum(r => r.Count),
+                    g.Where(r => r.Status == TripInterestStatus.Removed).Sum(r => r.Count)));
     }
 
     private Task<Dictionary<Guid, int>> LoadMessageCountsAsync(List<Guid> tripIds, CancellationToken ct)

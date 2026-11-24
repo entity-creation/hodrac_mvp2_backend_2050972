@@ -27,8 +27,7 @@ namespace Hodrac_Backend_MVP2.Services
 
         public async Task SendAsync(string to, string subject, List<string> bodyLines, string deepLink)
         {
-            var host = _config["Email:Smtp:Host"];
-            if (string.IsNullOrWhiteSpace(host))
+            if (!IsConfigured(out var host))
             {
                 _logger.LogWarning(
                     "Email:Smtp:Host not configured; not sending. To={To} Subject={Subject} Link={Link}",
@@ -36,9 +35,47 @@ namespace Hodrac_Backend_MVP2.Services
                 return;
             }
 
-            var port = int.TryParse(_config["Email:Smtp:Port"], out var p) ? p : 587;
+            var message = NewMessage(to, subject);
+            message.Body = new BodyBuilder
+            {
+                HtmlBody = BuildHtml(bodyLines, deepLink),
+                TextBody = BuildText(bodyLines, deepLink)
+            }.ToMessageBody();
+
+            await DeliverAsync(host, message, CancellationToken.None);
+        }
+
+        public async Task SendHtmlAsync(HtmlEmail email, CancellationToken ct = default)
+        {
+            if (!IsConfigured(out var host))
+            {
+                _logger.LogWarning(
+                    "Email:Smtp:Host not configured; not sending. To={To} Subject={Subject}",
+                    email.To, email.Subject);
+                return;
+            }
+
+            var message = NewMessage(email.To, email.Subject);
+            foreach (var (name, value) in email.Headers ?? new Dictionary<string, string>())
+                message.Headers.Add(name, value);
+            message.Body = new BodyBuilder
+            {
+                HtmlBody = email.HtmlBody,
+                TextBody = email.TextBody
+            }.ToMessageBody();
+
+            await DeliverAsync(host, message, ct);
+        }
+
+        private bool IsConfigured(out string host)
+        {
+            host = _config["Email:Smtp:Host"] ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(host);
+        }
+
+        private MimeMessage NewMessage(string to, string subject)
+        {
             var username = _config["Email:Smtp:Username"];
-            var password = _config["Email:Smtp:Password"];
 
             // Most providers (e.g. SendPulse) accept the account login as a
             // verified sender, so fall back to it when Email:From isn't set.
@@ -50,30 +87,33 @@ namespace Hodrac_Backend_MVP2.Services
             message.From.Add(new MailboxAddress(fromName, from));
             message.To.Add(MailboxAddress.Parse(to));
             message.Subject = subject;
-            message.Body = new BodyBuilder
-            {
-                HtmlBody = BuildHtml(bodyLines, deepLink),
-                TextBody = BuildText(bodyLines, deepLink)
-            }.ToMessageBody();
+            return message;
+        }
+
+        private async Task DeliverAsync(string host, MimeMessage message, CancellationToken ct)
+        {
+            var port = int.TryParse(_config["Email:Smtp:Port"], out var p) ? p : 587;
+            var username = _config["Email:Smtp:Username"];
+            var password = _config["Email:Smtp:Password"];
 
             using var client = new SmtpClient { Timeout = 20_000 };
 
             await client.ConnectAsync(host, port,
-                port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls);
+                port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls, ct);
 
             if (!string.IsNullOrEmpty(username))
             {
                 // Throws AuthenticationException with the server's actual reply
                 // (e.g. "535: Authentication failed") instead of failing later.
-                await client.AuthenticateAsync(username, password ?? string.Empty);
+                await client.AuthenticateAsync(username, password ?? string.Empty, ct);
             }
             else
             {
                 _logger.LogWarning("Email:Smtp:Username not configured; sending without authentication.");
             }
 
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+            await client.SendAsync(message, ct);
+            await client.DisconnectAsync(true, ct);
         }
 
         private static string BuildHtml(List<string> bodyLines, string deepLink)

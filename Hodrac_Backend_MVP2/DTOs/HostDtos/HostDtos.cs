@@ -93,11 +93,16 @@ namespace Hodrac_Backend_MVP2.DTOs.HostDtos
 
     public record HostBankDto(string Name, string Code);
 
-    /// <summary>Without Confirm the account name is only resolved and returned; nothing is stored.</summary>
+    /// <summary>
+    /// Without Confirm the account name is only resolved and returned; nothing is stored.
+    /// Password (the user's Hodrac login password) is required only to CHANGE an existing
+    /// payout account with Confirm = true; first-time setup and lookups don't need it.
+    /// </summary>
     public record PayoutAccountRequest(
         [Required, MaxLength(HostProfile.MaxBankCodeLength)] string BankCode,
         [Required, MaxLength(20)] string AccountNumber,
-        bool Confirm = false
+        bool Confirm = false,
+        [MaxLength(256)] string? Password = null
     );
 
     public record PayoutAccountResultDto(

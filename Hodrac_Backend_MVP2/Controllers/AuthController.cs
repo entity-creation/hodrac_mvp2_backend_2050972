@@ -28,7 +28,8 @@ namespace Hodrac_Backend_MVP2.Controllers;
 /// GET  /api/auth/me             — current user profile (requires auth)
 /// PATCH /api/auth/me            — update display name / avatar
 /// PATCH /api/auth/me/onboarding — save personalization answers + mark modal complete
-/// PATCH /api/auth/me/notification-preferences — email digest opt in/out
+/// GET   /api/auth/me/notification-preferences — { emailOptIn, newsletterOptOut }
+/// PATCH /api/auth/me/notification-preferences — email digest opt in/out, weekly newsletter opt out
 /// POST /api/auth/forgot-password       — email a password reset link (always 200)
 /// POST /api/auth/reset-password        — reset password with emailed token
 /// POST /api/auth/change-password       — change password (requires auth)
@@ -387,14 +388,35 @@ public class AuthController : ControllerBase
 
     // ── PATCH /api/auth/me/notification-preferences ───────────────────────────
 
+    // Both fields optional: omitted = unchanged. newsletterOptOut = true also
+    // unsubscribes the account's email from the newsletter sign-up list.
+
     [HttpPatch("me/notification-preferences")]
     [Authorize]
     public async Task<IActionResult> UpdateNotificationPreferences(
         [FromBody] NotificationPreferencesRequest request,
+        [FromServices] Hodrac_Backend_MVP2.Services.Newsletter.NewsletterAudienceService newsletter,
         CancellationToken ct = default)
     {
-        await _users.SetNotificationEmailOptInAsync(_currentUser.UserIdString, request.EmailOptIn, ct);
-        return Ok(new { emailOptIn = request.EmailOptIn });
+        if (request.EmailOptIn is { } emailOptIn)
+            await _users.SetNotificationEmailOptInAsync(_currentUser.UserIdString, emailOptIn, ct);
+        if (request.NewsletterOptOut is { } newsletterOptOut)
+            await newsletter.SetUserOptOutAsync(_currentUser.UserIdString, newsletterOptOut, DateTime.UtcNow, ct);
+
+        return await GetNotificationPreferences(newsletter, ct);
+    }
+
+    // ── GET /api/auth/me/notification-preferences ─────────────────────────────
+
+    [HttpGet("me/notification-preferences")]
+    [Authorize]
+    public async Task<IActionResult> GetNotificationPreferences(
+        [FromServices] Hodrac_Backend_MVP2.Services.Newsletter.NewsletterAudienceService newsletter,
+        CancellationToken ct = default)
+    {
+        var prefs = await newsletter.GetPreferencesAsync(_currentUser.UserIdString, ct);
+        if (prefs is null) return Unauthorized();
+        return Ok(new NotificationPreferencesResponse(prefs.Value.EmailOptIn, prefs.Value.NewsletterOptOut));
     }
 
     // ── POST /api/auth/forgot-password ────────────────────────────────────────
@@ -597,7 +619,8 @@ public class AuthController : ControllerBase
         LastLoginAt         : user.LastLoginAt,
         EmailConfirmed      : user.EmailConfirmed,
         NotificationEmailOptIn: user.NotificationEmailOptIn,
-        CountryCode         : user.CountryCode
+        CountryCode         : user.CountryCode,
+        NewsletterOptOut    : user.NewsletterOptOut
     );
 }
 
@@ -655,7 +678,8 @@ public record UserDto(
     DateTimeOffset? LastLoginAt,
     bool EmailConfirmed,
     bool NotificationEmailOptIn,
-    string? CountryCode
+    string? CountryCode,
+    bool NewsletterOptOut = false
 );
 
 public record OnboardingRequest(
@@ -666,7 +690,13 @@ public record OnboardingRequest(
 );
 
 public record NotificationPreferencesRequest(
-    bool EmailOptIn
+    bool? EmailOptIn = null,
+    bool? NewsletterOptOut = null
+);
+
+public record NotificationPreferencesResponse(
+    bool EmailOptIn,
+    bool NewsletterOptOut
 );
 
 public record ForgotPasswordRequest(

@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
+using Hodrac_Backend_MVP2.Services.Hosts;
 using Hodrac_Backend_MVP2.Services.Payments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -40,6 +42,7 @@ public class PaymentsController : ControllerBase
     private readonly FeeCalculator _fees;
     private readonly PaystackOptions _paystackOptions;
     private readonly IAuthorizationService _authorization;
+    private readonly INotificationService _notifications;
     private readonly ILogger<PaymentsController> _logger;
 
     public PaymentsController(
@@ -51,8 +54,10 @@ public class PaymentsController : ControllerBase
         FeeCalculator fees,
         IOptions<PaystackOptions> paystackOptions,
         IAuthorizationService authorization,
+        INotificationService notifications,
         ILogger<PaymentsController> logger)
     {
+        _notifications = notifications;
         _db = db;
         _currentUser = currentUser;
         _paystack = paystack;
@@ -70,8 +75,16 @@ public class PaymentsController : ControllerBase
 
     public record TermsDto(string TermsText, int TermsVersion, DateTime? TermsUpdatedAt);
 
-    public record AcceptTermsRequest(int TermsVersion);
-    public record AcceptTermsResponse(int TermsVersionAccepted, DateTime TermsAcceptedAt, string TermsTextSha256);
+    /// <summary>One traveller-chosen instalment date (TravellerChooses trips).</summary>
+    public record InstalmentDateRequest(int Sequence, DateOnly DueDate);
+
+    /// <summary>InstalmentDates: required on TravellerChooses trips (a date for every unpaid instalment); ignored otherwise.</summary>
+    public record AcceptTermsRequest(int TermsVersion, List<InstalmentDateRequest>? InstalmentDates = null);
+    public record AcceptTermsResponse(
+        int TermsVersionAccepted, DateTime TermsAcceptedAt, string TermsTextSha256,
+        List<InstalmentDateRequest>? InstalmentDates = null);
+
+    public record ChangeInstalmentDatesRequest(List<InstalmentDateRequest>? InstalmentDates);
 
     public record ScheduleLineDto(string Kind, int? Sequence, long AmountKobo, long PaidKobo, DateOnly? DueDate, string Status, DateTime? PaidAt);
     public record NextPaymentDto(string Kind, int? Sequence, long SeatAmountKobo, long FeeKobo, long TotalKobo);
@@ -84,7 +97,14 @@ public class PaymentsController : ControllerBase
         string PaymentStatus,
         DateTime? SeatHoldExpiresAt,
         int TermsVersion,
-        int? TermsVersionAccepted);
+        int? TermsVersionAccepted,
+        // "HostSet" | "TravellerChooses"; PayInFullByDate only for TravellerChooses.
+        string InstalmentDatesMode = nameof(Models.InstalmentDatesMode.HostSet),
+        DateOnly? PayInFullByDate = null,
+        // TravellerChooses: the traveller has stored dates (otherwise the
+        // schedule shows PayInFullByDate as a fallback), and may move unpaid ones now.
+        bool DatesChosenByTraveller = false,
+        bool CanChangeDates = false);
 
     /// <summary>Kind: "Deposit" | "Instalment" | "Full". InstalmentSequence is required for Instalment.</summary>
     public record CheckoutRequest(string? Kind, int? InstalmentSequence);
@@ -114,6 +134,8 @@ public class PaymentsController : ControllerBase
         var trip = await _db.TripPosts.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (trip is null || !trip.IsHostedTrip || trip.IsHidden) return NotFound();
 
+        // One date writer per interest at a time (accept-terms / change-dates).
+        await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"TripInterests\" WHERE \"Id\" = {interestId} FOR NO KEY UPDATE");
         var interest = await _db.TripInterests.FirstOrDefaultAsync(i => i.Id == interestId);
         if (interest is null || interest.TripPostId != id || interest.RequesterUserId != CurrentUserId)
             return NotFound();
@@ -124,6 +146,20 @@ public class PaymentsController : ControllerBase
             return Conflict(StaleTermsMessage);
 
         var now = DateTime.UtcNow;
+        List<InstalmentDateRequest>? agreedDates = null;
+        if (trip.InstalmentDatesMode == InstalmentDatesMode.TravellerChooses)
+        {
+            var result = await ApplyTravellerDatesAsync(trip, interest, request.InstalmentDates, now);
+            if (result.Errors is not null) return DatesValidationProblem(result.Errors);
+            agreedDates = result.Dates;
+            interest.TermsInstalmentDatesJson = JsonSerializer.Serialize(
+                agreedDates.Select(d => new { sequence = d.Sequence, dueDate = d.DueDate.ToString("yyyy-MM-dd") }));
+        }
+        else
+        {
+            interest.TermsInstalmentDatesJson = null;
+        }
+
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(trip.TermsText))).ToLowerInvariant();
         interest.TermsAcceptedAt = now;
         interest.TermsVersionAccepted = trip.TermsVersion;
@@ -134,7 +170,149 @@ public class PaymentsController : ControllerBase
         await _db.SaveChangesAsync();
         await tx.CommitAsync();
         await _payments.PushManifestUpdateAsync(trip.Id, interest.Id);
-        return new AcceptTermsResponse(trip.TermsVersion, now, hash);
+        return new AcceptTermsResponse(trip.TermsVersion, now, hash, agreedDates);
+    }
+
+    // ── Traveller-chosen instalment dates ────────────────────────────────────
+
+    /// <summary>
+    /// TravellerChooses trips: the requester moves the dates of their unpaid
+    /// instalments (in order, from today to the pay-in-full date; paid ones
+    /// can't change). Reminders already sent for a moved instalment are
+    /// cleared so they fire again on the new date; the host is notified.
+    /// 404: not the requester / not hosted. 409: host sets the dates, not
+    /// approved, or the trip is cancelled. 400: invalid dates. Returns the balance.
+    /// </summary>
+    [HttpPut("api/trips/{id:guid}/interests/{interestId:guid}/instalment-dates")]
+    public async Task<ActionResult<BalanceDto>> ChangeInstalmentDates(Guid id, Guid interestId, ChangeInstalmentDatesRequest request)
+    {
+        TripPost trip;
+        TripInterest interest;
+        List<int> changed;
+        await using (var tx = await _db.Database.BeginTransactionAsync())
+        {
+            // Trip FOR SHARE: no edit or payment on the trip mid-change (what's
+            // paid decides which lines may move); then the interest.
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"TripPosts\" WHERE \"Id\" = {id} FOR SHARE");
+            var loadedTrip = await _db.TripPosts.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
+            if (loadedTrip is null || !loadedTrip.IsHostedTrip || loadedTrip.IsHidden) return NotFound();
+            trip = loadedTrip;
+
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"TripInterests\" WHERE \"Id\" = {interestId} FOR NO KEY UPDATE");
+            var loadedInterest = await _db.TripInterests.FirstOrDefaultAsync(i => i.Id == interestId);
+            if (loadedInterest is null || loadedInterest.TripPostId != id || loadedInterest.RequesterUserId != CurrentUserId)
+                return NotFound();
+            interest = loadedInterest;
+
+            if (trip.InstalmentDatesMode != InstalmentDatesMode.TravellerChooses)
+                return Conflict("The host sets the instalment dates on this trip.");
+            if (interest.Status != TripInterestStatus.Approved)
+                return Conflict("Only an approved traveller can change their instalment dates.");
+            if (trip.Status == TripPostStatus.Cancelled)
+                return Conflict("This trip has been cancelled.");
+
+            var result = await ApplyTravellerDatesAsync(trip, interest, request.InstalmentDates, DateTime.UtcNow);
+            if (result.Errors is not null) return DatesValidationProblem(result.Errors);
+            changed = result.Changed;
+
+            if (changed.Count > 0)
+            {
+                // Reminders fire again on the new dates.
+                await _db.PaymentReminderLogs
+                    .Where(r => r.TripInterestId == interest.Id
+                        && r.InstalmentSequence != null
+                        && changed.Contains(r.InstalmentSequence.Value))
+                    .ExecuteDeleteAsync();
+            }
+
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+
+        if (changed.Count > 0)
+        {
+            try
+            {
+                await _notifications.NotifyInstalmentDatesChanged(trip, interest.RequesterUserId);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Instalment-dates-changed notification failed for interest {InterestId}", interest.Id);
+            }
+            await _payments.PushManifestUpdateAsync(trip.Id, interest.Id);
+        }
+
+        return await GetBalance(id, interestId);
+    }
+
+    private sealed record TravellerDatesResult(
+        Dictionary<string, string>? Errors, List<InstalmentDateRequest> Dates, List<int> Changed);
+
+    // Validates and stages (caller saves) the traveller's dates for a
+    // TravellerChooses trip: unpaid lines take the sent dates, paid lines keep
+    // theirs. Dates = the full stored set afterwards; Changed = sequences whose
+    // date is new or different. Caller holds the trip and interest locks.
+    private async Task<TravellerDatesResult> ApplyTravellerDatesAsync(
+        TripPost trip, TripInterest interest, List<InstalmentDateRequest>? sent, DateTime nowUtc)
+    {
+        var existingRows = await _db.TripInterestInstalmentDates
+            .Where(d => d.TripInterestId == interest.Id)
+            .ToListAsync();
+        var existing = PaymentSchedule.DateMap(existingRows);
+        var lines = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo, existing);
+        var paid = lines
+            .Where(l => l.Kind == SeatPaymentKind.Instalment && l.IsPaid && l.Sequence is not null)
+            .Select(l => l.Sequence!.Value)
+            .ToHashSet();
+
+        var dates = (sent ?? new List<InstalmentDateRequest>())
+            .Where(d => d is not null)
+            .Select(d => (d.Sequence, d.DueDate))
+            .ToList();
+        var errors = InstalmentValidator.ValidateTravellerDates(
+            trip, dates, paid, existing, HostTripService.TodayWat(nowUtc));
+        if (errors.Count > 0) return new TravellerDatesResult(errors, new(), new());
+
+        var changed = new List<int>();
+        foreach (var (sequence, due) in dates.Where(d => !paid.Contains(d.Sequence)))
+        {
+            var row = existingRows.FirstOrDefault(r => r.Sequence == sequence);
+            if (row is null)
+            {
+                _db.TripInterestInstalmentDates.Add(new TripInterestInstalmentDate
+                {
+                    TripInterestId = interest.Id,
+                    Sequence = sequence,
+                    DueDate = due,
+                    ChosenAt = nowUtc,
+                    UpdatedAt = nowUtc,
+                });
+                changed.Add(sequence);
+            }
+            else if (row.DueDate != due)
+            {
+                row.DueDate = due;
+                row.UpdatedAt = nowUtc;
+                changed.Add(sequence);
+            }
+        }
+
+        // Rows for sequences the trip no longer has are dropped.
+        var tripSequences = trip.Instalments.Select(i => i.Sequence).ToHashSet();
+        _db.TripInterestInstalmentDates.RemoveRange(existingRows.Where(r => !tripSequences.Contains(r.Sequence)));
+
+        var final = existing.Where(e => paid.Contains(e.Key) && tripSequences.Contains(e.Key))
+            .Concat(dates.Where(d => !paid.Contains(d.Sequence)).Select(d => new KeyValuePair<int, DateOnly>(d.Sequence, d.DueDate)))
+            .OrderBy(e => e.Key)
+            .Select(e => new InstalmentDateRequest(e.Key, e.Value))
+            .ToList();
+        return new TravellerDatesResult(null, final, changed.OrderBy(c => c).ToList());
+    }
+
+    private ActionResult DatesValidationProblem(Dictionary<string, string> errors)
+    {
+        foreach (var (key, message) in errors) ModelState.AddModelError(key, message);
+        return ValidationProblem(ModelState);
     }
 
     // ── Balance ──────────────────────────────────────────────────────────────
@@ -145,13 +323,14 @@ public class PaymentsController : ControllerBase
         var (trip, interest) = await LoadRequesterInterestAsync(id, interestId);
         if (trip is null || interest is null) return NotFound();
 
-        var lines = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo);
+        var travellerDates = await TravellerInstalmentDates.LoadAsync(_db, interest.Id);
+        var lines = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo, travellerDates);
         var paidAt = await _db.SeatPayments.AsNoTracking()
             .Where(p => p.TripInterestId == interest.Id && PaymentService.CreditedStatuses.Contains(p.Status))
             .Select(p => new { p.Kind, p.InstalmentSequence, p.PaidAt })
             .ToListAsync();
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(1)); // WAT
+        var today = HostTripService.TodayWat(DateTime.UtcNow);
         var firstUnpaid = lines.FirstOrDefault(l => !l.IsPaid);
         var schedule = lines.Select(l => new ScheduleLineDto(
             l.Kind.ToString(),
@@ -159,10 +338,7 @@ public class PaymentsController : ControllerBase
             l.AmountKobo,
             l.PaidKobo,
             l.DueDate,
-            l.IsPaid ? "Paid"
-                : l.DueDate is { } due && due < today ? "Overdue"
-                : ReferenceEquals(l, firstUnpaid) ? "Due"
-                : "Upcoming",
+            PaymentSchedule.LineStatus(l, firstUnpaid, today),
             l.IsPaid ? LinePaidAt(l, paidAt.Select(p => (p.Kind, p.InstalmentSequence, p.PaidAt))) : null)).ToList();
 
         NextPaymentDto? next = null;
@@ -173,6 +349,7 @@ public class PaymentsController : ControllerBase
         }
 
         var price = trip.PricePerSeatKobo ?? 0;
+        var travellerChooses = trip.InstalmentDatesMode == InstalmentDatesMode.TravellerChooses;
         return new BalanceDto(
             price,
             interest.AmountPaidKobo,
@@ -182,8 +359,20 @@ public class PaymentsController : ControllerBase
             interest.PaymentStatus.ToString(),
             interest.SeatHoldExpiresAt,
             trip.TermsVersion,
-            interest.TermsVersionAccepted);
+            interest.TermsVersionAccepted,
+            trip.InstalmentDatesMode.ToString(),
+            travellerChooses ? trip.PayInFullByDate : null,
+            travellerChooses && travellerDates.Count > 0,
+            CanChangeDates(trip, interest, lines, today));
     }
+
+    /// <summary>TravellerChooses, approved, trip not cancelled, an unpaid instalment, and the pay-in-full date not passed.</summary>
+    private static bool CanChangeDates(TripPost trip, TripInterest interest, List<ScheduleLine> lines, DateOnly today) =>
+        trip.InstalmentDatesMode == InstalmentDatesMode.TravellerChooses
+        && interest.Status == TripInterestStatus.Approved
+        && trip.Status != TripPostStatus.Cancelled
+        && lines.Any(l => l.Kind == SeatPaymentKind.Instalment && !l.IsPaid)
+        && trip.PayInFullByDate is { } deadline && today <= deadline;
 
     // A line's paid time: the latest payment made for that line, or a Full
     // payment (lines covered by manual payments have none).
@@ -247,8 +436,10 @@ public class PaymentsController : ControllerBase
             || string.IsNullOrWhiteSpace(host.PaystackSubaccountCode))
             return Conflict(HostNotVerifiedMessage);
 
-        // What this checkout covers, from the allocation of what's been paid.
-        var lines = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo);
+        // What this checkout covers, from the allocation of what's been paid
+        // (traveller dates only label the lines; they never gate a payment).
+        var lines = PaymentSchedule.Allocate(trip, interest.AmountPaidKobo,
+            await TravellerInstalmentDates.LoadAsync(_db, interest.Id, ct));
         var deposit = lines.FirstOrDefault(l => l.Kind == SeatPaymentKind.Deposit);
         long seatAmount;
         bool coversDeposit;

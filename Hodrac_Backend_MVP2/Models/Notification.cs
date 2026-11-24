@@ -28,7 +28,14 @@ namespace Hodrac_Backend_MVP2.Models
         HostVerificationRevoked, // an admin removed your Verified host badge
         HostFoundingRemoved,     // an admin removed your founding host status
         HostClosed,              // Hodrac closed your host account
-        HostReopened             // Hodrac reopened your host account (verify again before payments)
+        HostReopened,            // Hodrac reopened your host account (verify again before payments)
+
+        // Hodrac Host flexible instalments / removals (append only)
+        InstalmentDatesChanged,  // (host) a traveller moved their instalment dates
+        RemovedForMissedPayment, // (traveller) the host removed you after a missed instalment
+
+        // Hodrac Host payout security (append only)
+        PayoutAccountChanged     // (host) your payout bank account was changed
     }
 
     public class Notification

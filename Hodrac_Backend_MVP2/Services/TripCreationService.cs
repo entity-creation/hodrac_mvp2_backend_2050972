@@ -79,7 +79,9 @@ public class TripCreationService
         int? SeatHoldHours,
         string? TermsText,
         string? Inclusions,
-        string? Exclusions)
+        string? Exclusions,
+        InstalmentDatesMode? InstalmentDatesMode = null,
+        DateOnly? PayInFullByDate = null)
     {
         public bool AnySent =>
             PricePerSeatKobo is not null
@@ -89,7 +91,9 @@ public class TripCreationService
             || SeatHoldHours is not null
             || !string.IsNullOrWhiteSpace(TermsText)
             || !string.IsNullOrWhiteSpace(Inclusions)
-            || !string.IsNullOrWhiteSpace(Exclusions);
+            || !string.IsNullOrWhiteSpace(Exclusions)
+            || InstalmentDatesMode is not null
+            || PayInFullByDate is not null;
     }
 
     public static string? NullIfBlank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
@@ -225,8 +229,10 @@ public class TripCreationService
         var isHosted = request.IsHostedTrip == true;
         var hostedFields = new HostedFieldsInput(
             request.PricePerSeatKobo, request.DepositKobo, request.Instalments, request.FeeMode,
-            request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions);
+            request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions,
+            request.InstalmentDatesMode, request.PayInFullByDate);
         var instalments = ToInstalments(request.Instalments);
+        var datesMode = request.InstalmentDatesMode ?? InstalmentDatesMode.HostSet;
         if (!isHosted)
         {
             if (hostedFields.AnySent) return TripCreateResult.Bad(HostedFieldsOnCommunityMessage);
@@ -240,7 +246,9 @@ public class TripCreationService
                 return TripCreateResult.Bad("Hosted trips need written terms (refunds and dropouts).");
             var textError = ValidateHostedText(request.SeatHoldHours, request.TermsText, request.Inclusions, request.Exclusions);
             if (textError is not null) return TripCreateResult.Bad(textError);
-            var scheduleErrors = InstalmentValidator.Validate(request.PricePerSeatKobo, request.DepositKobo, instalments, request.StartDate);
+            var scheduleErrors = InstalmentValidator.Validate(
+                request.PricePerSeatKobo, request.DepositKobo, instalments, request.StartDate,
+                datesMode, request.PayInFullByDate, HostTripService.TodayWat(DateTime.UtcNow));
             if (scheduleErrors.Count > 0)
                 return new TripCreateResult(TripCreateOutcome.Invalid,
                     FieldErrors: scheduleErrors.Select(e => (e.Key, e.Value)).ToList());
@@ -314,6 +322,8 @@ public class TripCreationService
             trip.DepositKobo = request.DepositKobo;
             trip.Instalments = instalments;
             trip.FeeMode = request.FeeMode ?? FeeMode.PassToTraveller;
+            trip.InstalmentDatesMode = datesMode;
+            trip.PayInFullByDate = datesMode == InstalmentDatesMode.TravellerChooses ? request.PayInFullByDate : null;
             trip.SeatHoldHours = request.SeatHoldHours ?? _hostOptions.DefaultSeatHoldHours;
             trip.TermsText = request.TermsText!.Trim();
             trip.TermsVersion = 1;

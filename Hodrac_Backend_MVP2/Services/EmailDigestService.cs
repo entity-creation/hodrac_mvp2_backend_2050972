@@ -170,6 +170,9 @@ namespace Hodrac_Backend_MVP2.Services
             NotificationType.HostFoundingRemoved => "Your founding host status was removed",
             NotificationType.HostClosed => "Your Hodrac host account was closed",
             NotificationType.HostReopened => "Your Hodrac host account was reopened - an admin needs to verify it again before travellers can pay",
+            NotificationType.InstalmentDatesChanged => $"{count} traveller{(count == 1 ? " changed their" : "s changed their")} instalment dates on your trip",
+            NotificationType.RemovedForMissedPayment => "The host removed you from a trip after a missed instalment",
+            NotificationType.PayoutAccountChanged => "Your Hodrac payout account was changed - if this wasn't you, contact Hodrac support at " + HodracContact.SupportEmail + " immediately",
             _ => "New trip activity"
         };
     }
@@ -177,5 +180,19 @@ namespace Hodrac_Backend_MVP2.Services
     public interface IEmailSender
     {
         Task SendAsync(string to, string subject, List<string> bodyLines, string deepLink);
+
+        /// <summary>
+        /// Sends a caller-built email (the weekly newsletter): HTML and plain-text
+        /// bodies as given, plus extra headers such as List-Unsubscribe.
+        /// </summary>
+        Task SendHtmlAsync(HtmlEmail email, CancellationToken ct = default);
     }
+
+    /// <summary>A fully rendered email. <see cref="Headers"/> are added as-is (e.g. List-Unsubscribe).</summary>
+    public record HtmlEmail(
+        string To,
+        string Subject,
+        string HtmlBody,
+        string TextBody,
+        IReadOnlyDictionary<string, string>? Headers = null);
 }

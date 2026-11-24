@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Text;
 using Hodrac_Backend_MVP2.Data;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
+using Hodrac_Backend_MVP2.Infrastucture.Http;
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
@@ -233,19 +234,18 @@ public class AdminPartnersController : ControllerBase
                      .OrderBy(x => x.r.Day).ThenBy(x => x.Target).ThenBy(x => x.r.Source))
         {
             csv.Append(DateOnly.FromDateTime(row.r.Day).ToString("yyyy-MM-dd")).Append(',')
-               .Append(CsvField(row.Target)).Append(',')
-               .Append(CsvField(row.r.Source)).Append(',')
+               .Append(CsvExport.Field(row.Target)).Append(',')
+               .Append(CsvExport.Field(row.r.Source)).Append(',')
                .Append(row.r.Clicks).Append(',')
                .Append(row.r.UniqueVisitors).Append("\r\n");
         }
 
-        // UTF-8 with BOM so Excel detects the encoding.
-        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
-        var slug = System.Text.RegularExpressions.Regex.Replace(partner.Name.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        var bytes = CsvExport.ToBytes(csv);
+        var slug = CsvExport.Slug(partner.Name);
         var fileName = $"partner-clicks-{(slug.Length == 0 ? "partner" : slug)}-{rangeFrom:yyyy-MM-dd}-to-{rangeTo:yyyy-MM-dd}.csv";
 
         _logger.LogInformation("Admin exported click report for partner {PartnerId}", id);
-        return File(bytes, "text/csv", fileName);
+        return File(bytes, CsvExport.ContentType, fileName);
     }
 
     // ══ Partner links ═════════════════════════════════════════════════════════
@@ -665,21 +665,6 @@ public class AdminPartnersController : ControllerBase
 
     private static string? NullIfBlank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    /// <summary>
-    /// RFC 4180 quoting, plus a leading apostrophe for values starting with
-    /// = + - @ (tab/CR) so spreadsheets don't evaluate them as formulas.
-    /// (Same rules as AdminNewsletterController.)
-    /// </summary>
-    private static string CsvField(string? value)
-    {
-        value ??= string.Empty;
-        if (value.Length > 0 && "=+-@\t\r".Contains(value[0]))
-            value = "'" + value;
-
-        var needsQuotes = value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0 || value != value.Trim();
-        return needsQuotes ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
-    }
 
     private static string EscapeLike(string value)
         => value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");

@@ -9,5 +9,12 @@ namespace Hodrac_Backend_MVP2.Models
         [EmailAddress]
         [JsonPropertyName("userEmail")]
         public string UserEmail { get; set; }
+
+        /// <summary>
+        /// UTC. Set by the newsletter unsubscribe link; cleared when the same
+        /// address signs up again. Not part of the sign-up request or response.
+        /// </summary>
+        [JsonIgnore]
+        public DateTime? UnsubscribedAt { get; set; }
     }
 }

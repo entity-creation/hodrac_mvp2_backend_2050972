@@ -163,7 +163,7 @@ public class HostedJobsTests
 
     private Task<DateOnly> InstalmentDueAsync(Guid tripId, int sequence) =>
         WithDbAsync(async db => (await db.TripPosts.AsNoTracking().FirstAsync(t => t.Id == tripId))
-            .Instalments.Single(i => i.Sequence == sequence).DueDate);
+            .Instalments.Single(i => i.Sequence == sequence).DueDate!.Value);
 
     private Task<int> NotificationCountAsync(Guid tripId, NotificationType type, string? recipientUserId = null) =>
         WithDbAsync(db => db.Notifications.CountAsync(n => n.TripPostId == tripId && n.Type == type

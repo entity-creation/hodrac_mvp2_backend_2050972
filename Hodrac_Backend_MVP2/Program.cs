@@ -243,7 +243,9 @@ builder.Services.AddHttpClient<IPaystackClient, PaystackClient>((sp, client) =>
 });
 builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostService>();
 builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostTripService>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.TravellerRemovalService>();
 builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostReportService>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostDashboardService>();
 builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Hosts.HostingInsightsService>();
 builder.Services.AddSingleton<Hodrac_Backend_MVP2.Services.Hosts.HostDocumentLinkSigner>();
 builder.Services.AddScoped<ITripThreadService, TripThreadService>();
@@ -276,7 +278,16 @@ builder.Services.AddScoped<PaymentReconcileJob>();
 builder.Services.AddScoped<HostWeeklyReportJob>();
 builder.Services.AddScoped<HostDocumentPurgeJob>();
 builder.Services.AddHostedService<ScheduledJobsService>();
-// Hourly seat-hold expiry and 30-minute payment reconcile.
+// Weekly newsletter: draft (Wed 09:00 WAT) and sender (approved issues, batched).
+builder.Services.Configure<Hodrac_Backend_MVP2.Services.Newsletter.NewsletterOptions>(
+    builder.Configuration.GetSection(Hodrac_Backend_MVP2.Services.Newsletter.NewsletterOptions.SectionName));
+builder.Services.AddSingleton<Hodrac_Backend_MVP2.Services.Newsletter.NewsletterUnsubscribeTokens>();
+builder.Services.AddSingleton<Hodrac_Backend_MVP2.Services.Newsletter.NewsletterRenderer>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Newsletter.NewsletterDraftService>();
+builder.Services.AddScoped<Hodrac_Backend_MVP2.Services.Newsletter.NewsletterAudienceService>();
+builder.Services.AddScoped<NewsletterDraftJob>();
+builder.Services.AddScoped<NewsletterSendJob>();
+// Hourly seat-hold expiry, 30-minute payment reconcile, newsletter draft check (15 min) and sender (5 min).
 builder.Services.AddHostedService<IntervalJobsService>();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 builder.Services.AddHttpClient<IEmbeddingService, PythonEmbeddingService>(client =>
@@ -349,6 +360,17 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(1)
+            }));
+
+    // Host payout account (lookups, setup and password-checked changes): 10 per
+    // 5 minutes per signed-in user, which also caps wrong-password guesses.
+    options.AddPolicy("host-payout-account", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            RateLimitUserKey(httpContext),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(5)
             }));
 
     // UseRateLimiter runs after UseAuthentication, so the JWT user is available here.

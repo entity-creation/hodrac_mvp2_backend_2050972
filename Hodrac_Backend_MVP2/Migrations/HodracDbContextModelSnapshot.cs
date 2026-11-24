@@ -133,6 +133,9 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("NewsletterOptOut")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -1382,6 +1385,9 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("UnsubscribedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("UserEmail")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1390,6 +1396,125 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.HasKey("EmailId");
 
                     b.ToTable("NewsLetterEmails");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.NewsletterDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<Guid>("IssueId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueId", "Email")
+                        .IsUnique();
+
+                    b.HasIndex("IssueId", "Status");
+
+                    b.ToTable("NewsletterDeliveries", (string)null);
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.NewsletterIssue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("BodyMarkdown")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("IssueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PreviewText")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("RecipientCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ScheduledFor")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SendStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SentCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IssueDate")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "ScheduledFor");
+
+                    b.ToTable("NewsletterIssues", (string)null);
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Notification", b =>
@@ -2027,6 +2152,13 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .HasColumnType("character varying(32)")
                         .HasDefaultValue("NotRequired");
 
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RemovedReason")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
                     b.Property<DateTime>("RequestedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -2053,6 +2185,9 @@ namespace Hodrac_Backend_MVP2.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
+                    b.Property<string>("TermsInstalmentDatesJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("TermsTextSha256")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -2073,6 +2208,28 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.HasIndex("TripPostId", "Status");
 
                     b.ToTable("TripInterests");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripInterestInstalmentDate", b =>
+                {
+                    b.Property<Guid>("TripInterestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ChosenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("TripInterestId", "Sequence");
+
+                    b.ToTable("TripInterestInstalmentDates", (string)null);
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripPageViewDaily", b =>
@@ -2159,6 +2316,13 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<string>("Inclusions")
                         .HasColumnType("text");
 
+                    b.Property<string>("InstalmentDatesMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValue("HostSet");
+
                     b.Property<bool>("IsDateFlexible")
                         .HasColumnType("boolean");
 
@@ -2178,6 +2342,9 @@ namespace Hodrac_Backend_MVP2.Migrations
 
                     b.Property<int?>("MaxGroupSize")
                         .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("PayInFullByDate")
+                        .HasColumnType("date");
 
                     b.Property<long?>("PricePerSeatKobo")
                         .HasColumnType("bigint");
@@ -3106,6 +3273,17 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("TripInterest");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.NewsletterDelivery", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.NewsletterIssue", "Issue")
+                        .WithMany("Deliveries")
+                        .HasForeignKey("IssueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Issue");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.OperatorPlanPayment", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.HostProfile", "HostProfile")
@@ -3244,6 +3422,17 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("TripPost");
                 });
 
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripInterestInstalmentDate", b =>
+                {
+                    b.HasOne("Hodrac_Backend_MVP2.Models.TripInterest", "TripInterest")
+                        .WithMany()
+                        .HasForeignKey("TripInterestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TripInterest");
+                });
+
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.TripPageViewDaily", b =>
                 {
                     b.HasOne("Hodrac_Backend_MVP2.Models.TripPost", null)
@@ -3281,7 +3470,7 @@ namespace Hodrac_Backend_MVP2.Migrations
                             b1.Property<long>("AmountKobo")
                                 .HasColumnType("bigint");
 
-                            b1.Property<DateOnly>("DueDate")
+                            b1.Property<DateOnly?>("DueDate")
                                 .HasColumnType("date");
 
                             b1.HasKey("TripPostId", "Sequence");
@@ -3542,6 +3731,11 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Navigation("CountryLanguages");
 
                     b.Navigation("DestinationLanguages");
+                });
+
+            modelBuilder.Entity("Hodrac_Backend_MVP2.Models.NewsletterIssue", b =>
+                {
+                    b.Navigation("Deliveries");
                 });
 
             modelBuilder.Entity("Hodrac_Backend_MVP2.Models.Partner", b =>

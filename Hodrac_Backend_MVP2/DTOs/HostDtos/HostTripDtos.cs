@@ -34,7 +34,7 @@ namespace Hodrac_Backend_MVP2.DTOs.HostDtos
         string TravellerName,
         string? Email,
         string? Phone,                  // ContactPhone, else the account's phone number
-        string InterestStatus,          // Requested | Approved | Withdrawn
+        string InterestStatus,          // Requested | Approved | Withdrawn | Removed
         string PaymentStatus,
         int? TermsVersionAccepted,
         DateTime? TermsAcceptedAt,
@@ -46,8 +46,27 @@ namespace Hodrac_Backend_MVP2.DTOs.HostDtos
         long? NextDueAmountKobo,
         DateTime? SeatHoldExpiresAt,
         DateTime? LastReminderAt,
-        DateTime RequestedAt
+        DateTime RequestedAt,
+        bool DatesChosenByTraveller = false,   // TravellerChooses trip and the traveller has picked dates
+        bool CanRemove = false,                // the host may remove them now (an instalment is overdue)
+        string? RemovedReason = null,          // InterestStatus Removed only
+        DateTime? RemovedAt = null,
+        long OverdueKobo = 0                   // unpaid instalments due before today (WAT); 0 unless owing on a non-cancelled trip
     );
+
+    /// <summary>POST /api/host/trips/{id}/travellers/{interestId}/remove. Reason: optional, at most 450 characters.</summary>
+    public record RemoveTravellerRequest(string? Reason);
+
+    public record OverdueInstalmentDto(int Sequence, DateOnly DueDate, long AmountKobo, long RemainingKobo);
+
+    public record RemoveTravellerResultDto(
+        Guid InterestId,
+        string InterestStatus,                 // "Removed"
+        string PaymentStatus,                  // unchanged: payments are kept, nothing is refunded
+        long AmountPaidKobo,
+        DateTime RemovedAt,
+        string? RemovedReason,
+        List<OverdueInstalmentDto> OverdueInstalments);
 
     public record ManifestTotalsDto(
         int Travellers,
@@ -57,7 +76,8 @@ namespace Hodrac_Backend_MVP2.DTOs.HostDtos
         long PaidKobo,
         long ViaHodracKobo,
         long ManualKobo,
-        long OwesKobo
+        long OwesKobo,
+        long OverdueKobo = 0
     );
 
     public record ManifestDto(

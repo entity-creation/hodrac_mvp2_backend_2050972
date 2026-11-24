@@ -22,6 +22,8 @@ namespace Hodrac_Backend_MVP2.Services
         Task NotifyHostFoundingRemoved(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
         Task NotifyHostClosed(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
         Task NotifyHostReopened(Guid hostUserId, Guid adminUserId, bool emailedDirectly);
+        // The host changed their own payout account (actor: the host).
+        Task NotifyPayoutAccountChanged(Guid hostUserId, bool emailedDirectly);
 
         // An approved traveller withdrew from a hosted trip (seat released;
         // any payment records are kept).
@@ -39,6 +41,12 @@ namespace Hodrac_Backend_MVP2.Services
         Task NotifySeatHoldExpiring(TripPost trip, Guid travellerUserId, bool emailedDirectly);
         // Both sides: the traveller (actor: host) and the host (actor: traveller).
         Task NotifySeatHoldExpired(TripPost trip, Guid travellerUserId, bool travellerEmailedDirectly);
+
+        // (host) A traveller on a TravellerChooses trip moved their instalment dates.
+        Task NotifyInstalmentDatesChanged(TripPost trip, Guid travellerUserId);
+        // (traveller) The host removed them after a missed instalment
+        // (emailedDirectly: the removal email went out, so the digest skips it).
+        Task NotifyRemovedForMissedPayment(TripPost trip, Guid travellerUserId, bool emailedDirectly);
     }
 
     // Creates the in-app Notification rows and pushes each one to its
@@ -154,6 +162,15 @@ namespace Hodrac_Backend_MVP2.Services
                 EmailedAt = emailedDirectly ? DateTime.UtcNow : null
             });
 
+        public Task NotifyPayoutAccountChanged(Guid hostUserId, bool emailedDirectly) =>
+            SaveAndPushAsync(new Notification
+            {
+                RecipientUserId = hostUserId,
+                Type = NotificationType.PayoutAccountChanged,
+                ActorUserId = hostUserId,
+                EmailedAt = emailedDirectly ? DateTime.UtcNow : null
+            });
+
         public Task NotifyHostedSeatWithdrawn(TripPost trip, Guid requesterUserId) =>
             SaveAndPushAsync(new Notification
             {
@@ -229,6 +246,25 @@ namespace Hodrac_Backend_MVP2.Services
                     TripPostId = trip.Id,
                     ActorUserId = travellerUserId
                 });
+
+        public Task NotifyInstalmentDatesChanged(TripPost trip, Guid travellerUserId) =>
+            SaveAndPushAsync(new Notification
+            {
+                RecipientUserId = trip.AuthorUserId,
+                Type = NotificationType.InstalmentDatesChanged,
+                TripPostId = trip.Id,
+                ActorUserId = travellerUserId
+            });
+
+        public Task NotifyRemovedForMissedPayment(TripPost trip, Guid travellerUserId, bool emailedDirectly) =>
+            SaveAndPushAsync(new Notification
+            {
+                RecipientUserId = travellerUserId,
+                Type = NotificationType.RemovedForMissedPayment,
+                TripPostId = trip.Id,
+                ActorUserId = trip.AuthorUserId,
+                EmailedAt = emailedDirectly ? DateTime.UtcNow : null
+            });
 
         private async Task SaveAndPushAsync(params Notification[] notifications)
         {
