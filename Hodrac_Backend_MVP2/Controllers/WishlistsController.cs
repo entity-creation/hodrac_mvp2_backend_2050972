@@ -131,7 +131,10 @@ public class WishlistsController : ControllerBase
         CancellationToken ct = default)
     {
         limit = Math.Clamp(limit, 1, 50);
-        var effectiveUserId = _currentUser.IsAuthenticated ? _currentUser.UserIdString : userId;
+        // Personalise only for the signed-in caller. `user_id` is accepted for
+        // backward compatibility but ignored: honouring it for anonymous callers
+        // would let anyone see another user's personalised ranking.
+        var effectiveUserId = _currentUser.IsAuthenticated ? _currentUser.UserIdString : null;
         var rankedIds = await _popularService.GetRankedWishlistIdsAsync(effectiveUserId, limit, ct);
         var wishlists = await _wishlists.GetPopularTemplatesAsync(rankedIds, limit, ct);
         return Ok(await _partners.AttachAsync(wishlists.Select(MapToCard), ct));
@@ -373,7 +376,7 @@ public class WishlistsController : ControllerBase
         BasePricePerPerson: w.BasePricePerPerson,
         CalculatedTotalCost: w.CalculatedTotalCost,
         TotalGlobalSaveCount: w.TotalGlobalSaveCount,
-        IsFeatured: w.IsFeatured,
+        IsFeatured: w.IsCurrentlyFeatured(DateTimeOffset.UtcNow),
         PsychologicalVibeTags: JsonSerializer.Deserialize<List<string>>(w.PsychologicalVibeTagsJson)
                                 ?? new List<string>(),
         PrimaryPersonaTarget: w.PrimaryPersonaTarget

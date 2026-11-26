@@ -972,6 +972,9 @@ namespace Hodrac_Backend_MVP2.Migrations
                     b.Property<int>("DailyImpressionLimit")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("EditorialOrder")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("LastRotationDate")
                         .HasColumnType("timestamp with time zone");
 

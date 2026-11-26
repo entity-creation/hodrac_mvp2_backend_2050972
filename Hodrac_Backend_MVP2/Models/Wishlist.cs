@@ -57,6 +57,10 @@ public class Wishlist
     public bool IsFeatured { get; set; }
     public DateTimeOffset? FeaturedUntil { get; set; }
 
+    /// <summary>Featured and not past FeaturedUntil (null = featured indefinitely).</summary>
+    public bool IsCurrentlyFeatured(DateTimeOffset now) =>
+        IsFeatured && (FeaturedUntil == null || FeaturedUntil > now);
+
     // ── Behavioral metadata ───────────────────────────────────────────────────
     [MaxLength(100)]
     public string PrimaryPersonaTarget { get; set; } = string.Empty;
@@ -274,6 +278,12 @@ public class FeaturedWishlistPool
     public double RandomSelectionWeight { get; set; }
 
     public DateTimeOffset LastRotationDate { get; set; }
+
+    /// <summary>
+    /// 1-based display order among Editorial entries (set by
+    /// PUT /api/admin/featured-pool/editorial/order). Null for Paid / Random.
+    /// </summary>
+    public int? EditorialOrder { get; set; }
 }
 
 // ─── Creator ───────────────────────────────────────────────────────────────────

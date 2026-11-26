@@ -17,7 +17,8 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         int DestinationCount,
         int ForkCount,
         int PartnerLinkCount,
-        DateTimeOffset CreatedAt
+        DateTimeOffset CreatedAt,
+        bool IsCurrentlyFeatured
     );
 
     public record AdminWishlistDestinationDto(Guid DestinationId, string DestinationName);
@@ -75,7 +76,8 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         int DailyImpressionLimit,
         int CurrentImpressionsToday,
         double RandomSelectionWeight,
-        DateTimeOffset LastRotationDate
+        DateTimeOffset LastRotationDate,
+        int? EditorialOrder
     );
 
     public record AdminWishlistDetailDto(
@@ -109,7 +111,8 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         List<AdminWishlistDestinationDto> Destinations,
         List<AdminItineraryDayDto> ItineraryDays,
         List<AdminAttributionDto> Attributions,
-        List<AdminFeaturedPoolEntryDto> FeaturedPoolEntries
+        List<AdminFeaturedPoolEntryDto> FeaturedPoolEntries,
+        bool IsCurrentlyFeatured
     );
 
     /// <summary>
@@ -193,6 +196,12 @@ namespace Hodrac_Backend_MVP2.DTOs.AdminDtos
         [Range(0, 1_000_000)] double? RandomSelectionWeight,
         bool ResetImpressionsToday = false
     );
+
+    /// <summary>
+    /// PUT /api/admin/featured-pool/editorial/order. EntryIds (FeaturedWishlistPoolId values)
+    /// must list every current Editorial entry exactly once; position i becomes EditorialOrder i + 1.
+    /// </summary>
+    public record ReorderEditorialPoolRequest([Required] List<Guid> EntryIds);
 
     // ─── Creators ─────────────────────────────────────────────────────────────
 

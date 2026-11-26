@@ -4,6 +4,7 @@ using Hodrac_Backend_MVP2.DTOs.AdminDtos;
 using Hodrac_Backend_MVP2.DTOs.PartnerDtos;
 using Hodrac_Backend_MVP2.DTOs.WishlistDtos;
 using Hodrac_Backend_MVP2.Models;
+using Hodrac_Backend_MVP2.Services;
 using Hodrac_Backend_MVP2.Services.Images;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,6 +37,7 @@ namespace Hodrac_Backend_MVP2.Controllers;
 ///   POST   /api/admin/featured-pool
 ///   PATCH  /api/admin/featured-pool/{id}
 ///   DELETE /api/admin/featured-pool/{id}
+///   PUT    /api/admin/featured-pool/editorial/order          (body { entryIds: [...] }, every Editorial entry once)
 /// </summary>
 [ApiController]
 [Authorize(Policy = "Admin")]
@@ -97,6 +99,7 @@ public class AdminWishlistsController : ControllerBase
             _ => query.OrderByDescending(w => w.CreatedAt).ThenBy(w => w.WishlistId)
         };
 
+        var now = DateTimeOffset.UtcNow;
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -113,7 +116,8 @@ public class AdminWishlistsController : ControllerBase
                 w.WishlistDestinations.Count,
                 _db.Wishlists.Count(f => f.ForkedFromId == w.WishlistId),
                 _db.PartnerLinks.Count(l => l.WishlistId == w.WishlistId),
-                w.CreatedAt))
+                w.CreatedAt,
+                w.IsFeatured && (w.FeaturedUntil == null || w.FeaturedUntil > now)))
             .ToListAsync(ct);
 
         return Ok(new AdminPagedResult<AdminWishlistSummaryDto>(items, page, pageSize, total));
@@ -317,9 +321,16 @@ public class AdminWishlistsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Clears IsFeatured / FeaturedUntil and removes the wishlist's Editorial pool entry
+    /// (remaining Editorial entries are renumbered). Idempotent: no Editorial entry is fine.
+    /// Paid / Random entries are left alone.
+    /// </summary>
     [HttpPost("wishlists/{id:guid}/unfeature")]
     public async Task<IActionResult> UnfeatureWishlist(Guid id, CancellationToken ct = default)
     {
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
         var updated = await _db.Wishlists
             .Where(w => w.WishlistId == id && w.IsTemplate)
             .ExecuteUpdateAsync(s => s
@@ -328,7 +339,18 @@ public class AdminWishlistsController : ControllerBase
 
         if (updated == 0) return NotFound();
 
-        _logger.LogInformation("Admin unfeatured wishlist {WishlistId}", id);
+        var removed = await _db.FeaturedWishlistPool
+            .Where(p => p.WishlistId == id && p.PoolType == EditorialPool.PoolType)
+            .ExecuteDeleteAsync(ct);
+        if (removed > 0)
+        {
+            await EditorialPool.RenumberAsync(_db, ct);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        await tx.CommitAsync(ct);
+
+        _logger.LogInformation("Admin unfeatured wishlist {WishlistId} (editorial entries removed: {Removed})", id, removed);
         return NoContent();
     }
 
@@ -705,23 +727,54 @@ public class AdminWishlistsController : ControllerBase
             query = query.Where(p => p.PoolType == normalized);
         }
 
+        // Editorial rows follow EditorialOrder (nulls last); other pools keep PaidAmount desc, then name.
         var entries = await query
             .OrderBy(p => p.PoolType)
+            .ThenBy(p => p.EditorialOrder == null)
+            .ThenBy(p => p.EditorialOrder)
             .ThenByDescending(p => p.PaidAmount)
             .ThenBy(p => p.Wishlist.WishlistName)
-            .Select(p => new AdminFeaturedPoolEntryDto(
-                p.FeaturedWishlistPoolId,
-                p.WishlistId,
-                p.Wishlist.WishlistName,
-                p.PoolType,
-                p.PaidAmount,
-                p.DailyImpressionLimit,
-                p.CurrentImpressionsToday,
-                p.RandomSelectionWeight,
-                p.LastRotationDate))
+            .Select(ToPoolEntryDto)
             .ToListAsync(ct);
 
         return Ok(entries);
+    }
+
+    /// <summary>
+    /// PUT /api/admin/featured-pool/editorial/order — sets the Editorial display order.
+    /// EntryIds must list every current Editorial entry exactly once (400 otherwise).
+    /// Returns the Editorial entries in their new order.
+    /// </summary>
+    [HttpPut("featured-pool/editorial/order")]
+    public async Task<ActionResult<List<AdminFeaturedPoolEntryDto>>> ReorderEditorialPool(
+        ReorderEditorialPoolRequest request, CancellationToken ct = default)
+    {
+        var editorial = await _db.FeaturedWishlistPool
+            .Where(p => p.PoolType == EditorialPool.PoolType)
+            .ToListAsync(ct);
+        var ids = request.EntryIds ?? new List<Guid>();
+
+        if (ids.Count != ids.Distinct().Count()
+            || ids.Count != editorial.Count
+            || !editorial.All(p => ids.Contains(p.FeaturedWishlistPoolId)))
+        {
+            ModelState.AddModelError(nameof(ReorderEditorialPoolRequest.EntryIds),
+                "List every Editorial pool entry exactly once.");
+            return ValidationProblem(ModelState);
+        }
+
+        var byId = editorial.ToDictionary(p => p.FeaturedWishlistPoolId);
+        for (var i = 0; i < ids.Count; i++)
+            byId[ids[i]].EditorialOrder = i + 1;
+
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Admin reordered {Count} Editorial pool entries", ids.Count);
+
+        return Ok(await EditorialPool.Ordered(_db.FeaturedWishlistPool.AsNoTracking()
+                .Where(p => p.PoolType == EditorialPool.PoolType))
+            .Select(ToPoolEntryDto)
+            .ToListAsync(ct));
     }
 
     [HttpPost("featured-pool")]
@@ -752,6 +805,8 @@ public class AdminWishlistsController : ControllerBase
             CurrentImpressionsToday = 0,
             RandomSelectionWeight = request.RandomSelectionWeight,
             LastRotationDate = DateTimeOffset.UtcNow,
+            // New Editorial entries go to the end of the curated order.
+            EditorialOrder = poolType == EditorialPool.PoolType ? await EditorialPool.NextOrderAsync(_db, ct) : null,
         };
 
         _db.FeaturedWishlistPool.Add(entry);
@@ -789,6 +844,12 @@ public class AdminWishlistsController : ControllerBase
             && await _db.FeaturedWishlistPool.AnyAsync(p => p.WishlistId == entry.WishlistId && p.PoolType == poolType, ct))
             return Conflict(new { error = $"This wishlist is already in the {poolType} pool.", code = "DUPLICATE_POOL_ENTRY" });
 
+        var leftEditorial = entry.PoolType == EditorialPool.PoolType && poolType != EditorialPool.PoolType;
+        if (poolType == EditorialPool.PoolType && entry.PoolType != EditorialPool.PoolType)
+            entry.EditorialOrder = await EditorialPool.NextOrderAsync(_db, ct);   // joins at the end
+        else if (leftEditorial)
+            entry.EditorialOrder = null;
+
         entry.PoolType = poolType;
         entry.DailyImpressionLimit = limit;
         entry.RandomSelectionWeight = weight;
@@ -801,17 +862,32 @@ public class AdminWishlistsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
 
+        if (leftEditorial)
+        {
+            await EditorialPool.RenumberAsync(_db, ct);   // close the gap it left
+            await _db.SaveChangesAsync(ct);
+        }
+
         return Ok(await LoadPoolEntry(id, ct));
     }
 
     [HttpDelete("featured-pool/{id:guid}")]
     public async Task<IActionResult> DeleteFeaturedPoolEntry(Guid id, CancellationToken ct = default)
     {
+        var wasEditorial = await _db.FeaturedWishlistPool
+            .AnyAsync(p => p.FeaturedWishlistPoolId == id && p.PoolType == EditorialPool.PoolType, ct);
+
         var deleted = await _db.FeaturedWishlistPool
             .Where(p => p.FeaturedWishlistPoolId == id)
             .ExecuteDeleteAsync(ct);
 
         if (deleted == 0) return NotFound();
+
+        if (wasEditorial)
+        {
+            await EditorialPool.RenumberAsync(_db, ct);
+            await _db.SaveChangesAsync(ct);
+        }
 
         _logger.LogInformation("Admin removed featured pool entry {EntryId}", id);
         return NoContent();
@@ -832,17 +908,21 @@ public class AdminWishlistsController : ControllerBase
         => _db.FeaturedWishlistPool
             .AsNoTracking()
             .Where(p => p.FeaturedWishlistPoolId == id)
-            .Select(p => new AdminFeaturedPoolEntryDto(
-                p.FeaturedWishlistPoolId,
-                p.WishlistId,
-                p.Wishlist.WishlistName,
-                p.PoolType,
-                p.PaidAmount,
-                p.DailyImpressionLimit,
-                p.CurrentImpressionsToday,
-                p.RandomSelectionWeight,
-                p.LastRotationDate))
+            .Select(ToPoolEntryDto)
             .FirstOrDefaultAsync(ct);
+
+    private static readonly System.Linq.Expressions.Expression<Func<FeaturedWishlistPool, AdminFeaturedPoolEntryDto>> ToPoolEntryDto =
+        p => new AdminFeaturedPoolEntryDto(
+            p.FeaturedWishlistPoolId,
+            p.WishlistId,
+            p.Wishlist.WishlistName,
+            p.PoolType,
+            p.PaidAmount,
+            p.DailyImpressionLimit,
+            p.CurrentImpressionsToday,
+            p.RandomSelectionWeight,
+            p.LastRotationDate,
+            p.EditorialOrder);
 
     private static string? NormalizePoolType(string? value)
         => PoolTypes.FirstOrDefault(p => string.Equals(p, value?.Trim(), StringComparison.OrdinalIgnoreCase));
@@ -956,8 +1036,10 @@ public class AdminWishlistsController : ControllerBase
                     p.DailyImpressionLimit,
                     p.CurrentImpressionsToday,
                     p.RandomSelectionWeight,
-                    p.LastRotationDate))
-                .ToList());
+                    p.LastRotationDate,
+                    p.EditorialOrder))
+                .ToList(),
+            w.IsCurrentlyFeatured(DateTimeOffset.UtcNow));
     }
 
     /// <summary>Distinct destination ids, each validated to exist. Null in → null out.</summary>

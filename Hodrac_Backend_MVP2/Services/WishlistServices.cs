@@ -174,8 +174,8 @@ public class PopularWishlistService
 /// <summary>
 /// Implements the hourly rotation logic from Part 3.3:
 ///   - 2 Paid (by PaidAmount desc)
-///   - 3 Editorial (manually curated, IsFeatured = true)
-///   - 5+ Random (weighted by RandomSelectionWeight)
+///   - all Editorial (manually curated, in EditorialOrder; expired FeaturedUntil skipped)
+///   - 5 Random (weighted by RandomSelectionWeight)
 /// Results cached in Redis (see FeaturedCacheService).
 /// </summary>
 public class FeaturedWishlistService
@@ -201,12 +201,13 @@ public class FeaturedWishlistService
             .ToListAsync(ct);
         result.AddRange(paid);
 
-        // 2. Editorial (3 curated) — deterministic: most-saved first, id as tie-breaker
-        var editorial = await _db.FeaturedWishlistPool
-            .Where(p => p.PoolType == "Editorial" && p.Wishlist.IsTemplate)
-            .OrderByDescending(p => p.Wishlist.TotalGlobalSaveCount)
-            .ThenBy(p => p.FeaturedWishlistPoolId)
-            .Take(3)
+        // 2. Editorial — every curated entry, in the admin's EditorialOrder. Entries whose
+        //    wishlist's FeaturedUntil has passed are skipped (the daily cleanup removes them).
+        var now = DateTimeOffset.UtcNow;
+        var editorial = await EditorialPool.Ordered(_db.FeaturedWishlistPool
+                .Where(p => p.PoolType == EditorialPool.PoolType
+                         && p.Wishlist.IsTemplate
+                         && (p.Wishlist.FeaturedUntil == null || p.Wishlist.FeaturedUntil > now)))
             .Select(p => p.WishlistId)
             .ToListAsync(ct);
         result.AddRange(editorial);
@@ -255,5 +256,42 @@ public class FeaturedWishlistService
             }
         }
         return selected;
+    }
+}
+
+// ─── Editorial pool ordering ──────────────────────────────────────────────────
+
+/// <summary>
+/// Shared ordering rules for Editorial featured-pool entries: EditorialOrder ascending
+/// (nulls last), then most-saved wishlist, then entry id. Used by the public featured
+/// rotation, the admin pool list, the reorder endpoint and the daily cleanup.
+/// </summary>
+public static class EditorialPool
+{
+    public const string PoolType = "Editorial";
+
+    public static IOrderedQueryable<Models.FeaturedWishlistPool> Ordered(IQueryable<Models.FeaturedWishlistPool> query)
+        => query
+            .OrderBy(p => p.EditorialOrder == null)
+            .ThenBy(p => p.EditorialOrder)
+            .ThenByDescending(p => p.Wishlist.TotalGlobalSaveCount)
+            .ThenBy(p => p.FeaturedWishlistPoolId);
+
+    /// <summary>Order for a new entry joining the end of the Editorial list (max + 1).</summary>
+    public static async Task<int> NextOrderAsync(HodracDbContext db, CancellationToken ct = default)
+        => (await db.FeaturedWishlistPool
+            .Where(p => p.PoolType == PoolType)
+            .MaxAsync(p => p.EditorialOrder, ct) ?? 0) + 1;
+
+    /// <summary>
+    /// Renumbers the remaining Editorial entries 1..n in their current order
+    /// (closing gaps after removals). Tracked changes; the caller saves.
+    /// </summary>
+    public static async Task RenumberAsync(HodracDbContext db, CancellationToken ct = default)
+    {
+        var entries = await Ordered(db.FeaturedWishlistPool.Where(p => p.PoolType == PoolType))
+            .ToListAsync(ct);
+        for (var i = 0; i < entries.Count; i++)
+            if (entries[i].EditorialOrder != i + 1) entries[i].EditorialOrder = i + 1;
     }
 }
