@@ -14,13 +14,14 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
     /// are never touched, so edits made in the admin survive any number of re-runs.
     ///
     /// Run after the content it links to: destinations (DestinationsSeeder, AfricaPocSeeder,
-    /// CalabarSeeder), the trip wishlists (Calabar, Ghana, Benin Republic, Zanzibar, Rwanda &amp; Qatar)
+    /// CalabarSeeder), the trip wishlists (Calabar, Ghana, Benin Republic, Zanzibar, Rwanda &amp; Qatar, Mombasa, Diani)
     /// and EventsSeeder. Places, tags, destinations and wishlists are resolved by exact name and events
     /// by slug at seed time; anything missing is skipped with a warning and the post is still created.
     /// After seeding, every embed marker in the bodies is resolved with <see cref="BlogQueries.ResolveEmbedsAsync"/>
     /// and any that don't resolve are logged.
     ///
     /// Facts come only from the seeded destination, wishlist and event content.
+    /// The Mombasa posts also use the research cited in MombasaSeeder and in the comments above each post.
     /// </summary>
     public static class BlogSeeder
     {
@@ -949,6 +950,347 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                     ## Adding Kigali on the way
 
                     If you fly RwandAir, you can ask for a multi-city Lagos-Kigali-Doha ticket and spend two nights in Kigali before Doha. Nigerians get a free visa on arrival in Rwanda; bring your yellow fever card. Our "Doha with a Kigali Stopover" trip is built that way, and "Kigali & Doha" spends four days in Rwanda first. Our separate guide to a Kigali stopover covers what to see there.
+                    """),
+            // ── 10. Mombasa trip ───────────────────────────────────────────────
+            // Facts from MombasaSeeder (destinations, wishlist, Kenya spec) and the research cited in
+            // its header comment: NMK 2026 fee list (Fort Jesus), KWS October 2025 fees (marine park),
+            // etakenya.go.ke (Nigerians eTA-exempt up to 60 days), gov.uk FCDO, the founder and visasnews.com
+            // (travel health insurance for every traveller, Oct 2026), CDC (yellow fever), kayak.com and kenya-airways.com
+            // (Lagos-Nairobi-Mombasa routings), the-star.co.ke (SGR), travel4purpose.com (ChaQula),
+            // wildwaterskenya.com, weatherspark.com. Rates: ~KSh 130/US$ and ~₦1,363/US$ (mid-Nov 2026).
+            new(
+                Slug: "trip-to-mombasa-kenya-what-to-see-eat-and-do",
+                Title: "Trip to Mombasa, Kenya: What to See, Eat and Do",
+                Excerpt: "A five-day plan for Mombasa from Nigeria: Fort Jesus and Old Town food, Haller Park and Mamba Village, a glass-bottom boat on the reef and evenings on Mama Ngina Drive, with the prices our founder paid.",
+                MetaTitle: "Trip to Mombasa, Kenya: What to See, Eat and Do",
+                MetaDescription: "Plan a trip to Mombasa from Nigeria: flights, entry rules, Fort Jesus, Old Town food, Haller Park, the marine park and the prices our founder paid.",
+                CityName: "Mombasa",
+                CountryName: "Kenya",
+                TagKeys: new[] { "beach", "food_focused", "history", "family_friendly", "cultural" },
+                DestinationNames: new[]
+                {
+                    "Mama Ngina Waterfront & Lighthouse", "Fort Jesus Museum", "Mombasa Old Town", "Nalka Café",
+                    "Forodhani Restaurant, Mombasa Old Town", "Wild Waters Kenya", "Haller Park", "Mamba Village Centre",
+                    "Mombasa Marine National Park and Reserve", "Mombasa Tusks", "Marikiti Market",
+                    "Siri Guru Singh Sabha Gurdwara", "CityBlue Creekside Hotel & Suites",
+                },
+                WishlistNames: new[] { "Mombasa: Old Town, Fort Jesus and the North Coast" },
+                EventSlugs: Array.Empty<string>(),
+                Body: """
+                    Mombasa is Kenya's main port and its second-largest city, on the Indian Ocean coast. Old Town and Fort Jesus are on Mombasa Island, and the beach hotels, Haller Park and the marine park are a short drive north in Nyali and Bamburi. This guide follows our five-day "Mombasa: Old Town, Fort Jesus and the North Coast" trip, which is built from our founder's own list, and uses the prices our founder paid in Kenyan shillings (KSh). At mid-November 2026 rates, KSh 1,000 is roughly ₦10,500 or US$8.
+
+                    ## Getting there and getting in
+
+                    There are no nonstop flights from Nigeria to Mombasa. Kenya Airways flies nonstop from Lagos to Nairobi in about five hours and 20 minutes and connects to Moi International Airport in Mombasa; the quickest connections take about eight and a half hours in total. Ethiopian flies via Addis Ababa from both Lagos and Abuja. If you want to see Nairobi first, the Madaraka Express train runs from Nairobi to Mombasa in about six hours.
+
+                    Nigerians don't need a Kenyan eTA for visits of 60 days or less. Since October 2026, though, every traveller to Kenya, Nigerians included, must buy government travel health insurance online at insurance.ecitizen.go.ke before arrival. It cost about US$52 including fees at launch, and your own travel insurance doesn't replace it. Kenya also asks travellers coming from Nigeria for a yellow fever certificate.
+
+                    At the airport, buy a Safaricom SIM and register M-Pesa with your passport. Most of Mombasa runs on M-Pesa, and you'll get around by tuk-tuk, Uber and Bolt. Bolt added tuk-tuks to its app in 2026.
+
+                    ## Where to stay
+
+                    Our trip uses CityBlue Creekside Hotel & Suites, formerly the Best Western Plus Creekside, on Tudor Creek beside Nyali Bridge. Fort Jesus is about 5 km away and Haller Park and Mamba Village about 8 km, so neither half of the city is a long ride. Online rates started at about US$40 to US$50 a night in late 2026.
+
+                    ## Evenings on Mama Ngina Drive
+
+                    On your first evening, go to Mama Ngina Waterfront on the south side of the island. It's a free seafront park with a promenade about 2 km long, facing the channel where ships come into the port. Locals call the northern end "Lighthouse", and that's where our founder goes for the sea breeze and the street food: cassava crisps (mihogo), fried cassava and fresh coconut (madafu). Go from late afternoon and stay in the lit, busy stretches. Don't swim; it's a shipping channel.
+
+                    {{destination:mama-ngina-waterfront-and-lighthouse}}
+
+                    ## Fort Jesus and Old Town
+
+                    Start Day 2 at Fort Jesus at 8:30 AM, when it opens and before the heat. The Portuguese built it in 1593, and it is now a museum and a UNESCO World Heritage Site. Our founder paid KSh 550, which is the Kenyan citizen rate; the museum's 2026 price list puts Nigerians and other African visitors at US$9 an adult. Tickets are cashless through eCitizen, so buy yours on your phone and bring your passport.
+
+                    {{destination:fort-jesus-museum}}
+
+                    Old Town starts at the fort and costs nothing to walk. Follow Ndia Kuu, the old main street, past carved doors and balconies down to the Old Port, and eat as you go: mahamri, viazi karai, mishkaki and small cups of Swahili coffee. Old Town is mostly Muslim, so cover your shoulders and knees. Our founder likes Nalka Café, a small café in a coral-stone building near Ndia Kuu. It doesn't publish prices or hours, so check Google Maps first.
+
+                    {{destination:mombasa-old-town}}
+
+                    For dinner, Forodhani Restaurant is about 200 m from the fort by the Old Port, serving seafood and Swahili dishes such as biryani, pilau and samaki wa kupaka (fish in coconut sauce). Mains were about US$9 to US$16 in 2026, and seafood can take 30 to 40 minutes, so order early. The Forodhani night food market you may have heard of is in Stone Town, Zanzibar; in Mombasa the name belongs to this restaurant.
+
+                    If you'd like someone to explain the street food, ChaQula, a Mombasa food creator, leads a two-hour tour sold by Travel4Purpose from about US$30. It starts outside Fort Jesus at about 4:00 PM and ends with coconut water at Mama Ngina Waterfront. Our trip puts it on the evening of Day 4.
+
+                    ## A family day in Nyali and Bamburi
+
+                    Day 3 stays on the mainland north of the island. Start at Wild Waters on Links Road when it opens at 10:00 AM. It has more than 15 slides and a lazy river, and our founder paid KSh 1,700; the current price list shows KSh 2,000 for non-residents. It opens Tuesday to Sunday, and on Mondays only in Kenyan school and public holidays. You can't bring in outside food.
+
+                    Haller Park in Bamburi is a nature park made from an old cement quarry. Our founder paid KSh 1,000 to enter and KSh 100 for pellets to feed the animals. Published gate prices for non-East Africans are higher, at KSh 2,200, so carry more than you plan to spend. Get there by 2:30 PM for the giraffe feed at 3:00 PM, the hippos at 4:00 PM and the crocodiles at 4:30 PM.
+
+                    {{destination:haller-park}}
+
+                    Finish at Mamba Village, a crocodile farm off Links Road in Nyali, in time for the 5:00 PM feeding. Our founder paid KSh 1,800. Camel and horse rides cost extra, and the restaurant serves crocodile meat if you want to try it.
+
+                    ## The reef
+
+                    Mombasa Marine National Park protects the coral reef off Nyali, Bamburi and Shanzu, and glass-bottom boats take you out to snorkel over it. Nigerians pay the Kenya Wildlife Service fee for African citizens, US$15 per adult, online through eCitizen. Boat trips negotiated on the beach run roughly KSh 1,000 to 2,500 a person. Before you set off, agree the price, how long the trip lasts and whether the park fee is included. Go out around low to mid tide, when the water inside the reef is calm and clear.
+
+                    {{destination:mombasa-marine-national-park-and-reserve}}
+
+                    ## The town centre
+
+                    On the last morning, go early to the Mombasa Tusks on Moi Avenue, four crossed elephant tusks that make the city's best-known photo. Locals call them Pembe za Ndovu or Pembeni, which is what our founder calls them. Take your pictures from the pavement, because the road is busy.
+
+                    From there, walk to Marikiti Market on Digo Road for fruit, spices and khangas, and keep your phone close in the crowds. Then walk 10 to 12 minutes to Siri Guru Singh Sabha, the Sikh gurdwara on Mwembe Tayari Road. Visitors of any faith are welcome. Take your shoes off, cover your head, and cover your shoulders and knees. If you arrive at lunchtime you may be offered langar, the free vegetarian meal the gurdwara serves to anyone.
+
+                    ## When to go
+
+                    Mombasa is hot and humid all year. June to October is the coolest and driest stretch. April to June brings the heaviest rain, and the short rains come around November and December. Whenever you go, plan walks for the morning and late afternoon.
+
+                    For what to bring, see our post What to Pack for a Trip to Mombasa. For costs in naira, see How Much to Budget for a Trip to Mombasa from Nigeria.
+                    """),
+
+            // ── 11. Mombasa packing ────────────────────────────────────────────
+            // Facts from MombasaSeeder and its cited research, plus: gov.uk FCDO Kenya entry requirements
+            // (passport validity, travel health insurance); wwwnc.cdc.gov Kenya page (yellow fever
+            // certificate for arrivals from risk countries; malaria prophylaxis for Mombasa); Nigeria
+            // e-Yellow Card (valid 10 days after vaccination; bal.com, businessday.ng); weatherspark.com
+            // (temperatures); paybillke.com/guides/mpesa-for-tourists (SIM and M-Pesa registration, card
+            // surcharges); CIA World Factbook Kenya travel facts (Type G, 240 V).
+            new(
+                Slug: "what-to-pack-for-a-trip-to-mombasa",
+                Title: "What to Pack for a Trip to Mombasa",
+                Excerpt: "What to bring to Mombasa from Nigeria: your documents and yellow fever card, light clothes for the heat, modest clothes and a scarf for Old Town and the Sikh temple, swimwear and reef shoes, mosquito protection and how to pay with M-Pesa.",
+                MetaTitle: "What to Pack for a Trip to Mombasa",
+                MetaDescription: "A Mombasa packing list for Nigerian travellers: documents, clothes for the heat and for Old Town, swimwear, reef shoes, plugs, mosquito protection and money.",
+                CityName: "Mombasa",
+                CountryName: "Kenya",
+                TagKeys: new[] { "beach", "cultural", "family_friendly" },
+                DestinationNames: new[]
+                {
+                    "Siri Guru Singh Sabha Gurdwara", "Wild Waters Kenya", "Mombasa Marine National Park and Reserve",
+                    "Mombasa Old Town", "Fort Jesus Museum", "Haller Park",
+                },
+                WishlistNames: new[] { "Mombasa: Old Town, Fort Jesus and the North Coast" },
+                EventSlugs: Array.Empty<string>(),
+                Body: """
+                    Mombasa is hot and humid all year, and a typical trip takes in Old Town's streets, a Sikh temple, a water park and a boat out to the reef. This list follows our five-day "Mombasa: Old Town, Fort Jesus and the North Coast" trip.
+
+                    ## Documents
+
+                    - A passport with at least six months' validity from the day you arrive and two blank pages.
+                    - Your yellow fever card. Kenya asks for one from travellers aged one and over who arrive from Nigeria, and Nigeria issues it as an electronic e-Yellow Card. The certificate only becomes valid 10 days after the vaccination, so don't leave it to the last week.
+                    - The Kenyan travel health insurance certificate. Since October 2026 every traveller to Kenya, Nigerians included, must buy this cover online at insurance.ecitizen.go.ke before arrival (about US$52 including fees at launch). Your own travel insurance doesn't count. Keep a copy on your phone and on paper.
+
+                    You don't need an eTA: Nigerians are exempt for visits of 60 days or less. Kenya's entry rules have changed several times since 2024, so check etakenya.go.ke before you book.
+
+                    ## Clothes for the heat
+
+                    Pack light cotton or linen: loose trousers, long skirts, T-shirts and a couple of shirts with sleeves. From roughly December to April, average highs are above 31°C, and even August, the coolest month, averages about 27°C. Humidity is high all year, so clothes that dry quickly help.
+
+                    The covered-up clothes are needed anyway. Old Town is mostly Muslim, and people expect shoulders and knees to be covered, so keep shorts and vests for the hotel and the beach. For the Sikh gurdwara on Mwembe Tayari Road, bring a scarf or a large handkerchief: everyone covers their head in the prayer hall and takes their shoes off at the door. The same scarf keeps the sun off your neck.
+
+                    {{destination:siri-guru-singh-sabha-gurdwara}}
+
+                    ## Swimwear and reef gear
+
+                    Bring swimwear for the hotel pool, the reef and Wild Waters in Nyali. Wild Waters requires proper swimwear, with no denim or street clothes in the water, though leggings and long-sleeved tops are allowed on most slides. It doesn't allow outside food or drink, and a locker costs KSh 200 plus a deposit.
+
+                    {{destination:wild-waters-kenya}}
+
+                    For the marine park, a T-shirt or rash vest keeps the sun off your back while you snorkel. Pack reef shoes or old sandals, because at low tide you may walk across the reef flat to reach the boat, and a waterproof pouch for your phone. Snorkel gear usually comes with the boat trip, but ask.
+
+                    {{destination:mombasa-marine-national-park-and-reserve}}
+
+                    ## Shoes
+
+                    Comfortable sandals will do for most of the trip. Old Town's lanes and the stone stairs at Fort Jesus are uneven, so add closed shoes or trainers with some grip. Haller Park's trails are gravel and sand.
+
+                    ## Sun and mosquitoes
+
+                    - Sunscreen (reef-safe for the marine park), a hat and sunglasses. The ramparts at Fort Jesus have very little shade.
+                    - A refillable water bottle. Haller Park may not allow plastic bottles.
+                    - Insect repellent. Mombasa is a malaria area, and the US CDC recommends antimalarial tablets for visitors, so talk to a doctor or pharmacist before you go.
+                    - Any medicines you take, in their original packaging.
+
+                    ## Plugs and power
+
+                    Kenya uses Type G plugs, the British-style three-pin type, at 240 volts. That's the plug most Nigerian chargers already have; bring an adapter only if yours has round pins. A power bank helps on long days out.
+
+                    ## Money
+
+                    Mombasa mostly pays by M-Pesa. At the airport you can buy a Safaricom SIM for about KSh 100 and ask for M-Pesa registration, which needs your original passport and takes 15 to 30 minutes. Carry small shilling notes and coins for tuk-tuks, street snacks and market stalls, and bring a card for the hotel, though some hotels add 3 to 5% for card payments.
+
+                    Fort Jesus and the marine park don't take cash. You pay online through eCitizen, so set it up on your phone before you go.
+
+                    For prices in naira, see How Much to Budget for a Trip to Mombasa from Nigeria. For the day-by-day plan, see Trip to Mombasa, Kenya: What to See, Eat and Do.
+                    """),
+
+            // ── 12. Mombasa budget ─────────────────────────────────────────────
+            // Facts from MombasaSeeder and its cited research, plus: kenya-airways.com/en_ng and
+            // ethiopianairlines.com fare pages and kayak.com LOS-MBA (fares seen Nov 2026);
+            // the-star.co.ke (SGR fares, 4 Dec 2025); Kayak snippet (Jambojet from ~US$58);
+            // etakenya.go.ke/faqs (eTA US$30); visasnews.com (insurance ~US$52, Oct 2026);
+            // booking.com/region/ke/mombasa (average nightly rates, Nov 2026); nation.co.ke (Bamburi
+            // studio KSh 2,500, Aug 2025); Glovo listing (Taleh Food Court: mahamri KSh 30, biryani
+            // KSh 660); kenyans.co.ke (Bolt tuk-tuk KSh 190 / boda KSh 160, Aug 2026; KSh ~129.96/US$
+            // and ~KSh 175/£, Nov 2026); techeconomy.ng (₦1,363/US$ official, 18 Nov 2026);
+            // en.wikipedia.org/wiki/Likoni_Ferry (free for pedestrians).
+            // Founder-paid total: 1,800 + 1,000 + 100 + 550 + 1,700 = KSh 5,150 (~₦54,000, ~US$40).
+            // Published-rate total: 1,800 + 2,200 + 100 + ~1,170 (US$9) + 2,000 = ~KSh 7,270 (~₦76,000).
+            new(
+                Slug: "how-much-to-budget-for-a-trip-to-mombasa-from-nigeria",
+                Title: "How Much to Budget for a Trip to Mombasa from Nigeria",
+                Excerpt: "What a five-day Mombasa trip costs from Nigeria in late 2026: flights from Lagos and Abuja, Kenya's travel health insurance, the attraction prices our founder paid in shillings with naira and dollar conversions, hotels, food and transport.",
+                MetaTitle: "How Much to Budget for a Trip to Mombasa from Nigeria",
+                MetaDescription: "Rough costs for a Mombasa trip from Nigeria: flights, entry, attraction prices in KSh, naira and dollars, hotels, food and transport, checked November 2026.",
+                CityName: "Mombasa",
+                CountryName: "Kenya",
+                TagKeys: new[] { "budget_friendly", "beach", "family_friendly", "food_focused" },
+                DestinationNames: new[]
+                {
+                    "Fort Jesus Museum", "Mamba Village Centre", "Wild Waters Kenya", "Haller Park",
+                    "CityBlue Creekside Hotel & Suites", "Mombasa Marine National Park and Reserve",
+                    "Forodhani Restaurant, Mombasa Old Town", "Mama Ngina Waterfront & Lighthouse", "Mombasa Old Town",
+                },
+                WishlistNames: new[] { "Mombasa: Old Town, Fort Jesus and the North Coast" },
+                EventSlugs: Array.Empty<string>(),
+                Body: """
+                    The prices in this post come from our founder's own trip to Mombasa and from published prices we checked in November 2026. Treat every figure as rough, because fares, fees and exchange rates all move. Conversions use about KSh 130 to US$1 (the Central Bank of Kenya rate in early November 2026) and ₦1,363 to US$1 (the official rate on 18 November 2026), which works out at about ₦10.5 per shilling.
+
+                    ## Flights
+
+                    Flights are the biggest cost. There are no nonstop flights from Nigeria to Mombasa, so you'll change in Nairobi on Kenya Airways or in Addis Ababa on Ethiopian. In November 2026, Kenya Airways' own site showed economy returns from Lagos to Mombasa of about ₦1.02 million to ₦1.15 million, and Ethiopian's started at about ₦1.08 million. From Abuja, Ethiopian started at about ₦1.26 million. Kayak's figures were similar in dollars, typically US$700 to US$870 return from Lagos, with April usually the cheapest month and January the dearest.
+
+                    If you fly into Nairobi first, the Madaraka Express train to Mombasa cost KSh 1,500 (about ₦15,750) one way in economy in late 2025, and Jambojet flights start at around US$58 one way.
+
+                    ## Entry costs
+
+                    Nigerians don't pay for a Kenyan eTA, because Nigerians and most other African nationals visiting for 60 days or less are exempt; for nationalities that need one, it costs US$30. Every traveller, Nigerians included, must buy Kenya's government travel health insurance before arrival on insurance.ecitizen.go.ke. It cost about US$52 including fees (roughly ₦71,000) at launch and covers 90 days, and your own travel insurance doesn't replace it. You also need a yellow fever card to arrive from Nigeria, so budget for the vaccine if you don't have one. Ordinary travel insurance for cancellations and theft is optional but worth having.
+
+                    ## Attractions
+
+                    These are the prices our founder paid. Where the published price for a Nigerian visitor is different, it's in the last column.
+
+                    | Place | Founder paid | About ₦ | About US$ | Published rate for Nigerians |
+                    |---|---|---|---|---|
+                    | Mamba Village | KSh 1,800 | ₦18,900 | US$14 | Older listings show less |
+                    | Haller Park entry | KSh 1,000 | ₦10,500 | US$8 | KSh 2,200 (non-East African) |
+                    | Haller Park feeding pellets | KSh 100 | ₦1,050 | US$1 | Not published |
+                    | Fort Jesus | KSh 550 | ₦5,800 | US$4 | US$9 (rest of Africa) |
+                    | Wild Waters | KSh 1,700 | ₦17,900 | US$13 | KSh 2,000 (non-resident) |
+                    | Old Town, Mama Ngina Waterfront, Mombasa Tusks, Sikh gurdwara | Free | Free | Free | Free |
+
+                    At our founder's prices that comes to KSh 5,150, about ₦54,000 or US$40. At the published rates it's nearer KSh 7,300, about ₦76,000.
+
+                    {{destination:fort-jesus-museum}}
+
+                    {{destination:mamba-village-centre}}
+
+                    Add the marine park if you plan to snorkel. Nigerians pay the Kenya Wildlife Service fee for African citizens, US$15 per adult (about ₦20,400), through eCitizen, and then pay for the boat. On the beach, glass-bottom and snorkel trips run roughly KSh 1,000 to 2,500 a person (₦10,500 to ₦26,000). Tours booked ahead with the park fee included cost about US$50 to US$70.
+
+                    ChaQula's street food tour of Old Town starts at about US$30 a person (about ₦41,000).
+
+                    {{destination:wild-waters-kenya}}
+
+                    ## Accommodation
+
+                    CityBlue Creekside Hotel & Suites, by Nyali Bridge, started at about US$40 to US$50 a night for a room in online listings in late 2026, roughly ₦55,000 to ₦68,000. Shared between two people, four nights there costs each person about ₦110,000 to ₦136,000.
+
+                    {{destination:cityblue-creekside-hotel-and-suites}}
+
+                    Booking.com's Mombasa averages in November 2026 were about £58 a night for a three-star hotel, £80 for a four-star and £187 for a five-star, or roughly ₦105,000, ₦145,000 and ₦345,000. Many of the beach hotels in Nyali and Bamburi are at the top of that range. At the cheap end, a Nation report in 2025 mentioned a studio flat in Bamburi at KSh 2,500 a night (about ₦26,000). Prices rise in April, August and December, when Kenyan schools are on holiday.
+
+                    ## Food
+
+                    Street food is cheap. One Mombasa food-court listing showed mahamri at KSh 30 and beef biryani at KSh 660, and the snacks on Mama Ngina Drive cost small amounts. A main course at Forodhani Restaurant in Old Town runs about US$9 to US$16, plus drinks. As a rough guide, allow US$15 to US$40 a day per person for food (about ₦20,000 to ₦55,000), depending on how often you sit down to eat.
+
+                    ## Getting around
+
+                    Tuk-tuks, boda bodas and Uber and Bolt cars are the usual ways around. In 2026 a Bolt tuk-tuk from Mwembe Tayari in the town centre to Mama Ngina Waterfront cost about KSh 190 (₦2,000), and a boda boda about KSh 160. Rides between the island and Nyali or Bamburi cost more, so check the price in the app before you book. We'd allow KSh 1,000 to 2,000 a day for rides (₦10,500 to ₦21,000). The Likoni ferry is free for foot passengers.
+
+                    ## A rough total
+
+                    For five days and four nights, sharing a room, one person might spend roughly:
+
+                    | Item | Rough cost per person |
+                    |---|---|
+                    | Return flight from Lagos | ₦1,000,000 to ₦1,200,000 |
+                    | Kenyan travel health insurance | about ₦71,000 |
+                    | Four nights at CityBlue Creekside, shared | ₦110,000 to ₦136,000 |
+                    | Attractions, including the reef trip | ₦85,000 to ₦125,000 |
+                    | Food | ₦100,000 to ₦275,000 |
+                    | Local transport | ₦40,000 to ₦85,000 |
+
+                    That adds up to about ₦1.4 million to ₦1.9 million per person, most of it the flight. From Abuja, add the difference in fare.
+
+                    For what to bring, see What to Pack for a Trip to Mombasa. For the day-by-day plan, see Trip to Mombasa, Kenya: What to See, Eat and Do.
+                    """),
+
+            // ── 13. Diani: where to stay ───────────────────────────────────────
+            // Facts from DianiSeeder (stay destinations, wishlist, Kenya spec) and the research cited in
+            // its header comment: boxohotels.com and Cloudbeds; staylala.com and Cloudbeds; expertafrica.com
+            // (Soroi Blue, Swahili Beach, Msambweni Beach House); safari.com/soroi-blue-diani (2026-27 rates);
+            // go2africa.com (Msambweni 2027 guide price); eastafricanretreats.com (Pandanas and Azhari rates
+            // valid to 7 Jan 2028); airbnb.com/rooms/22458043 (Azhari rating); Expedia snippet (Swahili Beach,
+            // Feb 2025); lonelyplanet.com (Galu "more secluded and less developed"); bestkenya.ke and
+            // Tripadvisor reviews (seaweed months). Rates: ~KSh 130/US$ and ~₦1,363/US$ (mid-Nov 2026).
+            new(
+                Slug: "where-to-stay-in-diani-beach-kenya",
+                Title: "Where to Stay in Diani Beach, Kenya: Hotels, Villas and Beach Houses",
+                Excerpt: "Where to stay in Diani Beach, Kenya: Boxo Diani's container rooms and LalaGalu's cabins at Galu, Soroi Blue and Swahili Beach Resort further north, two private villas for couples and Msambweni Beach House, with rough nightly prices checked in November 2026.",
+                MetaTitle: "Where to Stay in Diani Beach, Kenya: Hotels, Villas and Beach Houses",
+                MetaDescription: "Seven places to stay in Diani Beach and Msambweni, from a container hotel at Galu to private villas for two, with rough 2026 prices and how to choose.",
+                CityName: "Diani",
+                CountryName: "Kenya",
+                TagKeys: new[] { "beach", "couple_friendly", "premium", "budget_friendly", "relaxing" },
+                DestinationNames: new[]
+                {
+                    "Boxo Diani", "LalaGalu", "Swahili Beach Resort", "Soroi Blue", "Pandanas Beach Villa",
+                    "Azhari Beach Villa", "Msambweni Beach House",
+                },
+                WishlistNames: new[] { "48 Hours in Diani Beach" },
+                EventSlugs: Array.Empty<string>(),
+                Body: """
+                    Diani Beach is on Kenya's south coast in Kwale County, roughly an hour by road south of Mombasa's airport or a short flight from Nairobi to Ukunda airstrip. Our founder's list of places to stay there runs from a hotel built out of shipping containers to a clifftop house 30-odd kilometres further south. The prices below are rough nightly figures we found in November 2026, in US dollars because that's how most of these places publish them. At the time, US$100 was about KSh 13,000, or roughly ₦136,000.
+
+                    ## Galu, the quieter south end
+
+                    Galu, often called Galu Kinondo, is the southern end of Diani Beach. Lonely Planet describes it as more secluded and less developed than Diani itself, and two of our founder's picks stand side by side on the same plot there.
+
+                    Boxo Diani is the cheapest place on this list. It's built from 25 recycled shipping containers around a pool, under 100 m from the beach, and Boxo says it was designed for young, independent travellers. Rooms are air-conditioned doubles or quads with queen bunk beds, so four friends can split one room. Booking-site prices in 2026 worked out at about US$50 to US$60 a night for a room before taxes, with breakfast included. The FATFATs bar and restaurant on site is open to the public until 10:00 PM, so don't expect early nights.
+
+                    {{destination:boxo-diani}}
+
+                    LalaGalu, next door, has about 15 timber cabins with king beds, rain showers and private decks, and a pool under the palms a few steps from the sand. One two-bedroom family cabin has a kitchenette. Listings we found worked out at roughly US$100 to US$150 a night for two, but we couldn't confirm a 2026 rate, so check the booking page. It's the base we suggest in our 48-hour Diani plan, because it's quiet, mid-priced and about 1.5 km from The Salty Squid for dinner.
+
+                    {{destination:lalagalu}}
+
+                    ## Central and north Diani
+
+                    The bigger hotels are in the middle and north of the beach, closer to Ukunda airstrip, Ali Barbour's Cave Restaurant and the Kongo River.
+
+                    Swahili Beach Resort is the large five-star option, with about 140 rooms and suites in Swahili and Arabic-style buildings, pools that step down in tiers to the beach, a big spa and a gym. Expert Africa rates it best for children aged 8 and over, because the grounds are spread out and lifeguard cover at the pools is limited, and the beach in front gets narrow at high tide. A February 2025 listing started at about €385 a night for two. We'd budget US$300 to US$450 or more a night on half board and get the quote in writing.
+
+                    {{destination:swahili-beach-resort}}
+
+                    Soroi Blue is much smaller: a boutique hotel of about 11 rooms, run by the Soroi safari lodge group, with gardens that open onto the beach in the northern half of Diani. It has a pool, a spa and a restaurant, and can provide halal and kosher meals. The rooms cover couples, families and a two-room suite for up to four adults and a child. Rates are per person. Safari.com listed US$215 per person sharing per night from November to mid-December 2026, US$420 from January to March 2027 and US$595 over Christmas and New Year. Ask whether lunch is included.
+
+                    {{destination:soroi-blue}}
+
+                    ## Villas for two
+
+                    Pandanas Beach Villa and Azhari Beach Villa are private one-bedroom villas on the beach in Diani, both let through East African Retreats at the same rates. Each has an air-conditioned bedroom, an outdoor jungle shower, a kitchen and its own plunge pool, with a private path to a beach lounge shared with other guests. Azhari's pool has a waterfall, there's a yoga deck, and the owner, Nicole Englefield, manages it on site; it was rated 4.99 from 112 reviews on Airbnb when we checked. Pandanas is listed as new and includes return transfers from Ukunda airstrip.
+
+                    Both cost US$650 a night for the villa self-catering, US$710 with breakfast or US$850 half board, from 8 January to 15 December. Over Christmas and New Year it's US$900 to US$1,120. The minimum stay is two nights. The price is for the villa, not per person, and for a honeymoon these are the most private places on the list.
+
+                    ## Msambweni Beach House
+
+                    Msambweni Beach House is about 30 to 35 km south of Diani, roughly 45 minutes by road from Ukunda airstrip, on a low coral cliff above a quiet beach. There's a main house with three doubles and an Ocean Suite, and three private villas with their own pools, two with two bedrooms and one with three. Meals are full board. Go2Africa's 2027 guide price was about US$484 to US$704 per person sharing per night.
+
+                    It suits a group of friends or a family taking a whole villa, or a couple who want to be far from everything. It's too far to drive up to Diani for dinner every night. Expert Africa says it was renamed Villa MB in 2022, and some booking sites list it as Nuri Boutique Hotel & Villas, so search all three names for recent reviews and confirm who you're booking with.
+
+                    {{destination:msambweni-beach-house}}
+
+                    ## How to choose
+
+                    On a budget, or as a group of friends, Boxo Diani's quad rooms are the cheapest way to sleep near the beach. A couple who want somewhere quiet and mid-priced will do well at LalaGalu, with The Salty Squid down the road. With a bigger budget, couples should compare the Pandanas and Azhari villas, where the price covers two people, with Soroi Blue, where it's per person. Families who want everything on site will be happiest at Swahili Beach Resort, as long as the children are old enough for the spread-out grounds. A group that wants a whole house to itself should look at Msambweni Beach House.
+
+                    As for the area, Galu is quieter and has the cheaper stays, and central and north Diani put you closer to Ali Barbour's, the Kongo River zipline and the Africa Pool at Tiwi.
+
+                    Wherever you stay, check the tide. At high tide some stretches of beach, including the one in front of Swahili Beach Resort, get narrow, and at low tide the reef flats are exposed, so pack reef shoes for the sea urchins. Seaweed can wash up during the south-east monsoon, roughly May to September, and the amount changes from week to week, so read recent reviews if you're travelling then. December to March has the calmest sea. December and Easter are the busiest and most expensive weeks, so book early.
+
+                    For the day-by-day plan, see our 48 Hours in Diani Beach trip. If you're adding Mombasa, our posts Trip to Mombasa, Kenya: What to See, Eat and Do and How Much to Budget for a Trip to Mombasa from Nigeria cover the city.
                     """),
         };
     }

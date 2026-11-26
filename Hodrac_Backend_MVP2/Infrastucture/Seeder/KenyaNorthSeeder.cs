@@ -6,6 +6,7 @@ using Hodrac_Backend_MVP2.Infrastructure.Seeder; // ToTitleCase extension
 using Hodrac_Backend_MVP2.Models;
 using Hodrac_Backend_MVP2.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
 {
@@ -129,7 +130,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
         private static readonly CountrySpec[] Countries =
         {
             new(Kenya, "kenya", "Africa", "🇰🇪",
-                "Most visitors need an Electronic Travel Authorisation (eTA), applied for online at etakenya.go.ke before travel — apply at least 2 weeks ahead; fees are roughly US$30-$50 depending on nationality and type. Most African nationals (except Somalia and Libya) and East African Community citizens are exempt. From October 2026 most visitors must also buy Kenyan government travel health insurance as part of the eTA application. Requirements change — check official sources before you travel.",
+                KenyaVisaText.Current, // shared with the other Kenya seeder; see KenyaVisaText
                 "Type G", "Left", 0.16m, new[] { English, Swahili, Samburu }, "KES", "Africa/Nairobi"),
         };
 
@@ -589,7 +590,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                 .Distinct()
                 .ToList();
 
-        public static async Task SeedAsync(HodracDbContext db, CancellationToken ct = default)
+        public static async Task SeedAsync(HodracDbContext db, CancellationToken ct = default, ILogger? logger = null)
         {
             var strategy = db.Database.CreateExecutionStrategy();
             await strategy.ExecuteAsync(async () =>
@@ -597,7 +598,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                 var ownsTransaction = db.Database.CurrentTransaction == null;
                 await using var tx = ownsTransaction ? await db.Database.BeginTransactionAsync(ct) : null;
 
-                await SeedCoreAsync(db, ct);
+                await SeedCoreAsync(db, logger, ct);
 
                 if (tx != null) await tx.CommitAsync(ct);
             });
@@ -607,7 +608,7 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
         //  Implementation
         // ═══════════════════════════════════════════════════════════════════════
 
-        private static async Task SeedCoreAsync(HodracDbContext db, CancellationToken ct)
+        private static async Task SeedCoreAsync(HodracDbContext db, ILogger? logger, CancellationToken ct)
         {
             var now = DateTimeOffset.UtcNow;
 
@@ -701,6 +702,11 @@ namespace Hodrac_Backend_MVP2.Infrastucture.Seeder
                         EstimatedDailyTaxRate = spec.TaxRate
                     };
                     db.Countries.Add(country);
+                }
+                else if (spec.Name == Kenya)
+                {
+                    // Narrow refresh: only replaces a visa text an earlier seeder version wrote.
+                    KenyaVisaText.RefreshIfUnchanged(country, logger);
                 }
                 countryByName[spec.Name] = country;
             }

@@ -30,7 +30,7 @@ using System.Threading.RateLimiting;
 // configuration: the command-line provider would otherwise treat a bare flag as a
 // key and swallow the next argument (such as a --ConnectionStrings override) as its value.
 var commandFlags = new[] { "--seed-poc", "--seed-solohouse", "--remove-solohouse", "--seed-bali", "--seed-calabar", "--seed-kenya-north", "--seed-destinations", "--seed-events",
-    "--seed-ghana", "--seed-benin-republic", "--seed-zanzibar", "--seed-rwanda-qatar", "--seed-blog",
+    "--seed-ghana", "--seed-benin-republic", "--seed-zanzibar", "--seed-rwanda-qatar", "--seed-mombasa", "--seed-diani", "--seed-blog",
     "--rewrite-image-host", "--apply" };
 // Command options that take a value (`--from <url>`): both the flag and its value are stripped.
 var commandValueFlags = new[] { "--from", "--to" };
@@ -535,14 +535,14 @@ if (args.Contains("--seed-kenya-north"))
     // the extension, so a brand-new database needs it created up front.
     await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
     await db.Database.MigrateAsync();
-    await Hodrac_Backend_MVP2.Infrastucture.Seeder.KenyaNorthSeeder.SeedAsync(db);
+    await Hodrac_Backend_MVP2.Infrastucture.Seeder.KenyaNorthSeeder.SeedAsync(db, logger: app.Logger);
     app.Logger.LogInformation("Northern Kenya seed complete into {Host}. Images referenced: {Images}",
         pgHost, string.Join(", ", Hodrac_Backend_MVP2.Infrastucture.Seeder.KenyaNorthSeeder.ExpectedImageFiles));
     return;
 }
 
 // ─── One-off seeding: country trip wishlists ──────────────────────────────────
-// `dotnet run -- --seed-ghana | --seed-benin-republic | --seed-zanzibar | --seed-rwanda-qatar`
+// `dotnet run -- --seed-ghana | --seed-benin-republic | --seed-zanzibar | --seed-rwanda-qatar | --seed-mombasa | --seed-diani`
 // Same steps as the Kenya seed: vector extension, pending migrations, idempotent seed, exit.
 var tripSeeders = new (string Flag, string Label, Func<HodracDbContext, Task> Seed, IReadOnlyList<string> Images)[]
 {
@@ -554,6 +554,10 @@ var tripSeeders = new (string Flag, string Label, Func<HodracDbContext, Task> Se
         Hodrac_Backend_MVP2.Infrastucture.Seeder.ZanzibarSeeder.ExpectedImageFiles),
     ("--seed-rwanda-qatar", "Rwanda & Qatar", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.RwandaQatarSeeder.SeedAsync(db),
         Hodrac_Backend_MVP2.Infrastucture.Seeder.RwandaQatarSeeder.ExpectedImageFiles),
+    ("--seed-mombasa", "Mombasa", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.MombasaSeeder.SeedAsync(db, logger: app.Logger),
+        Hodrac_Backend_MVP2.Infrastucture.Seeder.MombasaSeeder.ExpectedImageFiles),
+    ("--seed-diani", "Diani", db => Hodrac_Backend_MVP2.Infrastucture.Seeder.DianiSeeder.SeedAsync(db, logger: app.Logger),
+        Hodrac_Backend_MVP2.Infrastucture.Seeder.DianiSeeder.ExpectedImageFiles),
 };
 var tripSeeder = tripSeeders.FirstOrDefault(s => args.Contains(s.Flag));
 if (tripSeeder.Flag is not null)

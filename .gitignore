@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Local image upload checklist (not committed)
+docs/IMAGES-TO-UPLOAD.md
